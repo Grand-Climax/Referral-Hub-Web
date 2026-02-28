@@ -133,7 +133,7 @@
     font-size: 16px;
     line-height: 1.6;
   }
-  
+
   /* Accessibility: Proper touch target sizes (minimum 44x44px) */
   button,
   a,
@@ -145,7 +145,7 @@
     min-height: 44px;
     min-width: 44px;
   }
-  
+
   /* High contrast text for medical forms */
   input,
   textarea,
@@ -154,12 +154,12 @@
     font-size: 16px; /* Prevent zoom on iOS */
     line-height: 1.5;
   }
-  
+
   /* Focus indicators for accessibility */
   *:focus-visible {
     @apply outline-2 outline-offset-2 outline-ring;
   }
-  
+
   /* Ensure sufficient spacing between interactive elements */
   button + button,
   a + a,

@@ -1,3 +1,6 @@
+import { DashboardSidebar } from "@/components/layout/DashboardSidebar";
+import Header from "@/components/layout/Header";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -10,5 +13,15 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return (
+    <>
+      <SidebarProvider>
+        <DashboardSidebar />
+        <SidebarInset className="w-[calc(100%-var(--sidebar-width))]">
+          <Header />
+          <div className="p-6">{children}</div>
+        </SidebarInset>
+      </SidebarProvider>
+    </>
+  );
 }

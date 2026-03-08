@@ -97,7 +97,7 @@ const ReferralDashboard = () => {
                 key={ref.id}
                 referral={ref}
                 compact
-                onClick={() => router.push(`/doctor/${ref.id}`)}
+                onClick={() => router.push(`/referring-doctor/${ref.id}`)}
               />
             ))}
           </div>

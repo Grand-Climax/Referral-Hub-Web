@@ -36,7 +36,7 @@ export default function Home() {
           </Link>
 
           {/* Referral Form */}
-          <Link href="/referral">
+          <Link href="/doctor">
             <div className="bg-card border rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer h-full">
               <div className="flex items-center gap-4 mb-4">
                 <div className="p-3 bg-primary/10 rounded-lg">

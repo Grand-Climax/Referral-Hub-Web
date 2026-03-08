@@ -1,24 +1,97 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Referral Hub
+
+A Next.js application for managing patient referrals in a medical ministry setting.
+
+## Project Setup
+
+This project is initialized with:
+- **Next.js 16** with TypeScript
+- **ShadCN UI** components with medical-friendly theme
+- **Tailwind CSS** with custom medical color palette (calming blues/greens)
+- **ESLint** for code linting
+- **Prettier** for code formatting
+- **Accessibility-first design** with high-contrast text and proper touch targets
 
 ## Getting Started
 
-First, run the development server:
+First, install dependencies:
+
+```bash
+npm install
+```
+
+Then, run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Available Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+- `npm run lint:fix` - Fix ESLint errors automatically
+- `npm run format` - Format code with Prettier
+- `npm run format:check` - Check code formatting
+
+## Design System
+
+### Medical-Friendly Theme
+The application uses a carefully designed color palette optimized for medical environments:
+- **Primary Colors**: Calming teal-blue for trust and professionalism
+- **Secondary Colors**: Soft greens for positive actions
+- **High Contrast**: WCAG AA compliant text for readability
+- **Touch Targets**: Minimum 44x44px for mobile accessibility
+
+### Typography
+- Font: Geist Sans (optimized by Next.js)
+- Base size: 16px (prevents iOS zoom)
+- Line height: 1.6 for readability
+
+## Project Structure
+
+See [docs/FOLDER_STRUCTURE.md](./docs/FOLDER_STRUCTURE.md) for detailed folder structure conventions.
+
+Key directories:
+- `src/app/` - Next.js App Router pages and layouts
+- `src/components/` - React components (UI, forms, features)
+- `src/lib/` - Utility functions and configurations
+- `src/hooks/` - Custom React hooks
+- `src/types/` - TypeScript type definitions
+- `docs/` - Project documentation and wireframes
+
+## UX Wireframes
+
+Wireframes for the five critical screens are available in `docs/wireframes/`:
+1. [Login Screen](./docs/wireframes/01-login.md)
+2. [Referral Form](./docs/wireframes/02-referral-form.md)
+3. [Triage Board](./docs/wireframes/03-triage-board.md)
+4. [Liaison Dashboard](./docs/wireframes/04-liaison-dashboard.md)
+5. [Ministry Analytics](./docs/wireframes/05-ministry-analytics.md)
+
+## Code Quality
+
+### Linting
+ESLint is configured with Next.js recommended rules. Run `npm run lint` to check for issues.
+
+### Formatting
+Prettier is configured for consistent code formatting. Run `npm run format` to format all files.
+
+### Editor Configuration
+`.editorconfig` is included for consistent formatting across different editors.
+
+## Technologies
+
+- [Next.js](https://nextjs.org) - React framework
+- [TypeScript](https://www.typescriptlang.org/) - Type safety
+- [Tailwind CSS](https://tailwindcss.com/) - Styling
+- [ShadCN UI](https://ui.shadcn.com/) - Component library
+- [Radix UI](https://www.radix-ui.com/) - Accessible component primitives
+- [Lucide React](https://lucide.dev/) - Icon library
 
 ## Learn More
 

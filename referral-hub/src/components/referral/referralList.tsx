@@ -44,7 +44,7 @@ const ReferralList = () => {
         <div className="bg-card rounded-lg border overflow-hidden">
           <ReferralTable
             referrals={referrals}
-            onRowClick={(ref) => router.push(`/doctor/${ref.id}`)}
+            onRowClick={(ref) => router.push(`/referring-doctor/${ref.id}`)}
             actionSlot={
               showActions
                 ? (ref) => (

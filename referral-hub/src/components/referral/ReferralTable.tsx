@@ -1,3 +1,5 @@
+"use client";
+
 import { Referral } from "@/types/referral";
 import {
   Table,

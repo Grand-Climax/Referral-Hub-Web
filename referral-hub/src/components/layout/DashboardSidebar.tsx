@@ -63,7 +63,7 @@ const NAV_BY_ROLE = {
   ],
   receiving_specialist: [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-    { title: "Incoming Referrals", url: "/doctor", icon: FileText },
+    { title: "Incoming Referrals", url: "/referrals", icon: FileText },
     { title: "Triage Queue", url: "/queue", icon: ListChecks },
   ],
   hospital_admin: [

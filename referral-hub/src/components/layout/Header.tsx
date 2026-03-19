@@ -1,7 +1,7 @@
 import React from "react";
 import { SidebarTrigger } from "../ui/sidebar";
-import { ThemeToggle } from "./theme-toggler";
-import { Notifications } from "./notifications";
+import { ThemeToggle } from "../theme-toggler";
+import { Notifications } from "../notifications";
 import {
   DropdownMenu,
   DropdownMenuContent,

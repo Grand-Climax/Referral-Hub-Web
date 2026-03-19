@@ -20,21 +20,52 @@ import {
   User,
   LogOut,
   Hospital,
+  FileText,
+  ListChecks,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const NAV_ITEMS = [
-  { title: "Dashboard", url: "/receiving-specialist", icon: LayoutDashboard },
-  { title: "Referral Queue", url: "/receiving-specialist/queue", icon: ClipboardList },
-  { title: "Accepted (Schedule)", url: "/receiving-specialist/schedule", icon: CalendarCheck },
-  { title: "History", url: "/receiving-specialist/history", icon: History },
-  { title: "Notifications", url: "/receiving-specialist/notifications", icon: Bell, badge: 4 },
-  { title: "Profile", url: "/receiving-specialist/profile", icon: User },
-];
+interface NavItem {
+  title: string;
+  url: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: number;
+  items?: { title: string; url: string }[];
+}
 
-export function ReceivingHospitalSidebar() {
+const NAV_BY_ROLE = {
+  receiving_admin: [
+    { title: "Dashboard", url: "/receiving-admin", icon: LayoutDashboard },
+    { title: "Referral Queue", url: "/receiving-admin/queue", icon: ClipboardList },
+    { title: "Accepted (Schedule)", url: "/receiving-admin/schedule", icon: CalendarCheck },
+    { title: "History", url: "/receiving-admin/history", icon: History },
+    { title: "Notifications", url: "/receiving-admin/notifications", icon: Bell, badge: 4 },
+    { title: "Profile", url: "/receiving-admin/profile", icon: User }
+  ],
+  receiving_specialist: [
+    { title: "Dashboard", url: "/receiving-specialist", icon: LayoutDashboard },
+    { title: "Incoming Referrals", url: "/receiving-specialist/referrals", icon: FileText },
+    { title: "Archive", url: "/receiving-specialist/archive", icon: History },
+    { title: "Profile", url: "/receiving-specialist/profile", icon: User }
+  ],
+  receptionist: [
+    { title: "Dashboard", url: "/receptionist", icon: LayoutDashboard },
+    { title: "Accepted Referrals", url: "/receptionist/referrals", icon: FileText },
+    { title: "Schedule", url: "/receptionist/schedule", icon: CalendarCheck },
+    { title: "Profile", url: "/receptionist/profile", icon: User }
+  ],
+};
+
+type RoleKey = keyof typeof NAV_BY_ROLE;
+
+interface SidebarProps {
+  role?: RoleKey,
+}
+
+export function ReceivingHospitalSidebar({ role = "receiving_specialist" }: SidebarProps) {
   const pathname = usePathname();
+  const menuItems = NAV_BY_ROLE[role] as NavItem[];
 
   return (
     <Sidebar className="border-r">
@@ -61,8 +92,10 @@ export function ReceivingHospitalSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="gap-2">
-              {NAV_ITEMS.map((item) => {
-                const isActive = pathname === item.url;
+              {menuItems.map((item) => {
+                const isActive = item.items
+                  ? item.items.some((subItem) => pathname === subItem.url)
+                  : pathname === item.url;
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton

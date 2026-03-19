@@ -61,25 +61,10 @@ const NAV_BY_ROLE = {
       icon: FilePlus,
     },
   ],
-  receiving_specialist: [
-    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-    { title: "Incoming Referrals", url: "/referrals", icon: FileText },
-    { title: "Triage Queue", url: "/queue", icon: ListChecks },
-  ],
   hospital_admin: [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "Pending Approvals", url: "/doctor", icon: ClipboardList },
     { title: "All Referrals", url: "/doctor/all", icon: FileText },
-  ],
-  receptionist: [
-    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-    { title: "Accepted Referrals", url: "/doctor", icon: FileText },
-    { title: "Schedule", url: "/schedule", icon: CalendarCheck },
-  ],
-  department_head: [
-    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-    { title: "Department Referrals", url: "/doctor", icon: FileText },
-    { title: "Analytics", url: "/analytics", icon: BarChart3 },
   ],
   liaison_officer: [
     { title: "Dashboard", url: "/liaison-officer", icon: LayoutDashboard },

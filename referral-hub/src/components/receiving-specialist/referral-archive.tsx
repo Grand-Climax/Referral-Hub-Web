@@ -26,7 +26,7 @@ type SortField = "time" | "name" | "status";
 type SortOrder = "asc" | "desc";
 type FilterStatus = "all" | "accepted" | "rejected" | "redirected";
 
-export function ReferralHistory() {
+export function ReferralArchive() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<SortField>("time");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
@@ -34,7 +34,7 @@ export function ReferralHistory() {
 
   // Only show processed requests in the history page
   const referrals = MOCK_REFERRALS.filter(r => 
-    r.status === 'accepted' || 
+    r.status === 'accepted' ||
     r.status === 'rejected' || 
     r.status === 'redirected' || 
     r.status === 'completed'

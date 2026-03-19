@@ -1,16 +1,16 @@
 "use client";
 import { MOCK_REFERRALS } from "@/data/mock";
-import { toast } from "sonner";
+
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { Search } from "lucide-react";
 import { ReferralTable } from "./ReferralTable";
-import { ApprovalActions } from "../ApprovalActions";
+import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 
 const ReferralList = () => {
   const [search, setSearch] = useState("");
-    const router = useRouter();
+  const router = useRouter();
   const referrals = MOCK_REFERRALS.filter(
     (r) =>
       r.patient.fullName.toLowerCase().includes(search.toLowerCase()) ||
@@ -18,7 +18,7 @@ const ReferralList = () => {
       r.id.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const showActions = "hospital_admin";
+  const showActions = "referring_doctor";
 
   return (
     <div>
@@ -49,10 +49,16 @@ const ReferralList = () => {
               showActions
                 ? (ref) => (
                     <div className="flex items-center gap-2">
-                      <ApprovalActions
-                        onApprove={() => toast.success(`Approved ${ref.id}`)}
-                        onReject={() => toast.error(`Rejected ${ref.id}`)}
-                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/referring-doctor/${ref.id}`);
+                        }}
+                      >
+                        View
+                      </Button>
                     </div>
                   )
                 : undefined

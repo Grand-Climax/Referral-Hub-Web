@@ -109,7 +109,7 @@ interface DashboardSidebarProps {
 }
 
 export function DashboardSidebar({
-  role = "liaison_officer",
+  role = "referring_doctor",
 }: DashboardSidebarProps) {
   const pathname = usePathname();
   const menuItems = NAV_BY_ROLE[role] as NavItem[];

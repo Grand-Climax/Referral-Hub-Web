@@ -1,4 +1,6 @@
 "use client";
+
+import { useState, useEffect } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -35,6 +37,8 @@ import {
   Mail,
   Phone,
   ChevronRight,
+  ScrollText,
+  Sliders,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
@@ -95,6 +99,13 @@ const NAV_BY_ROLE = {
     { title: "Reports", url: "/liaison-officer/report", icon: Users },
     { title: "Doctors", url: "/liaison-officer/doctors", icon: Users },
   ],
+  referring_admin: [
+    { title: "Dashboard", url: "/refering-admin", icon: LayoutDashboard },
+    { title: "User Management", url: "/refering-admin#user-management", icon: Users },
+    { title: "Department Capacity", url: "/refering-admin#department-capacity", icon: BarChart3 },
+    { title: "Administrative Controls", url: "/refering-admin#administrative-controls", icon: Sliders },
+    { title: "Audit Trail", url: "/refering-admin#audit-trail", icon: ScrollText },
+  ],
   moh_analyst: [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "Analytics", url: "/analytics", icon: BarChart3 },
@@ -112,7 +123,18 @@ export function DashboardSidebar({
   role = "liaison_officer",
 }: DashboardSidebarProps) {
   const pathname = usePathname();
-  const menuItems = NAV_BY_ROLE[role] as NavItem[];
+  const [hash, setHash] = useState("");
+  useEffect(() => {
+    setHash(window.location.hash);
+    const onHashChange = () => setHash(window.location.hash);
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, [pathname]);
+  // Don't mix roles: show Hospital Admin sidebar only on admin page, Liaison sidebar elsewhere
+  const menuItems = pathname.startsWith("/refering-admin")
+    ? (NAV_BY_ROLE.referring_admin as NavItem[])
+    : (NAV_BY_ROLE[role] as NavItem[]);
+  const currentUrl = pathname + hash;
 
   return (
     <Sidebar collapsible="icon">
@@ -163,7 +185,9 @@ export function DashboardSidebar({
                 const Icon = item.icon;
                 const isActive = item.items
                   ? item.items.some((subItem) => pathname === subItem.url)
-                  : pathname === item.url;
+                  : item.url.includes("#")
+                    ? currentUrl === item.url
+                    : pathname === item.url;
 
                 if (item.items && item.items.length > 0) {
                   return (

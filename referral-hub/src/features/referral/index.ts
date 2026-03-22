@@ -1,1 +1,0 @@
-export { ReferralForm } from "./ReferralForm";

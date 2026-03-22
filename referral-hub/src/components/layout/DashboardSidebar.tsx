@@ -62,9 +62,10 @@ const NAV_BY_ROLE = {
     },
   ],
   hospital_admin: [
-    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-    { title: "Pending Approvals", url: "/doctor", icon: ClipboardList },
-    { title: "All Referrals", url: "/doctor/all", icon: FileText },
+    { title: "Dashboard", url: "/referring-admin", icon: LayoutDashboard },
+    { title: "Staff Management", url: "/referring-admin/staff-management", icon: ClipboardList },
+    { title: "Referral Logs", url: "/referring-admin/referral-logs", icon: FileText },
+    { title: "Activity Logs", url: "/referring-admin/activity-logs", icon: ListChecks },
   ],
   liaison_officer: [
     { title: "Dashboard", url: "/liaison-officer", icon: LayoutDashboard },
@@ -94,7 +95,7 @@ interface DashboardSidebarProps {
 }
 
 export function DashboardSidebar({
-  role = "referring_doctor",
+  role = "hospital_admin",
 }: DashboardSidebarProps) {
   const pathname = usePathname();
   const menuItems = NAV_BY_ROLE[role] as NavItem[];

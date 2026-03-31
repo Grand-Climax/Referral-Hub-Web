@@ -24,7 +24,9 @@ import {
   ListChecks,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useAppSelector } from "@/lib/store/hooks";
 
 interface NavItem {
   title: string;
@@ -35,12 +37,12 @@ interface NavItem {
 }
 
 const NAV_BY_ROLE = {
-  receiving_admin: [
-    { title: "Dashboard", url: "/receiving-admin", icon: LayoutDashboard },
-    { title: "Referral Queue", url: "/receiving-admin/queue", icon: ClipboardList },
-    { title: "Accepted (Schedule)", url: "/receiving-admin/schedule", icon: CalendarCheck },
-    { title: "History", url: "/receiving-admin/history", icon: History },
-    { title: "Notifications", url: "/receiving-admin/notifications", icon: Bell, badge: 4 },
+  hospital_admin: [
+    { title: "Dashboard", url: "/hospital-admin", icon: LayoutDashboard },
+    { title: "Referral Queue", url: "/hospital-admin/queue", icon: ClipboardList },
+    { title: "Accepted (Schedule)", url: "/hospital-admin/schedule", icon: CalendarCheck },
+    { title: "History", url: "/hospital-admin/history", icon: History },
+    { title: "Notifications", url: "/hospital-admin/notifications", icon: Bell, badge: 4 },
     { title: "Profile", url: "/receiving-admin/profile", icon: User }
   ],
   receiving_specialist: [
@@ -59,12 +61,26 @@ const NAV_BY_ROLE = {
 
 type RoleKey = keyof typeof NAV_BY_ROLE;
 
-interface SidebarProps {
-  role?: RoleKey,
-}
+const ROLE_MAP: Record<string, RoleKey> = {
+  HOSPITAL_ADMIN: "hospital_admin",
+  RECEIVING_SPECIALIST: "receiving_specialist",
+  RECEPTIONIST: "receptionist",
+};
 
-export function ReceivingHospitalSidebar({ role = "receiving_specialist" }: SidebarProps) {
+export function ReceivingHospitalSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const rawRole = useAppSelector((state) => state.auth.user?.role ?? "");
+  const role = ROLE_MAP[rawRole] as RoleKey | undefined;
+
+  useEffect(() => {
+    if (!role) {
+      router.replace("/login");
+    }
+  }, [role, router]);
+
+  if (!role) return null;
+
   const menuItems = NAV_BY_ROLE[role] as NavItem[];
 
   return (

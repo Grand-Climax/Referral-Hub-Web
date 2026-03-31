@@ -1,4 +1,4 @@
-import { ReferralLists } from "@/components/receiving-specialist/table/referral-lists";
+import { ReferralLists } from "@/components/table/referral-lists";
 
 const ReferralHistoryPage = () => {
   return (

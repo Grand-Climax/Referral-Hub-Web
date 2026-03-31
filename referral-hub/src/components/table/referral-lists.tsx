@@ -26,7 +26,13 @@ import { columns } from "./columns";
 import { DataTablePagination } from "./data-table-pagination";
 import { DataTableToolbar } from "./data-table-toolbar";
 
-export function ReferralLists() {
+import { Referral } from "@/types/referral";
+
+interface ReferralListsProps {
+  data?: Referral[];
+}
+
+export function ReferralLists({ data = MOCK_REFERRALS }: ReferralListsProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -36,7 +42,7 @@ export function ReferralLists() {
   const [rowSelection, setRowSelection] = React.useState({})
 
   const table = useReactTable({
-    data: MOCK_REFERRALS,
+    data: data,
     columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -56,12 +62,7 @@ export function ReferralLists() {
 
   return (
     <div className="w-full space-y-4">
-      <div className="flex flex-col gap-1 px-1">
-        <h1 className="text-2xl font-bold tracking-tight">Welcome back!</h1>
-        <p className="text-muted-foreground">
-          Here's a list of incoming referrals for your review.
-        </p>
-      </div>
+      {/* Header removed from generic table */}
       
       <DataTableToolbar table={table} />
 

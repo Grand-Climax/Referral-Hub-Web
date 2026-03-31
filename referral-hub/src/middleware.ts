@@ -40,11 +40,6 @@ export function middleware(req: NextRequest) {
     }
   }
 
-  // General admin protection (if applicable)
-  if (path.startsWith("/admin") && role !== "admin") {
-    return NextResponse.redirect(new URL("/unauthorized", req.url));
-  }
-
   return NextResponse.next();
 }
 

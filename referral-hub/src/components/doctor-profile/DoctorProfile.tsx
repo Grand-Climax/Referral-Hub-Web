@@ -1,5 +1,7 @@
  "use client";
 
+import { useGetCurrentUserQuery } from "@/features/auth/authApi";
+import { useGetHospitalByIdQuery } from "@/features/hospitals/hospitalsApi";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,9 +18,35 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { EditProfileForm } from "./edit-profile";
 import { UpdateCredentialForm } from "./update-credential";
-import { Mail, Phone, Building2, Shield, User2, Settings2 } from "lucide-react";
+import { Mail, CreditCard, Building2, Shield, User2, Settings2 } from "lucide-react";
+import { DoctorProfileSkeleton } from "@/components/skeletons/DoctorProfileSkeleton";
 
 export function DoctorProfile() {
+  const { data: user, isLoading: userLoading } = useGetCurrentUserQuery();
+  const hospitalId = user?.hospital_id;
+  const { data: hospital, isLoading: hospitalLoading } = useGetHospitalByIdQuery(
+    hospitalId!, { skip: !hospitalId }
+  );
+
+  const isLoading = userLoading;
+
+  if (isLoading) {
+    return <DoctorProfileSkeleton />;
+  }
+
+  const fullName = user?.first_name && user?.last_name 
+    ? `Dr. ${user.first_name} ${user.last_name}` 
+    : "Dr. Sarah Jenkins";
+  
+  const fallback = user?.first_name && user?.last_name 
+    ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() 
+    : "SJ";
+
+  const email = user?.email || "sarah.jenkins@hospital.com";
+  const nationalId = user?.national_id || "—";
+  const specialty = (user as any)?.specialization || (user as any)?.specialty || "Internal Medicine";
+  const hospitalName = hospitalLoading ? "Loading..." : hospital?.name || "—";
+
   return (
     <div className="space-y-6">
       <Card className="relative overflow-hidden rounded-3xl border bg-card/60 backdrop-blur-xl shadow-sm transition-all hover:shadow-md">
@@ -28,8 +56,8 @@ export function DoctorProfile() {
             <div className="flex flex-1 items-center gap-4 sm:gap-6">
               <div className="relative flex items-center justify-center">
                 <Avatar className="h-32 w-32 ring-4 ring-background shadow-xl" size="lg">
-                  <AvatarImage src="/user.png" alt="Dr. Sarah Jenkins" />
-                  <AvatarFallback>SJ</AvatarFallback>
+                  <AvatarImage src={"/user.png"} alt={fullName} />
+                  <AvatarFallback>{fallback}</AvatarFallback>
                 </Avatar>
                 <button
                   type="button"
@@ -42,18 +70,18 @@ export function DoctorProfile() {
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-xl font-semibold text-foreground">
-                    Dr. Sarah Jenkins
+                    {fullName}
                   </h2>
                   <Badge variant="secondary" className="text-[11px]">
                     Verified Specialist
                   </Badge>
                 </div>
                 <p className="text-sm font-medium text-primary">
-                  Internal Medicine
+                  {specialty}
                 </p>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Building2 className="h-3.5 w-3.5" />
-                  <span>Central General Hospital</span>
+                  <span>{hospitalName}</span>
                 </div>
               </div>
             </div>
@@ -71,19 +99,19 @@ export function DoctorProfile() {
                   Email
                 </p>
                 <p className="text-sm font-medium text-foreground">
-                  sarah.jenkins@hospital.com
+                  {email}
                 </p>
               </div>
             </div>
             <div className="flex flex-1 items-center gap-3">
               <span className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner">
-                <Phone className="h-5 w-5" />
+                <CreditCard className="h-5 w-5" />
               </span>
               <div>
                 <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                  Phone
+                  National ID
                 </p>
-                <p className="text-sm font-medium text-foreground">+1 (555) 012-3456</p>
+                <p className="text-sm font-medium text-foreground">{nationalId}</p>
               </div>
             </div>
           </div>

@@ -1,9 +1,10 @@
 import { createApi } from '@reduxjs/toolkit/query/react'
 import Cookies from 'js-cookie'
-import { baseQuery } from '@/lib/baseQuery'
+import { baseQueryWithReauth } from '@/lib/baseQuery'
 import { AUTH_ROUTES } from '@/config/api'
 import { jwtDecode } from 'jwt-decode'
-import { setUser } from '@/redux/slices/authSlice'
+import { setUser, logout as logoutAction } from '@/redux/slices/authSlice'
+import { UserProfile } from '@/types/user'
 
 interface LoginCredentials {
     email: string
@@ -23,7 +24,7 @@ interface AuthResponse {
 
 export const authApi = createApi({
     reducerPath: 'authApi',
-    baseQuery,
+    baseQuery: baseQueryWithReauth,
     tagTypes: ['Auth'],
     endpoints: (builder) => ({
         login: builder.mutation<AuthResponse, LoginCredentials>({
@@ -37,9 +38,9 @@ export const authApi = createApi({
                 return {
                     ...response,
                     user: {
-                        id: decoded.id,
+                        id: decoded.sub,
                         role: decoded.role,
-                        hospitalId: decoded.hospitalId,
+                        hospitalId: decoded.hosp_id,
                     }
                 }
             },
@@ -66,7 +67,7 @@ export const authApi = createApi({
                         setUser({
                             user: {
                                 role: decoded.role,
-                                hospitalId: decoded.hospitalId,
+                                hospitalId: decoded.hosp_id,
                             }
                         })
                     )
@@ -79,13 +80,15 @@ export const authApi = createApi({
             query: () => ({
                 url: AUTH_ROUTES.LOGOUT,
                 method: 'POST',
+                body: { refresh_token: Cookies.get('refresh_token') },
             }),
-            async onQueryStarted(_, { queryFulfilled }) {
+            async onQueryStarted(_, { queryFulfilled, dispatch }) {
                 try {
                     await queryFulfilled
                     // Remove both tokens from cookies
                     Cookies.remove('access_token')
                     Cookies.remove('refresh_token')
+                    dispatch(logoutAction())
                 } catch (error) {
                     console.error('Logout failed:', error)
                 }
@@ -111,6 +114,12 @@ export const authApi = createApi({
                 }
             },
         }),
+        getCurrentUser: builder.query<UserProfile, void>({
+            query: () => ({
+                url: AUTH_ROUTES.ME,
+                method: 'GET',
+            }),
+        }),
     }),
 })
 
@@ -118,4 +127,5 @@ export const {
     useLoginMutation,
     useLogoutMutation,
     useRefreshTokenMutation,
+    useGetCurrentUserQuery,
 } = authApi 

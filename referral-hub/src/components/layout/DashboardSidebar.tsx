@@ -33,12 +33,18 @@ import {
   Settings,
   ClipboardCheck,
   Mail,
-  Phone,
+  IdCard,
   ChevronRight,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useAppSelector } from "@/lib/store/hooks";
+import {
+  useLogoutMutation,
+  useGetCurrentUserQuery,
+} from "@/features/auth/authApi";
+import { useGetHospitalByIdQuery } from "@/features/hospitals/hospitalsApi";
 
 interface NavItem {
   title: string;
@@ -61,25 +67,23 @@ const NAV_BY_ROLE = {
       icon: FilePlus,
     },
   ],
-  receiving_specialist: [
-    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-    { title: "Incoming Referrals", url: "/referrals", icon: FileText },
-    { title: "Triage Queue", url: "/queue", icon: ListChecks },
-  ],
   hospital_admin: [
-    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-    { title: "Pending Approvals", url: "/doctor", icon: ClipboardList },
-    { title: "All Referrals", url: "/doctor/all", icon: FileText },
-  ],
-  receptionist: [
-    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-    { title: "Accepted Referrals", url: "/doctor", icon: FileText },
-    { title: "Schedule", url: "/schedule", icon: CalendarCheck },
-  ],
-  department_head: [
-    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-    { title: "Department Referrals", url: "/doctor", icon: FileText },
-    { title: "Analytics", url: "/analytics", icon: BarChart3 },
+    { title: "Dashboard", url: "/hospital-admin", icon: LayoutDashboard },
+    {
+      title: "Staff Management",
+      url: "/hospital-admin/staff-management",
+      icon: ClipboardList,
+    },
+    {
+      title: "Referral Logs",
+      url: "/hospital-admin/referral-logs",
+      icon: FileText,
+    },
+    {
+      title: "Activity Logs",
+      url: "/hospital-admin/activity-logs",
+      icon: ListChecks,
+    },
   ],
   liaison_officer: [
     { title: "Dashboard", url: "/liaison-officer", icon: LayoutDashboard },
@@ -95,24 +99,51 @@ const NAV_BY_ROLE = {
     { title: "Reports", url: "/liaison-officer/report", icon: Users },
     { title: "Doctors", url: "/liaison-officer/doctors", icon: Users },
   ],
-  moh_analyst: [
-    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-    { title: "Analytics", url: "/analytics", icon: BarChart3 },
-    { title: "All Referrals", url: "/doctor", icon: FileText },
-  ],
 };
 
 type RoleKey = keyof typeof NAV_BY_ROLE;
 
-interface DashboardSidebarProps {
-  role?: RoleKey;
-}
+const ROLE_MAP: Record<string, RoleKey> = {
+  REFERRING_DOCTOR: "referring_doctor",
+  HOSPITAL_ADMIN: "hospital_admin",
+  LIAISON_OFFICER: "liaison_officer",
+};
 
-export function DashboardSidebar({
-  role = "liaison_officer",
-}: DashboardSidebarProps) {
+const PROFILE_PATH_BY_ROLE: Record<RoleKey, string> = {
+  referring_doctor: "/referring-doctor/profile",
+  hospital_admin: "/hospital-admin/profile",
+  liaison_officer: "/liaison-officer/profile",
+};
+
+export function DashboardSidebar() {
   const pathname = usePathname();
-  const menuItems = NAV_BY_ROLE[role] as NavItem[];
+  const router = useRouter();
+  const [logoutApi] = useLogoutMutation();
+  const { data: userProfile, isLoading: isUserLoading } =
+    useGetCurrentUserQuery();
+
+  const reduxRole = useAppSelector((state) => state.auth.user?.role);
+  const rawRole = reduxRole || userProfile?.role;
+  const role = rawRole
+    ? ROLE_MAP[rawRole.toUpperCase()] || ROLE_MAP[rawRole]
+    : undefined;
+  const menuItems = (role ? NAV_BY_ROLE[role] : []) as NavItem[];
+  const profilePath = role
+    ? PROFILE_PATH_BY_ROLE[role]
+    : "/referring-doctor/profile";
+  const { data: hospital, isLoading: isHospitalLoading } =
+    useGetHospitalByIdQuery(userProfile?.hospital_id ?? "", {
+      skip: !userProfile?.hospital_id,
+    });
+
+  const handleLogout = async () => {
+    try {
+      await logoutApi().unwrap();
+      router.push("/login");
+    } catch (err) {
+      console.error("Failed to log out", err);
+    }
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -137,19 +168,39 @@ export function DashboardSidebar({
                 <span className="bg-success absolute bottom-1 right-0 h-3 w-3 rounded-full border-2 border-background group-data-[collapsible=icon]:hidden" />
               </div>
               <div className="group-data-[collapsible=icon]:hidden">
-                <p className="text-sm font-semibold">Dr. Sarah Jenkins</p>
-                <p className="text-xs font-medium text-primary">
-                  Internal Medicine
-                </p>
+                {isUserLoading ? (
+                  <div className="mx-auto h-4 w-32 animate-pulse rounded bg-muted" />
+                ) : (
+                  <p className="text-sm font-semibold">
+                    {userProfile
+                      ? `Dr. ${userProfile.first_name} ${userProfile.last_name}`
+                      : "Unknown User"}
+                  </p>
+                )}
+                {isHospitalLoading ? (
+                  <div className="mx-auto mt-2 h-3 w-24 animate-pulse rounded bg-muted" />
+                ) : (
+                  <p className="text-xs font-medium text-primary mt-1">
+                    {hospital?.name || "Unknown Hospital"}
+                  </p>
+                )}
               </div>
-              <div className="mt-4 space-y-1 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+              <div className="mt-4 space-y-2 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
                 <div className="flex items-center justify-center gap-2">
                   <Mail className="h-3 w-3" />
-                  <span>s.jenkins@hospital.org</span>
+                  <span>
+                    {isUserLoading
+                      ? "Loading..."
+                      : userProfile?.email || "No email"}
+                  </span>
                 </div>
                 <div className="flex items-center justify-center gap-2">
-                  <Phone className="h-3 w-3" />
-                  <span>+1 (555) 902-4421</span>
+                  <IdCard className="h-3 w-3" />
+                  <span>
+                    {isUserLoading
+                      ? "Loading..."
+                      : userProfile?.national_id || "No National ID"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -178,6 +229,7 @@ export function DashboardSidebar({
                           <SidebarMenuButton
                             tooltip={item.title}
                             isActive={isActive}
+                            onClick={() => router.push(item.url)}
                             className={`group-data-[collapsible=icon]:justify-center  ${
                               isActive
                                 ? "bg-primary/10 text-primary font-semibold"
@@ -246,8 +298,12 @@ export function DashboardSidebar({
       <SidebarFooter className="mt-auto pb-4">
         <SidebarMenu className="gap-1">
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Profile Settings" className="group-data-[collapsible=icon]:justify-center">
-              <Link href="/referring-doctor/profile">
+            <SidebarMenuButton
+              asChild
+              tooltip="Profile Settings"
+              className="group-data-[collapsible=icon]:justify-center"
+            >
+              <Link href={profilePath}>
                 <Settings className="h-4 w-4" />
                 <span className="group-data-[collapsible=icon]:hidden ">
                   Profile Settings
@@ -256,8 +312,16 @@ export function DashboardSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Sign Out" className="group-data-[collapsible=icon]:justify-center">
-              <button type="button" className="flex w-full items-center gap-2">
+            <SidebarMenuButton
+              asChild
+              tooltip="Sign Out"
+              className="group-data-[collapsible=icon]:justify-center"
+            >
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex w-full items-center gap-2"
+              >
                 <LogOut className="h-4 w-4" />
                 <span className="group-data-[collapsible=icon]:hidden">
                   Sign Out

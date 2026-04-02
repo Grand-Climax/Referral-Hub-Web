@@ -1,19 +1,73 @@
 'use client'
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { Eye, EyeOff, Lock, Mail, Activity } from "lucide-react";
-import { ROLE_LABELS, UserRole } from "@/types/referral";
+
+import { useState } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Separator } from "@/components/ui/separator"
+import { 
+  Form, 
+  FormControl, 
+  FormField, 
+  FormItem, 
+  FormLabel, 
+  FormMessage 
+} from "@/components/ui/form"
+import { Eye, EyeOff, Lock, Mail, Activity, Loader2 } from "lucide-react"
+import { useLoginMutation } from "@/features/auth/authApi"
+import { toast } from "sonner"
+import { useRouter } from "next/navigation"
+
+const loginSchema = z.object({
+  email: z.string().email("Please enter a valid hospital email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+})
+
+type LoginFormValues = z.infer<typeof loginSchema>
 
 const Login = () => {
-  const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const handleSubmit = (e: React.FormEvent) => {}
+  const [showPassword, setShowPassword] = useState(false)
+  const [login, { isLoading }] = useLoginMutation()
+  const router = useRouter()
+
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  })
+
+  const onSubmit = async (values: LoginFormValues) => {
+    try {
+      const result = await login({ 
+        email: values.email, 
+        password: values.password 
+      }).unwrap()
+      
+      toast.success("Welcome back!")
+      
+      // Redirect based on user role
+      // Redirect based on user role using the correct mapping
+      const roleToPath: Record<string, string> = {
+        HOSPITAL_ADMIN: "/hospital-admin",
+        REFERRING_DOCTOR: "/referring-doctor",
+        LIAISON_OFFICER: "/liaison-officer",
+        RECEIVING_SPECIALIST: "/receiving-specialist",
+        RECEPTIONIST: "/receptionist",
+      }
+
+      if (result.user && result.user.role) {
+        const targetPath = roleToPath[result.user.role] || "/"
+        router.push(targetPath)
+      }
+    } catch (error: unknown) {
+      const err = error as { data?: { message?: string } }
+      toast.error(err.data?.message || "Invalid credentials. Please try again.")
+    }
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -36,19 +90,6 @@ const Login = () => {
             <p className="text-lg text-primary-foreground/70">
               Digital referral coordination platform for Ethiopian hospitals. Send, review, and track patient referrals in real-time.
             </p>
-            <div className="mt-8 grid grid-cols-2 gap-4 text-left">
-              {[
-                "Digital referral forms",
-                "Real-time tracking",
-                "Priority triage",
-                "MoH analytics",
-              ].map((feature) => (
-                <div key={feature} className="flex items-center gap-2 text-sm text-primary-foreground/80">
-                  <div className="h-1.5 w-1.5 rounded-full bg-secondary" />
-                  {feature}
-                </div>
-              ))}
-            </div>
           </div>
         </div>
 
@@ -68,50 +109,70 @@ const Login = () => {
               <p className="text-sm text-muted-foreground">Sign in to access the referral system</p>
             </div>
 
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="name@hospital.gov.et"
-                    className="pl-10"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-              </div>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="name@hospital.gov.et"
+                            className="pl-10 h-10"
+                            {...field}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    className="pl-10 pr-10"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            type={showPassword ? "text" : "password"}
+                            placeholder="••••••••"
+                            className="pl-10 pr-10 h-10"
+                            {...field}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              {error && <p className="text-sm text-destructive">{error}</p>}
-
-              <Button type="submit" className="w-full" size="lg">
-                Sign in
-              </Button>
-            </form>
+                <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    "Sign in"
+                  )}
+                </Button>
+              </form>
+            </Form>
 
             <div className="relative">
               <Separator />
@@ -127,7 +188,7 @@ const Login = () => {
         </div>
       </footer>
     </div>
-  );
-};
+  )
+}
 
-export default Login;
+export default Login

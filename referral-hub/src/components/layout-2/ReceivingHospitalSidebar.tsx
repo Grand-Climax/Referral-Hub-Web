@@ -20,21 +20,68 @@ import {
   User,
   LogOut,
   Hospital,
+  FileText,
+  ListChecks,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useAppSelector } from "@/lib/store/hooks";
 
-const NAV_ITEMS = [
-  { title: "Dashboard", url: "/receiving-specialist", icon: LayoutDashboard },
-  { title: "Referral Queue", url: "/receiving-specialist/queue", icon: ClipboardList },
-  { title: "Accepted (Schedule)", url: "/receiving-specialist/schedule", icon: CalendarCheck },
-  { title: "History", url: "/receiving-specialist/history", icon: History },
-  { title: "Notifications", url: "/receiving-specialist/notifications", icon: Bell, badge: 4 },
-  { title: "Profile", url: "/receiving-specialist/profile", icon: User },
-];
+interface NavItem {
+  title: string;
+  url: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: number;
+  items?: { title: string; url: string }[];
+}
+
+const NAV_BY_ROLE = {
+  hospital_admin: [
+    { title: "Dashboard", url: "/hospital-admin", icon: LayoutDashboard },
+    { title: "Referral Queue", url: "/hospital-admin/queue", icon: ClipboardList },
+    { title: "Accepted (Schedule)", url: "/hospital-admin/schedule", icon: CalendarCheck },
+    { title: "History", url: "/hospital-admin/history", icon: History },
+    { title: "Notifications", url: "/hospital-admin/notifications", icon: Bell, badge: 4 },
+    { title: "Profile", url: "/receiving-admin/profile", icon: User }
+  ],
+  receiving_specialist: [
+    { title: "Dashboard", url: "/receiving-specialist", icon: LayoutDashboard },
+    { title: "Incoming Referrals", url: "/receiving-specialist/referrals", icon: FileText },
+    { title: "Archive", url: "/receiving-specialist/archive", icon: History },
+    { title: "Profile", url: "/receiving-specialist/profile", icon: User }
+  ],
+  receptionist: [
+    { title: "Dashboard", url: "/receptionist", icon: LayoutDashboard },
+    { title: "Accepted Referrals", url: "/receptionist/referrals", icon: FileText },
+    { title: "Schedule", url: "/receptionist/schedule", icon: CalendarCheck },
+    { title: "Profile", url: "/receptionist/profile", icon: User }
+  ],
+};
+
+type RoleKey = keyof typeof NAV_BY_ROLE;
+
+const ROLE_MAP: Record<string, RoleKey> = {
+  HOSPITAL_ADMIN: "hospital_admin",
+  RECEIVING_SPECIALIST: "receiving_specialist",
+  RECEPTIONIST: "receptionist",
+};
 
 export function ReceivingHospitalSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const rawRole = useAppSelector((state) => state.auth.user?.role ?? "");
+  const role = ROLE_MAP[rawRole] as RoleKey | undefined;
+
+  useEffect(() => {
+    if (!role) {
+      router.replace("/login");
+    }
+  }, [role, router]);
+
+  if (!role) return null;
+
+  const menuItems = NAV_BY_ROLE[role] as NavItem[];
 
   return (
     <Sidebar className="border-r">
@@ -61,8 +108,10 @@ export function ReceivingHospitalSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="gap-2">
-              {NAV_ITEMS.map((item) => {
-                const isActive = pathname === item.url;
+              {menuItems.map((item) => {
+                const isActive = item.items
+                  ? item.items.some((subItem) => pathname === subItem.url)
+                  : pathname === item.url;
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton

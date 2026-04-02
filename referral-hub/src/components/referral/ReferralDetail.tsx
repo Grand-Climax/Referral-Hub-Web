@@ -2,7 +2,7 @@
 import { MOCK_REFERRALS } from "@/data/mock";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, User, FileText, Building2 } from "lucide-react";
+import { ArrowLeft, User, FileText, Building2, Paperclip, Download, ImageIcon } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { ROLE_LABELS } from "@/types/referral";
 import { StatusBadge } from "../StatusBadge";
@@ -184,6 +184,54 @@ const ReferralDetail = ({id}: {id: string}) => {
                   <p className="mt-1 leading-relaxed text-muted-foreground">
                     {"No active medications documented at transfer."}
                   </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Attached Documentation */}
+          <Card className="border-0 shadow-sm ring-1 ring-border/60">
+            <CardHeader className="flex flex-row items-center gap-2 pb-4">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Paperclip className="h-4 w-4" />
+              </div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+                Attached Documentation
+              </p>
+            </CardHeader>
+            <CardContent className="border-t border-dashed border-border/60 pt-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {/* PDF */}
+                <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600 ring-1 ring-rose-100">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">Clinical_Summary.pdf</p>
+                    <p className="text-xs text-muted-foreground">2.4 MB</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="flex items-center justify-center shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
+                </div>
+                {/* Image */}
+                <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+                    <ImageIcon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">Lab_Results.png</p>
+                    <p className="text-xs text-muted-foreground">1.8 MB</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="flex items-center justify-center shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             </CardContent>

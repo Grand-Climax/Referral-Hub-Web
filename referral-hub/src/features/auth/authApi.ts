@@ -120,6 +120,12 @@ export const authApi = createApi({
                 method: 'GET',
             }),
         }),
+        getUserById: builder.query<UserProfile, string>({
+            query: (id) => ({
+                url: `/api/v1/users/${id}`,
+                method: 'GET',
+            }),
+        }),
     }),
 })
 
@@ -128,4 +134,5 @@ export const {
     useLogoutMutation,
     useRefreshTokenMutation,
     useGetCurrentUserQuery,
-} = authApi 
+    useGetUserByIdQuery,
+} = authApi

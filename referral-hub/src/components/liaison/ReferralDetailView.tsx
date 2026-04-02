@@ -21,16 +21,34 @@ import {
   PlusCircle,
   Activity,
   ArrowLeft,
-  Stethoscope as DoctorIcon
+  Stethoscope as DoctorIcon,
+  Clock
 } from "lucide-react";
+import { useGetHospitalByIdQuery } from "@/features/hospitals/hospitalsApi";
+import { useGetUserByIdQuery } from "@/features/auth/authApi";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { DoctorProfileCard } from "./DoctorProfileCard";
+import { HospitalProfileCard } from "./HospitalProfileCard";
 
 interface ReferralDetailViewProps {
   referral: Referral;
 }
 
+
 export function ReferralDetailView({ referral }: ReferralDetailViewProps) {
   const router = useRouter();
+  
+  const { data: doctor } = useGetUserByIdQuery(referral.ReferringDoctorID);
+  const { data: hospital } = useGetHospitalByIdQuery(referral.SenderHospitalID);
+  console.log("hospital", hospital);
 
+  const hospitalLabel = hospital?.name ?? referral.SenderHospitalID;
+  const doctorLabel = doctor ? `Dr. ${doctor.first_name} ${doctor.last_name}` : referral.ReferringDoctorID;
+  
   const steps = [
     { label: "Created", icon: Check, active: true, completed: true },
     { label: "Liaison Review", icon: MessageSquare, active: true, completed: false },
@@ -58,19 +76,42 @@ export function ReferralDetailView({ referral }: ReferralDetailViewProps) {
               Liaison Officer Review
             </Badge>
             <Badge variant="outline" className="uppercase font-semibold text-xs border-slate-300">
-              {referral.severity} / Score {referral.severityScore}
+              Priority: {referral.MLSeverityScore ? (referral.MLSeverityScore > 70 ? "Critical" : "Standard") : "N/A"}
             </Badge>
-            {referral.status === "approved" && <Badge className="bg-emerald-500 hover:bg-emerald-600 uppercase font-semibold text-xs">Approved</Badge>}
-            {referral.status === "rejected" && <Badge variant="destructive" className="uppercase font-semibold text-xs">Rejected</Badge>}
-            {(referral.status === "pending" || referral.status === "redirected") && <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-200 uppercase font-semibold text-xs">{referral.status}</Badge>}
-            {(referral.status === "accepted" || referral.status === "completed") && <Badge className="bg-blue-500 hover:bg-blue-600 uppercase font-semibold text-xs">{referral.status}</Badge>}
+            {referral.Status === "APPROVED" && <Badge className="bg-emerald-500 hover:bg-emerald-600 uppercase font-semibold text-xs">Approved</Badge>}
+            {referral.Status === "REJECTED" && <Badge variant="destructive" className="uppercase font-semibold text-xs">Rejected</Badge>}
+            {(referral.Status === "PENDING" || referral.Status === "SUBMITTED" || referral.Status === "RECEIVED") && <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-200 uppercase font-semibold text-xs">{referral.Status}</Badge>}
+            {(referral.Status === "ACCEPTED" || referral.Status === "COMPLETED") && <Badge className="bg-blue-500 hover:bg-blue-600 uppercase font-semibold text-xs">{referral.Status}</Badge>}
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            Referral Case: #{referral.id}
+            Referral Case: #{referral.ID}
           </h1>
           <p className="text-sm text-muted-foreground mt-2 flex items-center gap-1.5">
              <DoctorIcon className="h-4 w-4" />
-            Submitted by: <span className="font-semibold text-foreground">{referral.referringDoctor}</span> ({referral.referringHospital}) • {referral.requiredSpecialty}
+            Submitted by: 
+            <Popover>
+              <PopoverTrigger asChild>
+                <span className="font-semibold text-foreground underline decoration-dotted underline-offset-4 cursor-pointer hover:text-blue-600 transition-colors">
+                  {doctorLabel}
+                </span>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 shadow-xl border-blue-100 bg-white/95 backdrop-blur-sm" align="start">
+                <DoctorProfileCard userId={referral.ReferringDoctorID} />
+              </PopoverContent>
+            </Popover>
+            
+            (Hospital: 
+            <Popover>
+              <PopoverTrigger asChild>
+                <span className="font-semibold text-foreground underline decoration-dotted underline-offset-4 cursor-pointer hover:text-blue-600 transition-colors">
+                  {hospitalLabel}
+                </span>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 shadow-xl border-blue-100 bg-white/95 backdrop-blur-sm" align="start">
+                <HospitalProfileCard hospitalId={referral.SenderHospitalID} />
+              </PopoverContent>
+            </Popover>
+            )
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -130,52 +171,54 @@ export function ReferralDetailView({ referral }: ReferralDetailViewProps) {
                 <CardTitle className="text-lg">Patient Details</CardTitle>
               </div>
               <Badge variant="secondary" className="bg-blue-50 text-blue-700 rounded-sm font-mono hover:bg-blue-50">
-                {referral.patient.mrn}
+                {referral.PatientID}
               </Badge>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
                 <div className="space-y-1">
                   <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Full Name</p>
-                  <p className="font-semibold text-foreground text-sm leading-snug">{referral.patient.fullName}</p>
+                  <p className="font-semibold text-foreground text-sm leading-snug">{referral.Patient?.FirstName} {referral.Patient?.LastName}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Age/Sex</p>
-                  <p className="font-semibold text-foreground text-sm leading-snug">{referral.patient.age}Y • {referral.patient.sex}</p>
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">DOB / Sex</p>
+                  <p className="font-semibold text-foreground text-sm leading-snug">
+                    {referral.Patient?.DateOfBirth ? new Date(referral.Patient.DateOfBirth).toLocaleDateString() : "N/A"} • {referral.Patient?.Sex}
+                  </p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Contact</p>
                   <p className="font-semibold text-blue-600 text-sm leading-snug hover:underline cursor-pointer">
-                    {referral.patient.phone}
+                    {referral.Patient?.PhoneNumber}
                   </p>
                 </div>
               </div>
               
               <div className="border-t pt-4">
-                 <div className="flex items-center gap-2 mb-4">
-                    <Activity className="h-4 w-4 text-rose-500" />
-                    <p className="text-sm font-bold text-foreground">Latest Vitals</p>
-                 </div>
-                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                  <div className="flex items-center gap-2 mb-4">
+                     <Activity className="h-4 w-4 text-rose-500" />
+                     <p className="text-sm font-bold text-foreground">Latest Vitals</p>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                     <div className="bg-muted/30 p-3 rounded-md border text-center">
                         <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">BP</p>
-                        <p className="font-semibold text-sm">{referral.vitals.bp}</p>
+                        <p className="font-semibold text-sm">{referral.Vitals?.[0]?.SystolicBP}/{referral.Vitals?.[0]?.DiastolicBP}</p>
                     </div>
                     <div className="bg-muted/30 p-3 rounded-md border text-center">
                         <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">HR</p>
-                        <p className="font-semibold text-sm">{referral.vitals.heartRate} bpm</p>
+                        <p className="font-semibold text-sm">{referral.Vitals?.[0]?.HeartRate} bpm</p>
                     </div>
                     <div className="bg-muted/30 p-3 rounded-md border text-center">
                         <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Temp</p>
-                        <p className="font-semibold text-sm">{referral.vitals.temperature}°C</p>
+                        <p className="font-semibold text-sm">{referral.Vitals?.[0]?.Temperature}°C</p>
                     </div>
                     <div className="bg-muted/30 p-3 rounded-md border text-center">
                         <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Resp</p>
-                        <p className="font-semibold text-sm">{referral.vitals.respiratoryRate} /min</p>
+                        <p className="font-semibold text-sm">{referral.Vitals?.[0]?.RespiratoryRate} /min</p>
                     </div>
                     <div className="bg-muted/30 p-3 rounded-md border text-center">
                         <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">SpO2</p>
-                        <p className="font-semibold text-sm">{referral.vitals.oxygenSaturation}%</p>
+                        <p className="font-semibold text-sm">{referral.Vitals?.[0]?.SpO2}%</p>
                     </div>
                  </div>
               </div>
@@ -190,20 +233,31 @@ export function ReferralDetailView({ referral }: ReferralDetailViewProps) {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="bg-blue-50/50 rounded-md p-4 border border-blue-100/50">
-                <p className="text-[10px] uppercase font-bold text-blue-600 tracking-wider mb-1">Prov. Diagnosis</p>
-                <p className="font-bold text-foreground text-sm mb-4">{referral.provisionalDiagnosis}</p>
+                <p className="text-[10px] uppercase font-bold text-blue-600 tracking-wider mb-1">Primary Diagnosis</p>
+                <p className="font-bold text-foreground text-sm mb-4">
+                  {referral.Diagnoses?.find(d => d.IsPrimary)?.CodeInfo.Description || referral.Diagnoses?.[0]?.CodeInfo.Description || "N/A"}
+                </p>
 
                 <p className="text-[10px] uppercase font-bold text-blue-600 tracking-wider mb-1">Reason for Referral</p>
                 <p className="font-semibold text-foreground text-sm leading-relaxed">
-                  {referral.reasonForReferral}
+                  {referral.ReferralForm?.ReasonOfReferral || "No reason specified"}
                 </p>
               </div>
 
               <div>
-                <p className="text-sm font-bold text-foreground mb-2">Clinical History</p>
+                <p className="text-sm font-bold text-foreground mb-2">Clinical Summary</p>
                 <div className="bg-muted/20 p-4 rounded-md border border-border/50">
                   <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                    {referral.clinicalHistory}
+                    {referral.ReferralForm?.ClinicalSummary || "No clinical summary available"}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-bold text-foreground mb-2">Patient History</p>
+                <div className="bg-muted/20 p-4 rounded-md border border-border/50">
+                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                    {referral.ReferralForm?.PatientHistory || "No patient history recorded"}
                   </p>
                 </div>
               </div>
@@ -220,12 +274,37 @@ export function ReferralDetailView({ referral }: ReferralDetailViewProps) {
              <CardContent className="pt-5 pb-5">
                 <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-3 flex items-center gap-1.5"><Building className="w-3.5 h-3.5" /> Assigned From</p>
                 <div className="space-y-3">
-                   <div>
-                     <p className="text-sm font-semibold">{referral.referringHospital}</p>
-                     <p className="text-xs text-muted-foreground">{referral.referringDoctor}</p>
+                   <div className="space-y-1.5">
+                     <div className="flex items-center gap-2">
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground w-16">Hospital</p>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <span className="text-sm font-bold text-foreground cursor-pointer hover:text-blue-600 transition-colors underline decoration-blue-100 underline-offset-4">
+                              {hospitalLabel}
+                            </span>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 shadow-xl border-blue-100 bg-white" align="end">
+                            <HospitalProfileCard hospitalId={referral?.SenderHospitalID} />
+                          </PopoverContent>
+                        </Popover>
+                     </div>
+                     <div className="flex items-center gap-2">
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground w-16">Doctor</p>
+                        <Popover>
+                           <PopoverTrigger asChild>
+                             <span className="text-xs font-semibold text-slate-700 cursor-pointer hover:text-blue-600 transition-colors">
+                               {doctorLabel}
+                             </span>
+                           </PopoverTrigger>
+                           <PopoverContent className="w-80 shadow-xl border-blue-100 bg-white" align="end">
+                             <DoctorProfileCard userId={referral.ReferringDoctorID} />
+                           </PopoverContent>
+                        </Popover>
+                     </div>
                    </div>
-                   <div className="text-xs text-muted-foreground border-t pt-2 border-blue-100">
-                     Submitted on {new Date(referral.createdAt).toLocaleString()}
+                   <div className="text-[10px] text-muted-foreground border-t pt-2.5 border-blue-100 flex items-center gap-2">
+                      <Clock className="h-3 w-3" />
+                      Submitted on {new Date(referral.CreatedAt).toLocaleString()}
                    </div>
                 </div>
              </CardContent>
@@ -299,12 +378,21 @@ export function ReferralDetailView({ referral }: ReferralDetailViewProps) {
                     <PlusCircle className="h-3 w-3 text-blue-500" />
                   </div>
                   <div>
-                    <p className="text-[10px] text-muted-foreground font-semibold">{new Date(referral.createdAt).toLocaleString()}</p>
+                    <p className="text-[10px] text-muted-foreground font-semibold">{new Date(referral.CreatedAt || "").toLocaleString()}</p>
                     <p className="font-semibold text-sm text-foreground mt-0.5">Referral Created</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">By {referral.referringDoctor}</p>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <p className="text-xs text-blue-600 hover:underline cursor-pointer mt-0.5 font-medium">
+                          By {doctor ? `Dr. ${doctor.first_name} ${doctor.last_name}` : referral.ReferringDoctorID}
+                        </p>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 shadow-xl border-blue-100 bg-white" align="start">
+                        <DoctorProfileCard userId={referral.ReferringDoctorID} />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
-                {referral.comments && referral.comments.length > 0 && referral.comments.map((comment, index) => (
+                {referral.comments && referral.comments.length > 0 && referral.comments.map((comment: any, index: number) => (
                   <div key={index} className="relative pl-6">
                     <div className="absolute -left-[13px] top-1 h-6 w-6 rounded-full flex items-center justify-center border-4 border-card bg-amber-100">
                       <MessageSquare className="h-3 w-3 text-amber-600" />
@@ -316,20 +404,9 @@ export function ReferralDetailView({ referral }: ReferralDetailViewProps) {
                     </div>
                   </div>
                 ))}
-                <div className="relative pl-6">
-                  <div className="absolute -left-[13px] top-1 h-6 w-6 rounded-full flex items-center justify-center border-4 border-card bg-slate-200">
-                    <User className="h-3 w-3 text-slate-500" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-muted-foreground font-semibold">{new Date(referral.updatedAt).toLocaleString()}</p>
-                    <p className="font-semibold text-sm text-foreground mt-0.5">Last Updated</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">System recorded</p>
-                  </div>
-                </div>
               </div>
             </CardContent>
           </Card>
-
         </div>
       </div>
     </div>

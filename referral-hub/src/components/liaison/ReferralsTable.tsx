@@ -1,7 +1,7 @@
 "use client";
 
 import { ReferralLists } from "@/components/table/referral-lists";
-import { MOCK_REFERRALS } from "@/data/mock";
+import { useGetReferralsQuery } from "@/features/liaison/liaisonApi";
 
 interface ReferralsTableProps {
   statusFilter?: "all" | "approved" | "rejected";
@@ -10,14 +10,17 @@ interface ReferralsTableProps {
 }
 
 export function ReferralsTable({ statusFilter = "all", title, description }: ReferralsTableProps) {
-  let data = MOCK_REFERRALS;
+  const { data: response, isLoading } = useGetReferralsQuery();
+  const allReferrals = response?.data || [];
+  
+  let data = allReferrals;
   
   if (statusFilter === "approved") {
-    data = MOCK_REFERRALS.filter(
-      (r) => r.status === "approved" || r.status === "accepted" || r.status === "completed"
+    data = allReferrals.filter(
+      (r) => r.Status === "APPROVED" || r.Status === "ACCEPTED" || r.Status === "COMPLETED"
     );
   } else if (statusFilter === "rejected") {
-    data = MOCK_REFERRALS.filter((r) => r.status === "rejected");
+    data = allReferrals.filter((r) => r.Status === "REJECTED");
   }
 
   return (
@@ -28,7 +31,11 @@ export function ReferralsTable({ statusFilter = "all", title, description }: Ref
           {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
         </div>
       )}
-      <ReferralLists data={data} />
+      <ReferralLists 
+        data={data} 
+        isLoading={isLoading}
+        getRowHref={(id) => `/liaison-officer/referrals/${id}`} 
+      />
     </div>
   );
 }

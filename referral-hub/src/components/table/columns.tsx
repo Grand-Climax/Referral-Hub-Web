@@ -1,6 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
+import Link from "next/link";
 import {
   ArrowUpDown,
   MoreHorizontal,
@@ -67,7 +68,7 @@ export const columns: ColumnDef<Referral>[] = [
         }
         onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
         aria-label="Select all"
-        className="translate-y-[2px] scale-60 border-muted-foreground/40"
+        className="translate-y-[2px] scale-40 border-muted-foreground/40"
       />
     ),
     cell: ({ row }) => (
@@ -75,25 +76,46 @@ export const columns: ColumnDef<Referral>[] = [
         checked={row.getIsSelected()}
         onCheckedChange={(value) => row.toggleSelected(!!value)}
         aria-label="Select row"
-        className="translate-y-[2px] scale-60 border-muted-foreground/40"
+        className="translate-y-[2px] scale-40 border-muted-foreground/40"
       />
     ),
     enableSorting: false,
     enableHiding: false,
   },
   {
-    accessorKey: "id",
+    accessorKey: "ID",
     header: "Task",
-    cell: ({ row }) => <div className="w-[80px] font-mono text-xs">{row.getValue("id")}</div>,
+    cell: ({ row, table }) => {
+      const getRowHref = (table.options.meta as any)?.getRowHref;
+      const id = row.getValue("ID") as string;
+      
+      const content = (
+        <span className="block w-[70px] truncate font-mono text-[10px]">
+          {id}
+        </span>
+      );
+
+      if (getRowHref) {
+        return (
+          <Link 
+            href={getRowHref(id)} 
+            className="hover:underline text-blue-600 font-medium"
+          >
+            {content}
+          </Link>
+        );
+      }
+      return content;
+    },
   },
   {
-    accessorKey: "requiredSpecialty",
+    accessorKey: "TargetDeptID",
     header: "Label",
     cell: ({ row }) => {
-      const specialty = row.getValue("requiredSpecialty") as string;
+      const specialty = row.getValue("TargetDeptID") as string;
       return (
-        <Badge variant="outline" className="font-medium text-[10px] uppercase tracking-wider px-2 py-0 h-5 bg-muted/50 border-muted-foreground/20">
-          {specialty}
+        <Badge variant="outline" className="font-medium text-[10px] uppercase tracking-wider px-2 py-0 h-5 bg-muted/50 border-muted-foreground/20 max-w-[100px] truncate block text-center">
+          {specialty || "General"}
         </Badge>
       );
     },
@@ -112,25 +134,43 @@ export const columns: ColumnDef<Referral>[] = [
         </Button>
       )
     },
-    cell: ({ row }) => {
-      const patient = row.original.patient;
+    cell: ({ row, table }) => {
+      const getRowHref = (table.options.meta as any)?.getRowHref;
+      const id = row.original.ID;
+      const patient = row.original.Patient;
+      const primaryDiagnosis = row.original.Diagnoses?.find(d => d.IsPrimary)?.CodeInfo.Description 
+        || row.original.Diagnoses?.[0]?.CodeInfo.Description 
+        || "No Diagnosis";
+
+      const content = (
+        <span className="max-w-[250px] lg:max-w-[400px] truncate font-medium block">
+          {patient?.FirstName} {patient?.LastName} — {primaryDiagnosis}
+        </span>
+      );
+
+      if (getRowHref) {
+        return (
+          <Link href={getRowHref(id)} className="flex space-x-2 hover:underline hover:text-blue-600 transition-colors">
+            {content}
+          </Link>
+        );
+      }
+
       return (
         <div className="flex space-x-2">
-          <span className="max-w-[500px] truncate font-medium">
-            {patient.fullName} — {row.original.provisionalDiagnosis}
-          </span>
+          {content}
         </div>
       );
     },
     filterFn: (row, id, value) => {
-      const patient = row.original.patient;
-      const diagnosis = row.original.provisionalDiagnosis;
-      const searchStr = `${patient.fullName} ${diagnosis}`.toLowerCase();
+      const patient = row.original.Patient;
+      const primaryDiagnosis = row.original.Diagnoses?.find(d => d.IsPrimary)?.CodeInfo.Description || "";
+      const searchStr = `${patient?.FirstName} ${patient?.LastName} ${primaryDiagnosis}`.toLowerCase();
       return searchStr.includes(String(value).toLowerCase());
     },
   },
   {
-    accessorKey: "status",
+    accessorKey: "Status",
     header: ({ column }) => {
       return (
         <Button
@@ -144,17 +184,17 @@ export const columns: ColumnDef<Referral>[] = [
       )
     },
     cell: ({ row }) => {
-      const status = row.getValue("status") as string;
+      const status = (row.getValue("Status") as string || "").toLowerCase();
       return (
-        <div className="flex w-[100px] items-center">
+        <div className="flex w-[90px] items-center">
           {getStatusIcon(status)}
-          <span className="capitalize text-sm">{status}</span>
+          <span className="capitalize text-xs truncate">{status}</span>
         </div>
       );
     },
   },
   {
-    accessorKey: "severity",
+    accessorKey: "MLSeverityScore",
     header: ({ column }) => {
       return (
         <Button
@@ -168,11 +208,12 @@ export const columns: ColumnDef<Referral>[] = [
       )
     },
     cell: ({ row }) => {
-      const severity = row.getValue("severity") as string;
+      const score = row.getValue("MLSeverityScore") as number;
+      const severity = score > 80 ? "critical" : score > 60 ? "high" : score > 30 ? "medium" : "low";
       return (
-        <div className="flex items-center">
+        <div className="flex items-center w-[80px]">
           {getPriorityIcon(severity)}
-          <span className="capitalize text-sm">{severity}</span>
+          <span className="capitalize text-xs truncate">{severity}</span>
         </div>
       );
     },
@@ -180,7 +221,10 @@ export const columns: ColumnDef<Referral>[] = [
   {
     id: "actions",
     enableHiding: false,
-    cell: ({ row }) => {
+    cell: ({ row, table }) => {
+      const getRowHref = (table.options.meta as any)?.getRowHref;
+      const id = row.original.ID;
+
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -192,12 +236,18 @@ export const columns: ColumnDef<Referral>[] = [
           <DropdownMenuContent align="end" className="w-[160px]">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(row.original.id)}
+              onClick={() => navigator.clipboard.writeText(id)}
             >
               Copy referral ID
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>View details</DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              {getRowHref ? (
+                <Link href={getRowHref(id)}>View details</Link>
+              ) : (
+                <span>View details</span>
+              )}
+            </DropdownMenuItem>
             <DropdownMenuItem>Update status</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -8,4 +8,11 @@ export interface Hospital {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
+  is_deleted?: boolean;
+}
+
+export interface Department {
+  ID: string;
+  Name: string;
 }

@@ -52,10 +52,9 @@ const Login = () => {
       // Redirect based on user role
       // Redirect based on user role using the correct mapping
       const roleToPath: Record<string, string> = {
-        HOSPITAL_ADMIN: "/referring-admin",
+        HOSPITAL_ADMIN: "/hospital-admin",
         REFERRING_DOCTOR: "/referring-doctor",
         LIAISON_OFFICER: "/liaison-officer",
-        RECEIVING_ADMIN: "/recieving-admin",
         RECEIVING_SPECIALIST: "/receiving-specialist",
         RECEPTIONIST: "/receptionist",
       }

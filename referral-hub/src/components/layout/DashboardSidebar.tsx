@@ -40,7 +40,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAppSelector } from "@/lib/store/hooks";
-import { useLogoutMutation, useGetCurrentUserQuery } from "@/features/auth/authApi";
+import {
+  useLogoutMutation,
+  useGetCurrentUserQuery,
+} from "@/features/auth/authApi";
 import { useGetHospitalByIdQuery } from "@/features/hospitals/hospitalsApi";
 
 interface NavItem {
@@ -66,9 +69,21 @@ const NAV_BY_ROLE = {
   ],
   hospital_admin: [
     { title: "Dashboard", url: "/hospital-admin", icon: LayoutDashboard },
-    { title: "Staff Management", url: "/hospital-admin/staff-management", icon: ClipboardList },
-    { title: "Referral Logs", url: "/hospital-admin/referral-logs", icon: FileText },
-    { title: "Activity Logs", url: "/hospital-admin/activity-logs", icon: ListChecks },
+    {
+      title: "Staff Management",
+      url: "/hospital-admin/staff-management",
+      icon: ClipboardList,
+    },
+    {
+      title: "Referral Logs",
+      url: "/hospital-admin/referral-logs",
+      icon: FileText,
+    },
+    {
+      title: "Activity Logs",
+      url: "/hospital-admin/activity-logs",
+      icon: ListChecks,
+    },
   ],
   liaison_officer: [
     { title: "Dashboard", url: "/liaison-officer", icon: LayoutDashboard },
@@ -94,20 +109,32 @@ const ROLE_MAP: Record<string, RoleKey> = {
   LIAISON_OFFICER: "liaison_officer",
 };
 
+const PROFILE_PATH_BY_ROLE: Record<RoleKey, string> = {
+  referring_doctor: "/referring-doctor/profile",
+  hospital_admin: "/hospital-admin/profile",
+  liaison_officer: "/liaison-officer/profile",
+};
+
 export function DashboardSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [logoutApi] = useLogoutMutation();
-  const { data: userProfile, isLoading: isUserLoading } = useGetCurrentUserQuery();
+  const { data: userProfile, isLoading: isUserLoading } =
+    useGetCurrentUserQuery();
 
   const reduxRole = useAppSelector((state) => state.auth.user?.role);
   const rawRole = reduxRole || userProfile?.role;
-  const role = rawRole ? ROLE_MAP[rawRole.toUpperCase()] || ROLE_MAP[rawRole] : undefined;
+  const role = rawRole
+    ? ROLE_MAP[rawRole.toUpperCase()] || ROLE_MAP[rawRole]
+    : undefined;
   const menuItems = (role ? NAV_BY_ROLE[role] : []) as NavItem[];
-  const { data: hospital, isLoading: isHospitalLoading } = useGetHospitalByIdQuery(
-    userProfile?.hospital_id ?? "",
-    { skip: !userProfile?.hospital_id }
-  );
+  const profilePath = role
+    ? PROFILE_PATH_BY_ROLE[role]
+    : "/referring-doctor/profile";
+  const { data: hospital, isLoading: isHospitalLoading } =
+    useGetHospitalByIdQuery(userProfile?.hospital_id ?? "", {
+      skip: !userProfile?.hospital_id,
+    });
 
   const handleLogout = async () => {
     try {
@@ -145,7 +172,9 @@ export function DashboardSidebar() {
                   <div className="mx-auto h-4 w-32 animate-pulse rounded bg-muted" />
                 ) : (
                   <p className="text-sm font-semibold">
-                    {userProfile ? `Dr. ${userProfile.first_name} ${userProfile.last_name}` : "Unknown User"}
+                    {userProfile
+                      ? `Dr. ${userProfile.first_name} ${userProfile.last_name}`
+                      : "Unknown User"}
                   </p>
                 )}
                 {isHospitalLoading ? (
@@ -160,13 +189,17 @@ export function DashboardSidebar() {
                 <div className="flex items-center justify-center gap-2">
                   <Mail className="h-3 w-3" />
                   <span>
-                    {isUserLoading ? "Loading..." : userProfile?.email || "No email"}
+                    {isUserLoading
+                      ? "Loading..."
+                      : userProfile?.email || "No email"}
                   </span>
                 </div>
                 <div className="flex items-center justify-center gap-2">
                   <IdCard className="h-3 w-3" />
                   <span>
-                    {isUserLoading ? "Loading..." : userProfile?.national_id || "No National ID"}
+                    {isUserLoading
+                      ? "Loading..."
+                      : userProfile?.national_id || "No National ID"}
                   </span>
                 </div>
               </div>
@@ -265,8 +298,12 @@ export function DashboardSidebar() {
       <SidebarFooter className="mt-auto pb-4">
         <SidebarMenu className="gap-1">
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Profile Settings" className="group-data-[collapsible=icon]:justify-center">
-              <Link href="/referring-doctor/profile">
+            <SidebarMenuButton
+              asChild
+              tooltip="Profile Settings"
+              className="group-data-[collapsible=icon]:justify-center"
+            >
+              <Link href={profilePath}>
                 <Settings className="h-4 w-4" />
                 <span className="group-data-[collapsible=icon]:hidden ">
                   Profile Settings
@@ -275,8 +312,16 @@ export function DashboardSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Sign Out" className="group-data-[collapsible=icon]:justify-center">
-              <button type="button" onClick={handleLogout} className="flex w-full items-center gap-2">
+            <SidebarMenuButton
+              asChild
+              tooltip="Sign Out"
+              className="group-data-[collapsible=icon]:justify-center"
+            >
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex w-full items-center gap-2"
+              >
                 <LogOut className="h-4 w-4" />
                 <span className="group-data-[collapsible=icon]:hidden">
                   Sign Out

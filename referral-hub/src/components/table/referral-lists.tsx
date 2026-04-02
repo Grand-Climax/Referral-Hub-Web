@@ -30,9 +30,11 @@ import { Referral } from "@/types/referral";
 
 interface ReferralListsProps {
   data?: Referral[];
+  isLoading?: boolean;
+  getRowHref?: (id: string) => string;
 }
 
-export function ReferralLists({ data = MOCK_REFERRALS }: ReferralListsProps) {
+export function ReferralLists({ data = [], isLoading, getRowHref }: ReferralListsProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -57,6 +59,9 @@ export function ReferralLists({ data = MOCK_REFERRALS }: ReferralListsProps) {
       columnFilters,
       columnVisibility,
       rowSelection,
+    },
+    meta: {
+      getRowHref,
     },
   })
 
@@ -87,7 +92,19 @@ export function ReferralLists({ data = MOCK_REFERRALS }: ReferralListsProps) {
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center text-muted-foreground"
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    <span>Loading referrals...</span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}

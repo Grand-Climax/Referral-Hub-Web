@@ -18,7 +18,7 @@ const rawBaseQuery = fetchBaseQuery({
 // Keep backward compat — old name still works
 export const baseQuery = rawBaseQuery
 
-let isRefreshing = false
+let refreshPromise: Promise<boolean> | null = null
 
 export const baseQueryWithReauth: BaseQueryFn<
     string | FetchArgs,
@@ -28,41 +28,56 @@ export const baseQueryWithReauth: BaseQueryFn<
     let result = await rawBaseQuery(args, api, extraOptions)
 
     if (result.error && result.error.status === 401) {
-        // Avoid concurrent refresh storms
-        if (!isRefreshing) {
-            isRefreshing = true
+        // If a refresh is already in progress, wait for it
+        if (refreshPromise) {
+            const isRefreshed = await refreshPromise
+            if (isRefreshed) {
+                // Retry the original request with the new token
+                return await rawBaseQuery(args, api, extraOptions)
+            }
+            return result
+        }
+
+        // No refresh in progress, start one
+        refreshPromise = (async () => {
             try {
                 const refreshToken = Cookies.get('refresh_token')
-                if (refreshToken) {
-                    const refreshResult = await rawBaseQuery(
-                        {
-                            url: AUTH_ROUTES.REFRESH,
-                            method: 'POST',
-                            body: { refresh_token: refreshToken },
-                        },
-                        api,
-                        extraOptions
-                    )
+                if (!refreshToken) return false
 
-                    if (refreshResult.data) {
-                        const { access_token } = refreshResult.data as { access_token: string }
-                        Cookies.set('access_token', access_token, {
-                            expires: 1,
-                            secure: true,
-                            sameSite: 'strict',
-                        })
-                        // Retry the original request with the new token
-                        result = await rawBaseQuery(args, api, extraOptions)
-                    } else {
-                        // Refresh failed — force logout
-                        forceLogout(api)
-                    }
-                } else {
-                    forceLogout(api)
+                const refreshResult = await rawBaseQuery(
+                    {
+                        url: AUTH_ROUTES.REFRESH,
+                        method: 'POST',
+                        body: { refresh_token: refreshToken },
+                    },
+                    api,
+                    extraOptions
+                )
+
+                if (refreshResult.data) {
+                    const { access_token } = refreshResult.data as { access_token: string }
+                    Cookies.set('access_token', access_token, {
+                        expires: 1,
+                        secure: true,
+                        sameSite: 'strict',
+                    })
+                    return true
                 }
+                return false
+            } catch (err) {
+                return false
             } finally {
-                isRefreshing = false
+                refreshPromise = null
             }
+        })()
+
+        const isRefreshed = await refreshPromise
+        if (isRefreshed) {
+            // Retry the original request for the one that initiated the refresh
+            result = await rawBaseQuery(args, api, extraOptions)
+        } else {
+            // Refresh truly failed — force logout
+            forceLogout(api)
         }
     }
 

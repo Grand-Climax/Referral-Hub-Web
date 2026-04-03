@@ -1,5 +1,5 @@
-import CreateReferral from "@/components/referral/createReferral";
 import React from "react";
+import CreateReferral from "@/components/referral/createReferral";
 
 const Page = () => {
   return (

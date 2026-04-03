@@ -16,7 +16,15 @@ export const REFERRAL_ROUTES = {
     LIST: '/api/v1/referrals',
 } as const;
 
+export const PATIENT_ROUTES = {
+    CREATE: '/api/v1/patients',
+    LOOKUP: '/api/v1/patients/lookup',
+} as const;
+
 export const REFERENCE_ROUTES = {
     HOSPITALS: '/api/v1/reference/hospitals',
+    NETWORKED_HOSPITALS: '/api/v1/reference/networked-hospitals',
     DEPARTMENTS: (hospitalId: string) => `/api/v1/reference/hospitals/${hospitalId}/departments`,
+    LIAISONS: '/api/v1/reference/liaisons',
+    ICD10_CODES: '/api/v1/reference/icd-codes',
 } as const;

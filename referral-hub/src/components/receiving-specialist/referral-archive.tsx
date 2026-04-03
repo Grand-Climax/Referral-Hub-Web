@@ -89,7 +89,7 @@ export function ReferralArchive() {
   };
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto pb-8">
+    <div className="space-y-6 max-w-350 mx-auto pb-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight mb-1">Referral History</h1>
         <p className="text-muted-foreground">Log of past referral decisions and outcomes.</p>

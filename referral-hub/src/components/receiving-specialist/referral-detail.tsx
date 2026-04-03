@@ -46,7 +46,7 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
   const fakeDob = `May 14, ${dobYear}`;
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-6 pb-12">
+    <div className="max-w-350 mx-auto space-y-6 pb-12">
       {/* Top Header Section */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
@@ -186,7 +186,7 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
                 <h3 className="text-sm font-semibold text-foreground mb-2">Relevant Medical History</h3>
                 <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
                   {referral.clinicalHistory ? (
-                    referral.clinicalHistory.split('. ').map((item, idx) => {
+                    referral.clinicalHistory.split('. ').map((item: string, idx: number) => {
                       if (!item) return null;
                       return <li key={idx}>{item.trim()}{item.endsWith('.') ? '' : '.'}</li>;
                     })
@@ -371,7 +371,7 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
               Referral Lifecycle
             </h3>
             
-            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-[11px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-emerald-500 before:via-blue-500 before:to-muted">
+            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-2.75 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-linear-to-b before:from-emerald-500 before:via-blue-500 before:to-muted">
               {/* Step 1 */}
               <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                 <div className="flex items-center justify-center w-6 h-6 rounded-full border-2 border-white bg-emerald-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">

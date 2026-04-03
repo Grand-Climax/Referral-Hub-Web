@@ -98,7 +98,7 @@ export default function Dashboard() {
   const pending = referrals.filter((r) => r.status === "pending").length;
   const accepted = referrals.filter((r) => r.status === "accepted").length;
   const rejected = referrals.filter((r) => r.status === "rejected").length;
-  const scheduled = 18; // Mock value for Today's Scheduled
+  const scheduled = referrals.filter((r) => Boolean(r.appointmentDate)).length;
 
   const counts: Record<string, number> = {
     total,
@@ -162,7 +162,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto">
+    <div className="space-y-6 max-w-350 mx-auto">
       {/* Stat row */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         {statConfig.map((stat) => {

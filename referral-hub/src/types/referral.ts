@@ -17,16 +17,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   moh_analyst: "MoH Analyst",
 };
 
-export type ReferralStatus =
-  | "PENDING"
-  | "RECEIVED"
-  | "SUBMITTED"
-  | "APPROVED"
-  | "REJECTED"
-  | "ACCEPTED"
-  | "REDIRECTED"
-  | "COMPLETED"
-  | "DRAFT";
+export type ReferralStatus = string;
 
 export type SeverityLevel = "critical" | "high" | "medium" | "low";
 
@@ -97,36 +88,8 @@ export interface EmergencyDetail {
 }
 
 export interface Referral {
-  ID: string;
-  PatientID: string;
-  ReferringDoctorID: string;
-  SenderHospitalID: string;
-  TargetHospitalID: string;
-  LiaisonOfficerID?: string | null;
-  TargetDeptID: string;
-  Status: ReferralStatus;
-  ActiveMLPredictionID?: string | null;
-  MLSeverityScore?: number | null;
-  WaitingHoursWeight: number;
-  MLStatus: string;
-  MLRetryCount: number;
-  MLLastError?: string | null;
-  RejectionReason?: string | null;
-  CreatedAt: string;
-  UpdatedAt: string;
-  IdempotencyKey?: string | null;
-  IsArchived: boolean;
-  ArchivedAt?: string | null;
-  IsDeleted: boolean;
-  DeletedAt?: string | null;
-  Patient: Patient;
-  ReferralForm?: ReferralForm | null;
-  Diagnoses: Diagnosis[];
-  Vitals: Vital[];
-  EmergencyDetail?: EmergencyDetail | null;
-  
-  // UI legacy fields (keeping for compatibility during transition if needed)
-  comments?: ReferralComment[];
+  [key: string]: any;
+  severity?: SeverityLevel;
 }
 
 export interface ReferralComment {
@@ -151,7 +114,6 @@ export interface CreateReferralRequest {
   accompanying_person_phone?: string;
   clinical_summary: string;
   condition_at_referral: "STABLE" | "UNSTABLE" | "CRITICAL" | "IMPROVING";
-  date_of_birth: string; // YYYY-MM-DD
   diagnoses: Array<{
     diagnosis_certainty: "SUSPECTED" | "CONFIRMED";
     icd_code: string;
@@ -160,22 +122,15 @@ export interface CreateReferralRequest {
   emergency_detail?: {
     emergency_justification: string;
   };
-  first_name: string;
-  middle_name?: string;
-  last_name: string;
-  home_region: string;
   investigation_results?: string;
   liaison_officer_id?: string;
   medication_on_transfer?: string;
   mode_of_transport: "PRIVATE" | "AMBULANCE" | "HOSPITAL_TRANSFER" | "OTHER";
-  national_id_enc?: string;
-  national_id_hash?: string;
   patient_history: string;
-  phone_number: string;
   physical_examination_findings?: string;
+  patient_id: string;
   reason_for_referral_category: "EMERGENCY" | "ROUTINE";
   reason_of_referral: string;
-  sex: "male" | "female";
   status: "SUBMITTED" | "DRAFT";
   target_dept_id: string;
   target_hospital_id: string;

@@ -26,7 +26,50 @@ export const HOSPITALS = [
   "Ras Desta Hospital",
 ];
 
-export const MOCK_REFERRALS: Referral[] = [
+type LegacyReferralStatus = "pending" | "approved" | "accepted" | "rejected" | "redirected" | "completed";
+
+type LegacyReferral = {
+  id: string;
+  patient: {
+    id: string;
+    fullName: string;
+    age: number;
+    sex: "M" | "F";
+    mrn: string;
+    phone: string;
+  };
+  vitals: {
+    bp: string;
+    heartRate: number;
+    temperature: number;
+    respiratoryRate: number;
+    oxygenSaturation: number;
+  };
+  reasonForReferral: string;
+  clinicalHistory: string;
+  provisionalDiagnosis: string;
+  requiredSpecialty: string;
+  status: LegacyReferralStatus;
+  severity: "critical" | "high" | "medium" | "low";
+  severityScore: number;
+  referringHospital: string;
+  referringDoctor: string;
+  receivingHospital: string;
+  receivingSpecialist?: string;
+  createdAt: string;
+  updatedAt: string;
+  comments: Array<{
+    id: string;
+    author: string;
+    role: string;
+    text: string;
+    createdAt: string;
+  }>;
+  appointmentDate?: string;
+  arrivalConfirmed?: boolean;
+};
+
+const LEGACY_REFERRALS: LegacyReferral[] = [
   {
     id: "REF-001",
     patient: { id: "p1", fullName: "Almaz Gebremedhin", age: 45, sex: "F", mrn: "MRN-10234", phone: "+251911234567" },
@@ -187,3 +230,110 @@ export const MOCK_REFERRALS: Referral[] = [
     comments: [],
   },
 ];
+
+const splitFullName = (fullName: string) => {
+  const parts = fullName.split(" ").filter(Boolean);
+
+  if (parts.length <= 1) {
+    return { firstName: fullName, middleName: null, lastName: fullName };
+  }
+
+  if (parts.length === 2) {
+    return { firstName: parts[0], middleName: null, lastName: parts[1] };
+  }
+
+  return {
+    firstName: parts[0],
+    middleName: parts.slice(1, -1).join(" ") || null,
+    lastName: parts[parts.length - 1],
+  };
+};
+
+const estimateDateOfBirth = (age: number) => {
+  const birthYear = new Date().getFullYear() - age;
+  return new Date(birthYear, 0, 1).toISOString();
+};
+
+const toApiReferral = (referral: LegacyReferral): Referral => {
+  const [systolicText, diastolicText] = referral.vitals.bp.split("/");
+  const systolic = Number(systolicText) || 0;
+  const diastolic = Number(diastolicText) || 0;
+  const { firstName, middleName, lastName } = splitFullName(referral.patient.fullName);
+  const status = referral.status.toUpperCase();
+
+  return {
+    ...referral,
+    ID: referral.id,
+    PatientID: referral.patient.id,
+    ReferringDoctorID: referral.referringDoctor,
+    SenderHospitalID: referral.referringHospital,
+    TargetHospitalID: referral.receivingHospital,
+    TargetDeptID: referral.requiredSpecialty,
+    Status: status,
+    ActiveMLPredictionID: null,
+    MLSeverityScore: referral.severityScore,
+    WaitingHoursWeight: 0,
+    MLStatus: status,
+    MLRetryCount: 0,
+    MLLastError: null,
+    RejectionReason: null,
+    CreatedAt: referral.createdAt,
+    UpdatedAt: referral.updatedAt,
+    IdempotencyKey: null,
+    IsArchived: referral.status === "accepted" || referral.status === "rejected" || referral.status === "redirected" || referral.status === "completed",
+    ArchivedAt: referral.status === "accepted" || referral.status === "rejected" || referral.status === "redirected" || referral.status === "completed" ? referral.updatedAt : null,
+    IsDeleted: false,
+    DeletedAt: null,
+    Patient: {
+      ID: referral.patient.id,
+      NationalIDEnc: null,
+      NationalIDHash: null,
+      PhoneNumber: referral.patient.phone,
+      FirstName: firstName,
+      MiddleName: middleName,
+      LastName: lastName,
+      Sex: referral.patient.sex,
+      DateOfBirth: estimateDateOfBirth(referral.patient.age),
+      HomeRegion: null,
+      IsDeleted: false,
+      DeletedAt: null,
+    },
+    Diagnoses: [
+      {
+        ID: `${referral.id}-dx-1`,
+        ReferralID: referral.id,
+        ICDCode: referral.id,
+        IsPrimary: true,
+        DiagnosisCertainty: "SUSPECTED",
+        CodeInfo: {
+          Code: referral.id,
+          Description: referral.provisionalDiagnosis,
+          Category: referral.requiredSpecialty,
+        },
+      },
+    ],
+    Vitals: [
+      {
+        ID: `${referral.id}-v1`,
+        ReferralID: referral.id,
+        RecordedAt: referral.createdAt,
+        SystolicBP: systolic,
+        DiastolicBP: diastolic,
+        HeartRate: referral.vitals.heartRate,
+        SpO2: referral.vitals.oxygenSaturation,
+        Temperature: referral.vitals.temperature,
+        RespiratoryRate: referral.vitals.respiratoryRate,
+        GCSScore: null,
+      },
+    ],
+    EmergencyDetail: referral.severity === "critical"
+      ? {
+          ID: `${referral.id}-emergency`,
+          ReferralID: referral.id,
+          EmergencyJustification: referral.reasonForReferral,
+        }
+      : null,
+  };
+};
+
+export const MOCK_REFERRALS: Referral[] = LEGACY_REFERRALS.map(toApiReferral);

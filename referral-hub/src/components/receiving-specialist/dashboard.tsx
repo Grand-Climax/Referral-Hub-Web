@@ -1,6 +1,5 @@
-'use client'
-import { useState, useMemo } from "react";
-import { MOCK_REFERRALS } from "@/data/mock";
+"use client";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,19 +20,19 @@ import {
   Filter,
   Download,
   Search,
-  ArrowUpDown
 } from "lucide-react";
 import { ReferralTable } from "@/components/referral/ReferralTable";
-import { Referral } from "@/types/referral";
+import { ReferralListItem } from "@/types/referral-list";
+import { useGetReferralsQuery } from "@/features/specialist/specialistApi";
 import Link from "next/link";
+import { SpecialistDashboardSkeleton } from "@/components/skeletons/SpecialistDashboardSkeleton";
 
 const statConfig = [
   {
     label: "Total Incoming",
     key: "total",
     icon: FileText,
-    accent:
-      "bg-blue-50 text-blue-600 dark:bg-blue-500/20 dark:text-blue-200",
+    accent: "bg-blue-50 text-blue-600 dark:bg-blue-500/20 dark:text-blue-200",
     delta: "+12%",
     trendUp: true,
   },
@@ -41,8 +40,7 @@ const statConfig = [
     label: "High Severity",
     key: "high",
     icon: AlertTriangle,
-    accent:
-      "bg-rose-50 text-rose-600 dark:bg-rose-500/20 dark:text-rose-200",
+    accent: "bg-rose-50 text-rose-600 dark:bg-rose-500/20 dark:text-rose-200",
     delta: "-5%",
     trendUp: false,
   },
@@ -68,8 +66,7 @@ const statConfig = [
     label: "Rejected",
     key: "rejected",
     icon: XCircle,
-    accent:
-      "bg-rose-50 text-rose-600 dark:bg-rose-500/20 dark:text-rose-200",
+    accent: "bg-rose-50 text-rose-600 dark:bg-rose-500/20 dark:text-rose-200",
     delta: "-2%",
     trendUp: false,
   },
@@ -84,21 +81,40 @@ const statConfig = [
   },
 ];
 
-type SortField = "time" | "name" | "specialty" | "status" | "diagnosis" | "priority";
+type SortField =
+  | "time"
+  | "name"
+  | "specialty"
+  | "status"
+  | "diagnosis"
+  | "priority";
 type SortOrder = "asc" | "desc";
+
+// Helper functions removed as they are now handled by the API response structure
 
 export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<SortField>("time");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [page, setPage] = useState(0);
+  const pageSize = 8;
+  const { data: response, isLoading, isError } = useGetReferralsQuery({
+    page: page + 1,
+    page_size: pageSize,
+  });
 
-  const referrals = MOCK_REFERRALS;
-  const total = referrals.length;
-  const high = referrals.filter((r) => r.severity === "critical" || r.severity === "high").length;
-  const pending = referrals.filter((r) => r.status === "pending").length;
-  const accepted = referrals.filter((r) => r.status === "accepted").length;
-  const rejected = referrals.filter((r) => r.status === "rejected").length;
-  const scheduled = referrals.filter((r) => Boolean(r.appointmentDate)).length;
+
+  const referrals = response?.data ?? [];
+  const totalCount = response?.total ?? 0;
+
+  const total = totalCount;
+  const high = referrals.filter(
+    (r) => r.condition_at_referral === "UNSTABLE" || r.condition_at_referral === "CRITICAL",
+  ).length;
+  const pending = referrals.filter((r) => r.status === "PENDING").length;
+  const accepted = referrals.filter((r) => r.status === "ACCEPTED").length;
+  const rejected = referrals.filter((r) => r.status === "REJECTED_BY_SPECIALIST" || r.status === "REJECTED").length;
+  const scheduled = referrals.filter((r) => r.status === "ACCEPTED").length;
 
   const counts: Record<string, number> = {
     total,
@@ -109,48 +125,18 @@ export default function Dashboard() {
     scheduled,
   };
 
-  const filteredAndSortedReferrals = useMemo(() => {
-    let result = [...referrals];
+  const tableData = referrals;
 
-    // Search Filtering
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (ref) =>
-          ref.patient.fullName.toLowerCase().includes(query) ||
-          ref.requiredSpecialty.toLowerCase().includes(query) ||
-          ref.provisionalDiagnosis.toLowerCase().includes(query)
-      );
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery, sortField, sortOrder]);
+
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(tableData.length / pageSize) - 1);
+    if (page > maxPage) {
+      setPage(maxPage);
     }
-
-    // Sorting
-    result.sort((a, b) => {
-      let comparison = 0;
-      switch (sortField) {
-        case "time":
-          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-          break;
-        case "name":
-          comparison = a.patient.fullName.localeCompare(b.patient.fullName);
-          break;
-        case "specialty":
-          comparison = a.requiredSpecialty.localeCompare(b.requiredSpecialty);
-          break;
-        case "status":
-          comparison = a.status.localeCompare(b.status);
-          break;
-        case "diagnosis":
-          comparison = a.provisionalDiagnosis.localeCompare(b.provisionalDiagnosis);
-          break;
-        case "priority":
-          comparison = a.severityScore - b.severityScore;
-          break;
-      }
-      return sortOrder === "asc" ? comparison : -comparison;
-    });
-
-    return result;
-  }, [referrals, searchQuery, sortField, sortOrder]);
+  }, [page, pageSize, tableData.length]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -161,17 +147,26 @@ export default function Dashboard() {
     }
   };
 
+  if (isLoading) {
+    return <SpecialistDashboardSkeleton />;
+  }
+
+  if (isError) {
+    return (
+      <div className="flex items-center justify-center h-[400px]">
+        <p className="text-rose-500 font-semibold text-lg">Failed to load referrals. Please try again later.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 max-w-350 mx-auto">
+    <div className="space-y-6 mx-auto">
       {/* Stat row */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         {statConfig.map((stat) => {
           // In the design, icons are not present in these cards, only numbers, labels and trends.
           return (
-            <Card
-              key={stat.label}
-              className="border bg-card shadow-sm"
-            >
+            <Card key={stat.label} className="border bg-card shadow-sm">
               <CardContent className="p-4 flex flex-col justify-between h-full">
                 <span className="text-xs font-semibold text-muted-foreground mb-2">
                   {stat.label}
@@ -180,7 +175,9 @@ export default function Dashboard() {
                   <p className="text-2xl font-bold tracking-tight text-foreground">
                     {counts[stat.key]}
                   </p>
-                  <div className={`flex items-center text-xs font-semibold ${stat.trendUp ? "text-emerald-500" : "text-rose-500"}`}>
+                  <div
+                    className={`flex items-center text-xs font-semibold ${stat.trendUp ? "text-emerald-500" : "text-rose-500"}`}
+                  >
                     <svg
                       className="w-3 h-3 mr-1"
                       fill="none"
@@ -189,9 +186,19 @@ export default function Dashboard() {
                       xmlns="http://www.w3.org/2000/svg"
                     >
                       {stat.trendUp ? (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={3}
+                          d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                        />
                       ) : (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 17h8m0 0v-8m0 8l-8-8-4 4-6-6" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={3}
+                          d="M13 17h8m0 0v-8m0 8l-8-8-4 4-6-6"
+                        />
                       )}
                     </svg>
                     {stat.delta}
@@ -227,33 +234,49 @@ export default function Dashboard() {
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 gap-2 text-sm font-medium border-border">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 gap-2 text-sm font-medium border-border"
+                >
                   <Filter className="h-4 w-4" />
                   Filter
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleSort('time')}>
-                  Sort by Time {sortField === 'time' && (sortOrder === 'asc' ? '↑' : '↓')}
+                <DropdownMenuItem onClick={() => handleSort("time")}>
+                  Sort by Time{" "}
+                  {sortField === "time" && (sortOrder === "asc" ? "↑" : "↓")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSort('name')}>
-                  Sort by Patient Name {sortField === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
+                <DropdownMenuItem onClick={() => handleSort("name")}>
+                  Sort by Patient Name{" "}
+                  {sortField === "name" && (sortOrder === "asc" ? "↑" : "↓")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSort('specialty')}>
-                  Sort by Specialty {sortField === 'specialty' && (sortOrder === 'asc' ? '↑' : '↓')}
+                <DropdownMenuItem onClick={() => handleSort("specialty")}>
+                  Sort by Specialty{" "}
+                  {sortField === "specialty" &&
+                    (sortOrder === "asc" ? "↑" : "↓")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSort('status')}>
-                  Sort by Status {sortField === 'status' && (sortOrder === 'asc' ? '↑' : '↓')}
+                <DropdownMenuItem onClick={() => handleSort("status")}>
+                  Sort by Status{" "}
+                  {sortField === "status" && (sortOrder === "asc" ? "↑" : "↓")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSort('diagnosis')}>
-                  Sort by Diagnosis {sortField === 'diagnosis' && (sortOrder === 'asc' ? '↑' : '↓')}
+                <DropdownMenuItem onClick={() => handleSort("diagnosis")}>
+                  Sort by Diagnosis{" "}
+                  {sortField === "diagnosis" &&
+                    (sortOrder === "asc" ? "↑" : "↓")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSort('priority')}>
-                  Sort by Priority {sortField === 'priority' && (sortOrder === 'asc' ? '↑' : '↓')}
+                <DropdownMenuItem onClick={() => handleSort("priority")}>
+                  Sort by Priority{" "}
+                  {sortField === "priority" &&
+                    (sortOrder === "asc" ? "↑" : "↓")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button size="sm" className="h-9 gap-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white">
+            <Button
+              size="sm"
+              className="h-9 gap-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white"
+            >
               <Download className="h-4 w-4" />
               Export
             </Button>
@@ -261,7 +284,12 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent className="p-0">
           <ReferralTable
-            referrals={filteredAndSortedReferrals}
+            data={referrals}
+            total={totalCount}
+            page={page}
+            onPageChange={setPage}
+            pageSize={pageSize}
+            detailHrefPrefix="/receiving-specialist"
             actionSlot={(ref) => (
               <Link href={`/receiving-specialist/${ref.id}`}>
                 <Button
@@ -276,17 +304,6 @@ export default function Dashboard() {
               </Link>
             )}
           />
-          <div className="p-4 border-t border-border flex items-center justify-between text-sm text-muted-foreground">
-            <span>Showing {Math.min(5, filteredAndSortedReferrals.length)} of {filteredAndSortedReferrals.length} referrals</span>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="h-8">
-                Previous
-              </Button>
-              <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700 text-white px-4">
-                Next
-              </Button>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>

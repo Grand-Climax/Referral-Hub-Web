@@ -12,15 +12,15 @@ interface ReferralsTableProps {
 export function ReferralsTable({ statusFilter = "all", title, description }: ReferralsTableProps) {
   const { data: response, isLoading } = useGetReferralsQuery();
   const allReferrals = response?.data || [];
-  
+  console.log("allReferrals", allReferrals);
   let data = allReferrals;
   
   if (statusFilter === "approved") {
     data = allReferrals.filter(
-      (r) => r.Status === "APPROVED" || r.Status === "ACCEPTED" || r.Status === "COMPLETED"
+      (r) => r.status === "ACCEPTED" || r.status === "COMPLETED"
     );
   } else if (statusFilter === "rejected") {
-    data = allReferrals.filter((r) => r.Status === "REJECTED");
+    data = allReferrals.filter((r) => r.status === "REJECTED");
   }
 
   return (

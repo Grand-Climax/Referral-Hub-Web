@@ -37,11 +37,11 @@ export function HospitalProfileCard({ hospitalId }: { hospitalId: string }) {
     <div className="space-y-4">
       <div className="space-y-1">
         <h4 className="text-base font-bold text-foreground flex items-center gap-2">
-          <Building2 className="h-4 w-4 text-blue-600" />
+          <Building2 className="h-4 w-4 text-primary" />
           {hospitalName}
         </h4>
         <div className="flex items-center gap-2 mt-1.5">
-          <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-blue-200 text-blue-600 bg-blue-50/50 font-bold uppercase">
+          <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-primary/20 text-primary bg-primary/5 font-bold uppercase">
             {tierLevel}
           </Badge>
           <span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -51,9 +51,9 @@ export function HospitalProfileCard({ hospitalId }: { hospitalId: string }) {
         </div>
       </div>
 
-      <div className="space-y-2.5 border-t border-slate-100 pt-4">
+      <div className="space-y-2.5 border-t border-border pt-4">
          <div className="flex items-center gap-2.5 text-sm text-muted-foreground hover:text-foreground transition-colors group">
-          <div className="p-1.5 rounded-md bg-slate-50 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+          <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
             <Phone className="h-3.5 w-3.5" />
           </div>
           <span>{contactPhone}</span>

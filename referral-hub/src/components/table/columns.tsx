@@ -25,7 +25,32 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import type { ReferralPatient } from "@/types/referral";
 import { Referral } from "@/types/referral";
+import { ReferralListItem } from "@/types/referral-list";
+import { SpecialistReferralListItem } from "@/types/specialist";
+
+type ReferralRow = Referral | ReferralListItem | SpecialistReferralListItem;
+
+function getReferralRowId(row: ReferralRow): string {
+  const r = row as any;
+  const id = r.ID ?? r.id;
+  return typeof id === "string" ? id : "";
+}
+
+function getReferralRowPatient(
+  row: ReferralRow
+): ReferralPatient | { first_name: string; last_name: string } | undefined {
+  if (row && 'patient_first_name' in row) {
+    return {
+      first_name: row.patient_first_name,
+      last_name: row.patient_last_name,
+    } as any;
+  }
+  const r = row as any;
+  const p = r?.Patient ?? r?.patient;
+  return p as ReferralPatient | undefined;
+}
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -57,7 +82,7 @@ const getPriorityIcon = (severity: string) => {
   }
 };
 
-export const columns: ColumnDef<Referral>[] = [
+export const columns: ColumnDef<ReferralRow>[] = [
   {
     id: "select",
     header: ({ table }) => (
@@ -83,19 +108,20 @@ export const columns: ColumnDef<Referral>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: "ID",
-    header: "Task",
+    accessorKey: "icd_code",
+    header: "ICD Code",
     cell: ({ row, table }) => {
       const getRowHref = (table.options.meta as any)?.getRowHref;
-      const id = row.getValue("ID") as string;
+      const icdCode = row.getValue("icd_code") as string;
+      const id = (row.original as any).id || (row.original as any).ID;
       
       const content = (
         <span className="block w-[70px] truncate font-mono text-[10px]">
-          {id}
+          {icdCode}
         </span>
       );
 
-      if (getRowHref) {
+      if (getRowHref && id) {
         return (
           <Link 
             href={getRowHref(id)} 
@@ -109,10 +135,10 @@ export const columns: ColumnDef<Referral>[] = [
     },
   },
   {
-    accessorKey: "TargetDeptID",
-    header: "Label",
+    accessorKey: "target_dept_id",
+    header: "Department",
     cell: ({ row }) => {
-      const specialty = row.getValue("TargetDeptID") as string;
+      const specialty = (row.getValue("target_dept_id") as string) || (row.original as any).department;
       return (
         <Badge variant="outline" className="font-medium text-[10px] uppercase tracking-wider px-2 py-0 h-5 bg-muted/50 border-muted-foreground/20 max-w-[100px] truncate block text-center">
           {specialty || "General"}
@@ -129,22 +155,24 @@ export const columns: ColumnDef<Referral>[] = [
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className="-ml-4 h-8 data-[state=open]:bg-accent"
         >
-          Title
+          Patient & Diagnosis
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       )
     },
     cell: ({ row, table }) => {
       const getRowHref = (table.options.meta as any)?.getRowHref;
-      const id = row.original.ID;
-      const patient = row.original.Patient;
-      const primaryDiagnosis = row.original.Diagnoses?.find(d => d.IsPrimary)?.CodeInfo.Description 
-        || row.original.Diagnoses?.[0]?.CodeInfo.Description 
+      const id = getReferralRowId(row.original);
+      const patient = getReferralRowPatient(row.original);
+      const original = row.original as any;
+      const primaryDiagnosis = original.diagnosis 
+        || original.diagnoses?.find((d: any) => d.is_primary)?.code_info.description 
+        || (Array.isArray(original.diagnoses) ? original.diagnoses[0]?.code_info.description : undefined)
         || "No Diagnosis";
 
       const content = (
         <span className="max-w-[250px] lg:max-w-[400px] truncate font-medium block">
-          {patient?.FirstName} {patient?.LastName} — {primaryDiagnosis}
+          {patient?.first_name} {patient?.last_name} — {primaryDiagnosis}
         </span>
       );
 
@@ -163,14 +191,15 @@ export const columns: ColumnDef<Referral>[] = [
       );
     },
     filterFn: (row, id, value) => {
-      const patient = row.original.Patient;
-      const primaryDiagnosis = row.original.Diagnoses?.find(d => d.IsPrimary)?.CodeInfo.Description || "";
-      const searchStr = `${patient?.FirstName} ${patient?.LastName} ${primaryDiagnosis}`.toLowerCase();
+      const patient = getReferralRowPatient(row.original);
+      const original = row.original as any;
+      const primaryDiagnosis = original.diagnosis || original.diagnoses?.find((d: any) => d.is_primary)?.code_info.description || "";
+      const searchStr = `${patient?.first_name} ${patient?.last_name} ${primaryDiagnosis}`.toLowerCase();
       return searchStr.includes(String(value).toLowerCase());
     },
   },
   {
-    accessorKey: "Status",
+    accessorKey: "status",
     header: ({ column }) => {
       return (
         <Button
@@ -184,7 +213,7 @@ export const columns: ColumnDef<Referral>[] = [
       )
     },
     cell: ({ row }) => {
-      const status = (row.getValue("Status") as string || "").toLowerCase();
+      const status = (row.getValue("status") as string || "").toLowerCase();
       return (
         <div className="flex w-[90px] items-center">
           {getStatusIcon(status)}
@@ -194,7 +223,7 @@ export const columns: ColumnDef<Referral>[] = [
     },
   },
   {
-    accessorKey: "MLSeverityScore",
+    accessorKey: "severity",
     header: ({ column }) => {
       return (
         <Button
@@ -208,8 +237,8 @@ export const columns: ColumnDef<Referral>[] = [
       )
     },
     cell: ({ row }) => {
-      const score = row.getValue("MLSeverityScore") as number;
-      const severity = score > 80 ? "critical" : score > 60 ? "high" : score > 30 ? "medium" : "low";
+      const severityStr = (row.getValue("severity") as string) || (row.original as any).condition_at_referral;
+      const severity = severityStr ? severityStr.toLowerCase() : "low";
       return (
         <div className="flex items-center w-[80px]">
           {getPriorityIcon(severity)}
@@ -223,7 +252,7 @@ export const columns: ColumnDef<Referral>[] = [
     enableHiding: false,
     cell: ({ row, table }) => {
       const getRowHref = (table.options.meta as any)?.getRowHref;
-      const id = row.original.ID;
+      const id = getReferralRowId(row.original);
 
       return (
         <DropdownMenu>

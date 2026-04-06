@@ -12,13 +12,19 @@ export const HOSPITAL_ROUTES = {
 } as const;
 
 export const REFERRAL_ROUTES = {
-    CREATE: '/api/v1/referrals',
-    LIST: '/api/v1/referrals',
+    CREATE: '/api/v1/doctor/referrals',
+    LIST: '/api/v1/doctor/referrals',
+    GET_BY_ID: (id: string) => `/api/v1/doctor/referrals/${id}`,
 } as const;
 
 export const PATIENT_ROUTES = {
     CREATE: '/api/v1/patients',
     LOOKUP: '/api/v1/patients/lookup',
+} as const;
+
+export const DEPARTMENT_ROUTES = {
+    LIST: '/api/v1/departments',
+    GET_BY_ID: (id: string) => `/api/v1/departments/${id}`,
 } as const;
 
 export const REFERENCE_ROUTES = {
@@ -27,4 +33,16 @@ export const REFERENCE_ROUTES = {
     DEPARTMENTS: (hospitalId: string) => `/api/v1/reference/hospitals/${hospitalId}/departments`,
     LIAISONS: '/api/v1/reference/liaisons',
     ICD10_CODES: '/api/v1/reference/icd-codes',
+} as const;
+
+export const LIAISON_ROUTES = {
+    LIST: '/api/v1/liaison/referrals/',
+    GET_BY_ID: (id: string) => `/api/v1/liaison/referrals/${id}`,
+} as const;
+
+export const SPECIALIST_ROUTES = {
+    LIST: '/api/v1/specialist/referrals',
+    GET_BY_ID: (id: string) => `/api/v1/specialist/referrals/${id}`,
+    ACCEPT: (id: string) => `/api/v1/specialist/referrals/${id}/accept`,
+    REJECT: (id: string) => `/api/v1/specialist/referrals/${id}/reject`,
 } as const;

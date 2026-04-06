@@ -7,12 +7,12 @@ const ROLE_ROUTE_MAP: Record<string, string> = {
   "referring-admin": "REFERRING_ADMIN",
   "referring-doctor": "REFERRING_DOCTOR",
   "liaison-officer": "LIAISON_OFFICER",
-  "recieving-admin": "RECEIVING_ADMIN",
+  "receiving-admin": "RECEIVING_ADMIN",
   "receiving-specialist": "RECEIVING_SPECIALIST",
   "receptionist": "RECEPTIONIST",
 };
 
-export function proxy(req: NextRequest) {
+export function middleware(req: NextRequest) {
   const token = req.cookies.get("access_token")?.value;
   const path = req.nextUrl.pathname;
 
@@ -33,6 +33,11 @@ export function proxy(req: NextRequest) {
   );
 
   if (protectedRoutePrefix) {
+    // If no token is present, redirect to login
+    if (!token) {
+        return NextResponse.redirect(new URL("/login", req.url));
+    }
+
     const requiredRole = ROLE_ROUTE_MAP[protectedRoutePrefix];
 
     if (role !== requiredRole) {
@@ -48,7 +53,7 @@ export const config = {
     "/referring-admin/:path*",
     "/referring-doctor/:path*",
     "/liaison-officer/:path*",
-    "/recieving-admin/:path*",
+    "/receiving-admin/:path*",
     "/receiving-specialist/:path*",
     "/receptionist/:path*",
     "/admin/:path*",

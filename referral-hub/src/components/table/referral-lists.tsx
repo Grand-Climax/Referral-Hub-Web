@@ -27,9 +27,11 @@ import { DataTablePagination } from "./data-table-pagination";
 import { DataTableToolbar } from "./data-table-toolbar";
 
 import { Referral } from "@/types/referral";
+import { ReferralListItem } from "@/types/referral-list";
+import { SpecialistReferralListItem } from "@/types/specialist";
 
 interface ReferralListsProps {
-  data?: Referral[];
+  data?: (Referral | ReferralListItem | SpecialistReferralListItem)[];
   isLoading?: boolean;
   getRowHref?: (id: string) => string;
 }

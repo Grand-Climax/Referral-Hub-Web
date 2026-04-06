@@ -8,6 +8,9 @@ import { patientsApi } from "@/features/patients/patientsApi";
 import { icdApi } from "@/features/reference/icdApi";
 import { liaisonsApi } from "@/features/reference/liaisonsApi";
 import { networkedHospitalsApi } from "@/features/reference/networkedHospitalsApi";
+import { departmentApi } from "@/features/department/department";
+import { specialistApi } from "@/features/specialist/specialistApi";
+
 
 export const makeStore = () => {
   return configureStore({
@@ -21,6 +24,9 @@ export const makeStore = () => {
       [icdApi.reducerPath]: icdApi.reducer,
       [liaisonsApi.reducerPath]: liaisonsApi.reducer,
       [networkedHospitalsApi.reducerPath]: networkedHospitalsApi.reducer,
+      [departmentApi.reducerPath]: departmentApi.reducer,
+      [specialistApi.reducerPath]: specialistApi.reducer,
+
     },
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware().concat(
@@ -31,7 +37,10 @@ export const makeStore = () => {
         patientsApi.middleware,
         icdApi.middleware,
         liaisonsApi.middleware,
-        networkedHospitalsApi.middleware
+        networkedHospitalsApi.middleware,
+        departmentApi.middleware,
+        specialistApi.middleware
+
       ),
   });
 };

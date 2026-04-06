@@ -1,6 +1,6 @@
 export type ICDCode = {
-  Code: string;
-  Description: string;
-  Category: string;
+  code: string;
+  description: string;
+  category: string;
 };
 

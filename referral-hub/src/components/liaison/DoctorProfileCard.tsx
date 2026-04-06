@@ -38,30 +38,30 @@ export function DoctorProfileCard({ userId }: { userId: string }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <Avatar className="h-12 w-12 border-2 border-blue-100 shadow-sm">
-          <AvatarFallback className="bg-blue-600 text-white font-bold text-lg">
+        < Avatar className="h-12 w-12 border-2 border-primary/20 shadow-sm">
+          <AvatarFallback className="bg-primary text-primary-foreground font-bold text-lg">
             {user.first_name?.[0]}{user.last_name?.[0]}
           </AvatarFallback>
         </Avatar>
         <div>
           <p className="text-base font-bold text-foreground">Dr. {user.first_name} {user.last_name}</p>
           <div className="flex items-center gap-1.5 mt-0.5">
-             <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-50 text-[10px] py-0 px-1.5 leading-tight font-bold uppercase">
+             <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 text-[10px] py-0 px-1.5 leading-tight font-bold uppercase">
                {user.role?.replace('_', ' ')}
              </Badge>
           </div>
         </div>
       </div>
       
-      <div className="space-y-2.5 border-t border-slate-100 pt-4">
+      <div className="space-y-2.5 border-t border-border pt-4">
         <div className="flex items-center gap-2.5 text-sm text-muted-foreground hover:text-foreground transition-colors group">
-          <div className="p-1.5 rounded-md bg-slate-50 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+          <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
             <Mail className="h-3.5 w-3.5" />
           </div>
           <span className="truncate">{user.email}</span>
         </div>
         <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
-          <div className="p-1.5 rounded-md bg-slate-50">
+          <div className="p-1.5 rounded-md bg-muted/50">
             <ShieldCheck className="h-3.5 w-3.5" />
           </div>
           <span>ID Verfied</span>

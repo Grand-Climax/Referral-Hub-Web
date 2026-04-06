@@ -380,13 +380,13 @@ const CreateReferral = () => {
 
       // patient_id is already validated above
 
-      console.log("Submitting referral payload:", JSON.stringify(payload, null, 2));
+      // console.log("Submitting referral payload:", JSON.stringify(payload, null, 2));
       await createReferral(payload).unwrap();
 
       toast.success("Referral submitted successfully!", {
         description: "Your referral has been sent for admin approval.",
       });
-      router.push("/referrals");
+      router.push("/referring-doctor");
     } catch (err: any) {
       console.error("Referral creation failed:", err);
       toast.error(err.data?.message || "Failed to submit referral. Please try again.");
@@ -740,11 +740,9 @@ const CreateReferral = () => {
                               <SelectValue placeholder={idx === 0 ? "Select primary ICD-10 code" : "Select ICD-10 code"} />
                             </SelectTrigger>
                             <SelectContent className="max-h-64">
-                              {icdCodes
-                                ?.filter((code) => Boolean(code?.Code))
-                                .map((code, codeIdx) => (
-                                  <SelectItem key={`${code.Code}-${codeIdx}`} value={code.Code}>
-                                    {code.Code} — {code.Description}
+                              {icdCodes.map((code, codeIdx) => (
+                                  <SelectItem key={`${code.code}-${codeIdx}`} value={code.code}>
+                                    {code.code} — {code.description}
                                   </SelectItem>
                                 ))}
                             </SelectContent>
@@ -1018,8 +1016,8 @@ const CreateReferral = () => {
                           </div>
                         ) : departmentsList.length > 0 ? (
                           departmentsList.map((d, dIdx) => (
-                            <SelectItem key={`${d.ID}-${dIdx}`} value={d.ID}>
-                              {d.Name}
+                            <SelectItem key={`${d.id}-${dIdx}`} value={d.id}>
+                              {d.name}
                             </SelectItem>
                           ))
                         ) : (
@@ -1098,7 +1096,7 @@ const CreateReferral = () => {
 
                     <span className="text-muted-foreground">Department:</span>
                     <span className="font-medium">
-                      {departmentsList.find(d => d.ID === referralData.target_dept_id)?.Name || "Not selected"}
+                      {departmentsList.find(d => d.id === referralData.target_dept_id)?.name || "Not selected"}
                     </span>
 
                     <span className="text-muted-foreground">Diagnoses:</span>

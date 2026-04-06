@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MOCK_REFERRALS } from "@/data/mock";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,27 +11,73 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Eye,
-  Filter,
-  Download,
-  Search,
-} from "lucide-react";
+import { Eye, Filter, Download, Search } from "lucide-react";
 import { ReferralTable } from "@/components/referral/ReferralTable";
 import Link from "next/link";
 import { Referral } from "@/types/referral";
+import { ReferralListItem } from "@/types/referral-list";
 
-type SortField = "time" | "name" | "specialty" | "status" | "diagnosis" | "priority";
+type SortField =
+  | "time"
+  | "name"
+  | "specialty"
+  | "status"
+  | "diagnosis"
+  | "priority";
 type SortOrder = "asc" | "desc";
+
+const severityScoreMap: Record<NonNullable<Referral["severity"]>, number> = {
+  critical: 95,
+  high: 75,
+  medium: 55,
+  low: 35,
+};
+
+const getPatientFullName = (ref: Referral) => {
+  const first = ref.patient?.first_name ?? "";
+  const middle = ref.patient?.middle_name ?? "";
+  const last = ref.patient?.last_name ?? "";
+  return [first, middle, last].filter(Boolean).join(" ").trim();
+};
+
+const getDiagnosis = (ref: Referral) => {
+  const primaryDiagnosis =
+    ref.diagnoses?.find((dx) => dx.is_primary) ?? ref.diagnoses?.[0];
+  return primaryDiagnosis?.code_info?.description ?? "Unspecified Diagnosis";
+};
+
+const getPriorityScore = (ref: Referral) => {
+  if (!ref.severity) {
+    return 0;
+  }
+  return severityScoreMap[ref.severity];
+};
+
+const toListItem = (ref: Referral): ReferralListItem => ({
+  id: ref.id,
+  status: ref.status,
+  date: ref.created_at,
+  department: ref.target_dept_id,
+  condition_at_referral: ref.referral_form?.condition_at_referral ?? "STABLE",
+  diagnosis: getDiagnosis(ref),
+  icd_code: ref.diagnoses?.[0]?.icd_code ?? "N/A",
+  patient_first_name: ref.patient?.first_name ?? "Unknown",
+  patient_middle_name: ref.patient?.middle_name ?? "",
+  patient_last_name: ref.patient?.last_name ?? "Patient",
+});
 
 export function TriageQueue() {
   const [searchQuery, setSearchQuery] = useState("");
   // Triage queue defaults to priority sort descending (highest score first)
   const [sortField, setSortField] = useState<SortField>("priority");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [page, setPage] = useState(0);
+  const pageSize = 8;
 
   // Only show pending or redirected requests in active triage queue
-  const referrals = MOCK_REFERRALS.filter(r => r.status === 'pending' || r.status === 'redirected');
+  const referrals = MOCK_REFERRALS.filter(
+    (r) => r.status === "PENDING" || r.status === "SUBMITTED",
+  );
 
   const filteredAndSortedReferrals = useMemo(() => {
     let result = [...referrals];
@@ -41,10 +87,10 @@ export function TriageQueue() {
       const query = searchQuery.toLowerCase();
       result = result.filter(
         (ref) =>
-          ref.patient.fullName.toLowerCase().includes(query) ||
-          ref.requiredSpecialty.toLowerCase().includes(query) ||
-          ref.provisionalDiagnosis.toLowerCase().includes(query) ||
-          ref.referringHospital.toLowerCase().includes(query)
+          getPatientFullName(ref).toLowerCase().includes(query) ||
+          ref.target_dept_id.toLowerCase().includes(query) ||
+          getDiagnosis(ref).toLowerCase().includes(query) ||
+          ref.sender_hospital_id.toLowerCase().includes(query),
       );
     }
 
@@ -53,22 +99,25 @@ export function TriageQueue() {
       let comparison = 0;
       switch (sortField) {
         case "time":
-          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          comparison =
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
           break;
         case "name":
-          comparison = a.patient.fullName.localeCompare(b.patient.fullName);
+          comparison = getPatientFullName(a).localeCompare(
+            getPatientFullName(b),
+          );
           break;
         case "specialty":
-          comparison = a.requiredSpecialty.localeCompare(b.requiredSpecialty);
+          comparison = a.target_dept_id.localeCompare(b.target_dept_id);
           break;
         case "status":
           comparison = a.status.localeCompare(b.status);
           break;
         case "diagnosis":
-          comparison = a.provisionalDiagnosis.localeCompare(b.provisionalDiagnosis);
+          comparison = getDiagnosis(a).localeCompare(getDiagnosis(b));
           break;
         case "priority":
-          comparison = a.severityScore - b.severityScore;
+          comparison = getPriorityScore(a) - getPriorityScore(b);
           break;
       }
       return sortOrder === "asc" ? comparison : -comparison;
@@ -76,6 +125,26 @@ export function TriageQueue() {
 
     return result;
   }, [referrals, searchQuery, sortField, sortOrder]);
+
+  const tableData = useMemo(
+    () => filteredAndSortedReferrals.map(toListItem),
+    [filteredAndSortedReferrals],
+  );
+  const pagedData = useMemo(() => {
+    const start = page * pageSize;
+    return tableData.slice(start, start + pageSize);
+  }, [page, pageSize, tableData]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery, sortField, sortOrder]);
+
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(tableData.length / pageSize) - 1);
+    if (page > maxPage) {
+      setPage(maxPage);
+    }
+  }, [page, pageSize, tableData.length]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -90,7 +159,9 @@ export function TriageQueue() {
     <div className="space-y-6 max-w-350 mx-auto pb-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight mb-1">Triage Queue</h1>
-        <p className="text-muted-foreground">Manage and prioritize incoming patient referrals.</p>
+        <p className="text-muted-foreground">
+          Manage and prioritize incoming patient referrals.
+        </p>
       </div>
 
       <Card className="border bg-card shadow-sm">
@@ -116,30 +187,48 @@ export function TriageQueue() {
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 gap-2 text-sm font-medium border-border">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 gap-2 text-sm font-medium border-border"
+                >
                   <Filter className="h-4 w-4" />
                   Filter / Sort
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => handleSort('priority')} className="font-medium">
-                  Sort by Priority {sortField === 'priority' && (sortOrder === 'asc' ? '↑' : '↓')}
+                <DropdownMenuItem
+                  onClick={() => handleSort("priority")}
+                  className="font-medium"
+                >
+                  Sort by Priority{" "}
+                  {sortField === "priority" &&
+                    (sortOrder === "asc" ? "↑" : "↓")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSort('time')}>
-                  Sort by Time {sortField === 'time' && (sortOrder === 'asc' ? '↑' : '↓')}
+                <DropdownMenuItem onClick={() => handleSort("time")}>
+                  Sort by Time{" "}
+                  {sortField === "time" && (sortOrder === "asc" ? "↑" : "↓")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSort('name')}>
-                  Sort by Patient Name {sortField === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
+                <DropdownMenuItem onClick={() => handleSort("name")}>
+                  Sort by Patient Name{" "}
+                  {sortField === "name" && (sortOrder === "asc" ? "↑" : "↓")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSort('specialty')}>
-                  Sort by Specialty {sortField === 'specialty' && (sortOrder === 'asc' ? '↑' : '↓')}
+                <DropdownMenuItem onClick={() => handleSort("specialty")}>
+                  Sort by Specialty{" "}
+                  {sortField === "specialty" &&
+                    (sortOrder === "asc" ? "↑" : "↓")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSort('diagnosis')}>
-                  Sort by Diagnosis {sortField === 'diagnosis' && (sortOrder === 'asc' ? '↑' : '↓')}
+                <DropdownMenuItem onClick={() => handleSort("diagnosis")}>
+                  Sort by Diagnosis{" "}
+                  {sortField === "diagnosis" &&
+                    (sortOrder === "asc" ? "↑" : "↓")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button size="sm" className="h-9 gap-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white">
+            <Button
+              size="sm"
+              className="h-9 gap-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white"
+            >
               <Download className="h-4 w-4" />
               Export
             </Button>
@@ -147,7 +236,12 @@ export function TriageQueue() {
         </CardHeader>
         <CardContent className="p-0">
           <ReferralTable
-            referrals={filteredAndSortedReferrals}
+            data={pagedData}
+            total={tableData.length}
+            page={page}
+            onPageChange={setPage}
+            pageSize={pageSize}
+            detailHrefPrefix="/receiving-specialist"
             actionSlot={(ref) => (
               <Link href={`/receiving-specialist/${ref.id}`}>
                 <Button
@@ -163,19 +257,6 @@ export function TriageQueue() {
               </Link>
             )}
           />
-          {filteredAndSortedReferrals.length > 0 && (
-            <div className="p-4 border-t border-border flex items-center justify-between text-sm text-muted-foreground">
-              <span>Showing {filteredAndSortedReferrals.length} referrals</span>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="h-8" disabled>
-                  Previous
-                </Button>
-                <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700 text-white px-4" disabled>
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>

@@ -89,7 +89,7 @@ function forceLogout(api: any) {
     Cookies.remove('refresh_token')
     api.dispatch(logout())
     // Redirect to sign-in on the client side
-    if (typeof window !== 'undefined') {
-        window.location.href = '/login'
-    }
+    // if (typeof window !== 'undefined') {
+    //     window.location.href = '/login'
+    // }
 }

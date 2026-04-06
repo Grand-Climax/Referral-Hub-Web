@@ -13,6 +13,6 @@ export interface Hospital {
 }
 
 export interface Department {
-  ID: string;
-  Name: string;
+  id: string;
+  name: string;
 }

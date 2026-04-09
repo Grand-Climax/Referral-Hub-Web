@@ -15,6 +15,7 @@ export const REFERRAL_ROUTES = {
     CREATE: '/api/v1/doctor/referrals',
     LIST: '/api/v1/doctor/referrals',
     GET_BY_ID: (id: string) => `/api/v1/doctor/referrals/${id}`,
+    RESUBMIT: (id: string) => `/api/v1/doctor/referrals/${id}/submit`,
 } as const;
 
 export const PATIENT_ROUTES = {
@@ -38,6 +39,10 @@ export const REFERENCE_ROUTES = {
 export const LIAISON_ROUTES = {
     LIST: '/api/v1/liaison/referrals/',
     GET_BY_ID: (id: string) => `/api/v1/liaison/referrals/${id}`,
+    FORWARD: (id: string) => `/api/v1/liaison/referrals/${id}/forward`,
+    READ: (id: string) => `/api/v1/liaison/referrals/${id}/read`,
+    REJECT: (id: string) => `/api/v1/liaison/referrals/${id}/reject`,
+    REVISE: (id: string) => `/api/v1/liaison/referrals/${id}/revise`,
 } as const;
 
 export const SPECIALIST_ROUTES = {

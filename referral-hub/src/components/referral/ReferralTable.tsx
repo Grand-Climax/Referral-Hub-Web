@@ -17,7 +17,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, ChevronRight, FileText } from "lucide-react";
 import { useGetDepartmentByIdQuery } from "@/features/department/department";
 import { ReferralListItem } from "@/types/referral-list";
-import { SpecialistReferralListItem } from "@/types/specialist";
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 const STATUS_STYLES: Record<string, string> = {
@@ -80,7 +79,7 @@ function RowSkeleton() {
 // ── Main component ────────────────────────────────────────────────────────────
 interface ReferralTableProps {
   /** Referral data to display */
-  data?: (ReferralListItem | SpecialistReferralListItem)[];
+  data?: ReferralListItem[];
   /** Total count of records (for pagination) */
   total?: number;
   /** Initial loading state */
@@ -94,13 +93,13 @@ interface ReferralTableProps {
   /** Override the page size (default 8) */
   pageSize?: number;
   /** Extra action column rendered per row */
-  actionSlot?: (row: ReferralListItem | SpecialistReferralListItem) => React.ReactNode;
+  actionSlot?: (row: ReferralListItem ) => React.ReactNode;
   /** Link structure for the detail page. Defaults to doctor dashboard path. */
   detailHrefPrefix?: string;
 }
 
 export function ReferralTable({ 
-  data = [],
+  data = [] as ReferralListItem[],
   total = 0,
   isLoading = false,
   isFetching = false,
@@ -168,8 +167,8 @@ export function ReferralTable({
                   const fullName = [ref.patient_first_name, ref.patient_middle_name, ref.patient_last_name]
                     .filter(Boolean).join(" ");
                   const shortId  = ref.id?.slice(0, 8) ?? "—";
-                  const dateStr  = ref.date
-                    ? formatDistanceToNow(new Date(ref.date), { addSuffix: true })
+                  const dateStr  = ref.created_at
+                    ? formatDistanceToNow(new Date(ref.created_at), { addSuffix: true })
                     : "—";
 
                   return (

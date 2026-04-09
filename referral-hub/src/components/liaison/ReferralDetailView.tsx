@@ -1,4 +1,5 @@
-'use client'
+"use client";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,24 +34,67 @@ import {
 } from "@/components/ui/popover";
 import { DoctorProfileCard } from "./DoctorProfileCard";
 import { HospitalProfileCard } from "./HospitalProfileCard";
-import { useGetReferralByIdQuery } from "@/features/liaison/liaisonApi";
+import { ReferralActionPanel } from "./ReferralActionPanel";
+import { ReasonActionSheet } from "./ReasonActionSheet";
+import {
+  useGetReferralByIdQuery,
+  useReadReferralMutation,
+  useForwardReferralMutation,
+  useRejectReferralMutation,
+  useReviseReferralMutation,
+} from "@/features/liaison/liaisonApi";
 
 interface ReferralDetailViewProps {
   referral_id: string;
 }
 
 export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
+  type ReasonAction = "reject" | "return" | null;
+
   const router = useRouter();
-  const { data: referral, isLoading, isError, error } = useGetReferralByIdQuery(referral_id);
-  console.log("referral", referral);
-  const { data: doctor } = useGetUserByIdQuery(referral?.referring_doctor_id || "");
-  const { data: hospital } = useGetHospitalByIdQuery(referral?.sender_hospital_id || ""); 
+  const {
+    data: referral,
+    isLoading,
+    isError,
+    error,
+  } = useGetReferralByIdQuery(referral_id);
+
+  const [readReferral] = useReadReferralMutation();
+  const [forwardReferral, { isLoading: isForwarding }] =
+    useForwardReferralMutation();
+  const [rejectReferral, { isLoading: isRejecting }] =
+    useRejectReferralMutation();
+  const [reviseReferral, { isLoading: isRevising }] =
+    useReviseReferralMutation();
+  const [statusOverride, setStatusOverride] = useState<string | null>(null);
+  const [reasonAction, setReasonAction] = useState<ReasonAction>(null);
+  const [reasonText, setReasonText] = useState("");
+
+  const hasReadRef = useRef(false);
+
+  useEffect(() => {
+    if (referral && !hasReadRef.current) {
+      hasReadRef.current = true;
+      readReferral(referral_id).catch((err) =>
+        console.error("Failed to mark as read", err),
+      );
+    }
+  }, [referral, referral_id, readReferral]);
+
+  const { data: doctor } = useGetUserByIdQuery(
+    referral?.referring_doctor_id || "",
+  );
+  const { data: hospital } = useGetHospitalByIdQuery(
+    referral?.sender_hospital_id || "",
+  );
 
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="text-muted-foreground font-medium">Fetching referral details...</p>
+        <p className="text-muted-foreground font-medium">
+          Fetching referral details...
+        </p>
       </div>
     );
   }
@@ -59,12 +103,16 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4 p-4 text-center">
         <XCircle className="h-12 w-12 text-destructive mb-2" />
-        <h2 className="text-xl font-bold text-foreground">Failed to Load Referral</h2>
+        <h2 className="text-xl font-bold text-foreground">
+          Failed to Load Referral
+        </h2>
         <p className="text-muted-foreground max-w-md">
-          {error && "message" in error ? String(error.message) : "The referral case could not be retrieved. It may have been deleted or you may not have permission to view it."}
+          {error && "message" in error
+            ? String(error.message)
+            : "The referral case could not be retrieved. It may have been deleted or you may not have permission to view it."}
         </p>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           onClick={() => router.back()}
           className="mt-4"
         >
@@ -79,7 +127,71 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
   const doctorLabel = doctor
     ? `Dr. ${doctor.first_name} ${doctor.last_name}`
     : referral.referring_doctor_id;
+  const effectiveStatus = statusOverride ?? referral.status;
+  const canTakeAction = effectiveStatus === "UNDER_LIAISON_REVIEW";
 
+  const handleApprove = async () => {
+    try {
+      const updated = await forwardReferral({ id: referral_id }).unwrap();
+      const nextStatus =
+        updated && typeof updated === "object" && "status" in updated
+          ? String(updated.status)
+          : "ACCEPTED";
+      setStatusOverride(nextStatus);
+    } catch (err) {
+      console.error("Failed to approve referral", err);
+    }
+  };
+
+  const handleReject = async () => {
+    try {
+      const updated = await rejectReferral({
+        id: referral_id,
+        reason: reasonText.trim(),
+      }).unwrap();
+      const nextStatus =
+        updated && typeof updated === "object" && "status" in updated
+          ? String(updated.status)
+          : "REJECTED_BY_LIAISON";
+      setStatusOverride(nextStatus);
+      setReasonAction(null);
+      setReasonText("");
+    } catch (err) {
+      console.error("Failed to reject referral", err);
+    }
+  };
+
+  const handleReturnToDoctor = async () => {
+    try {
+      const updated = await reviseReferral({
+        id: referral_id,
+        reason: reasonText.trim(),
+      }).unwrap();
+      const nextStatus =
+        updated && typeof updated === "object" && "status" in updated
+          ? String(updated.status)
+          : "REJECTED_BY_SPECIALIST";
+      setStatusOverride(nextStatus);
+      setReasonAction(null);
+      setReasonText("");
+    } catch (err) {
+      console.error("Failed to return referral", err);
+    }
+  };
+
+  const isReasonSubmitDisabled =
+    !reasonText.trim() || isRejecting || isRevising || isForwarding;
+
+  const submitReason = async () => {
+    if (!reasonText.trim() || !reasonAction) return;
+
+    if (reasonAction === "reject") {
+      await handleReject();
+      return;
+    }
+
+    await handleReturnToDoctor();
+  };
 
   const steps = [
     { label: "Created", icon: Check, active: true, completed: true },
@@ -528,35 +640,29 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
             </CardContent>
           </Card>
 
-          {/* Final Action - Split Design */}
-          <Card className="border-none bg-muted/30">
-            <CardContent className="p-4 space-y-3">
-              <Button
-                size="lg"
-                className="w-full bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-800 shadow-lg shadow-emerald-600/20 py-6 text-base"
-              >
-                <CheckCircle2 className="mr-2 h-5 w-5" />
-                Approve Referral
-              </Button>
+          <ReferralActionPanel
+            canTakeAction={canTakeAction}
+            effectiveStatus={effectiveStatus}
+            isForwarding={isForwarding}
+            isRejecting={isRejecting}
+            isRevising={isRevising}
+            onApprove={handleApprove}
+            onOpenReason={(action) => setReasonAction(action)}
+          />
 
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="ghost"
-                  className="text-xs text-muted-foreground hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                >
-                  <Undo2 className="mr-1 h-3 w-3" />
-                  Return to Doctor
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="text-xs text-muted-foreground hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-destructive/20"
-                >
-                  <XCircle className="mr-1 h-3 w-3" />
-                  Reject Case
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <ReasonActionSheet
+            reasonAction={reasonAction}
+            reasonText={reasonText}
+            isRejecting={isRejecting}
+            isRevising={isRevising}
+            isSubmitDisabled={isReasonSubmitDisabled}
+            onReasonChange={setReasonText}
+            onClose={() => {
+              setReasonAction(null);
+              setReasonText("");
+            }}
+            onSubmit={submitReason}
+          />
 
           {/* Audit History */}
           <Card className="shadow-sm border">

@@ -43,7 +43,7 @@ function StatCard({
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 const ReferralDashboard = () => {
   // Fetch page 0 just for stats
-  const { data: statsResponse, isLoading: isStatsLoading } = useGetReferralsQuery({ page: 0, page_size: 10 });
+  const { data: statsResponse, isLoading: isStatsLoading } = useGetReferralsQuery({ page: 0, limit: 10 });
 
   // Separate state for the paginated table
   const [tablePage, setTablePage] = useState(0);
@@ -52,7 +52,7 @@ const ReferralDashboard = () => {
     data: tableResponse, 
     isLoading: isTableLoading, 
     isFetching: isTableFetching 
-  } = useGetReferralsQuery({ page: tablePage, page_size: pageSize });
+  } = useGetReferralsQuery({ page: tablePage, limit: pageSize });
 
   const referrals  = statsResponse?.data  ?? [];
   const totalItems = statsResponse?.total ?? 0;

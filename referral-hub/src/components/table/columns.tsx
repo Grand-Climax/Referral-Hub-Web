@@ -84,6 +84,24 @@ const getPriorityIcon = (severity: string) => {
 
 export const columns: ColumnDef<ReferralRow>[] = [
   {
+    id: "rowNumber",
+    header: () => (
+      <span className="text-muted-foreground font-semibold">#</span>
+    ),
+    cell: ({ row, table }) => {
+      const { pageIndex, pageSize } = table.getState().pagination;
+      const displayIndex = pageIndex * pageSize + row.index + 1;
+      return (
+        <span className="tabular-nums text-muted-foreground text-xs font-medium min-w-[2rem] inline-block text-right">
+          {displayIndex}
+        </span>
+      );
+    },
+    enableSorting: false,
+    enableHiding: false,
+    size: 48,
+  },
+  {
     id: "select",
     header: ({ table }) => (
       <Checkbox

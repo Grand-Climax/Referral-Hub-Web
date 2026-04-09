@@ -15,7 +15,7 @@ const ReferralList = () => {
   const pageSize = 10;
   const { data: response, isLoading, isFetching } = useGetReferralsQuery({ 
     page, 
-    page_size: pageSize,
+    limit: pageSize,
   });
 
   const referrals = response?.data ?? [];

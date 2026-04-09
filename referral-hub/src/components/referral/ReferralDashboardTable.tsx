@@ -94,8 +94,8 @@ export function ReferralDashboardTable({
                 )
               : rows.map((ref) => {
                   const fullName = [ref.patient_first_name, ref.patient_last_name].filter(Boolean).join(" ");
-                  const dateStr  = ref.date
-                    ? formatDistanceToNow(new Date(ref.date), { addSuffix: true })
+                  const dateStr  = ref.created_at
+                    ? formatDistanceToNow(new Date(ref.created_at), { addSuffix: true })
                     : "—";
 
                   return (

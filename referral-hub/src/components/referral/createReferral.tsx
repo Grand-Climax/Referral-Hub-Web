@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo } from "react";
+import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
@@ -29,12 +31,19 @@ import {
   Stethoscope,
 } from "lucide-react";
 
+import PatientCreationStep from "./PatientCreationStep";
+
 // Redux & API
-import { useAppSelector } from "@/lib/store/hooks";
-import { useCreateReferralMutation } from "@/features/referral/referralApi";
-import { useGetHospitalsQuery, useGetDepartmentsQuery } from "@/features/hospitals/hospitalsApi";
+import { useCreateReferralMutation, useUploadAttachmentMutation } from "@/features/referral/referralApi";
+import { useGetDepartmentsQuery } from "@/features/hospitals/hospitalsApi";
 import { CreateReferralRequest } from "@/types/referral";
 import { useGetCurrentUserQuery } from "@/features/auth/authApi";
+import { useLazyLookupPatientQuery, useCreatePatientMutation } from "@/features/patients/patientsApi";
+import { useGetIcdCodesQuery } from "@/features/reference/icdApi";
+import { useGetLiaisonsQuery } from "@/features/reference/liaisonsApi";
+import { useGetNetworkedHospitalsQuery } from "@/features/reference/networkedHospitalsApi";
+import type { PatientCreationFormFields } from "@/types/patient";
+import { Form } from "@/components/ui/form";
 
 const STEPS = [
   { id: 1, label: "Patient Info" },
@@ -73,106 +82,130 @@ const CreateReferral = () => {
   const [step, setStep] = useState(1);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [showPatientCreate, setShowPatientCreate] = useState(false);
+  const [patientLookupTried, setPatientLookupTried] = useState(false);
 
   // Redux & API hooks
   const { data: user, isLoading: isUserLoading } = useGetCurrentUserQuery();
   const [createReferral, { isLoading: isSubmitting }] = useCreateReferralMutation();
-  const { data: hospitals = [], isLoading: isLoadingHospitals } = useGetHospitalsQuery();
+  const [uploadAttachment] = useUploadAttachmentMutation();
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const { data: networkedHospitals = [], isLoading: isLoadingHospitals } = useGetNetworkedHospitalsQuery();
+  const [lookupPatient, { isFetching: isLookingUpPatient }] = useLazyLookupPatientQuery();
+  const [createPatient, { isLoading: isCreatingPatient }] = useCreatePatientMutation();
+  const { data: icdCodes = [] } = useGetIcdCodesQuery();
+  const { data: liaisons = [], isLoading: isLoadingLiaisons } = useGetLiaisonsQuery();
 
-  // Form State
-  const [formData, setFormData] = useState<Partial<CreateReferralRequest>>({
-    first_name: "",
-    middle_name: "",
-    last_name: "",
-    date_of_birth: "",
-    sex: "male",
-    phone_number: "",
-    home_region: "",
-    national_id_enc: "",
-    national_id_hash: "",
-    clinical_summary: "",
-    patient_history: "",
-    physical_examination_findings: "",
-    investigation_results: "",
-    treatment_given_before_referral: "",
-    medication_on_transfer: "",
-    reason_of_referral: "",
-    reason_for_referral_category: "ROUTINE",
-    emergency_detail: {
-      emergency_justification: "",
-    },
-    condition_at_referral: "STABLE",
-    mode_of_transport: "OTHER",
-    accompanying_person_name: "",
-    accompanying_person_phone: "",
-    target_hospital_id: "",
-    target_dept_id: "",
-    liaison_officer_id: "",
-    status: "SUBMITTED",
-    vitals: {
-      systolic_bp: 120,
-      diastolic_bp: 80,
-      heart_rate: 80,
-      respiratory_rate: 16,
-      temperature: 37,
-      sp_o2: 98,
-      gcs_score: 15,
-    },
-    diagnoses: [
-      {
-        diagnosis_certainty: "SUSPECTED",
-        icd_code: "",
-        is_primary: true,
+  type ReferralFormValues = Partial<CreateReferralRequest>;
+
+  // Referral form state (matches backend referral payload fields)
+  const referralForm = useForm<ReferralFormValues>({
+    defaultValues: {
+      patient_id: "",
+      clinical_summary: "",
+      patient_history: "",
+      physical_examination_findings: "",
+      investigation_results: "",
+      treatment_given_before_referral: "",
+      medication_on_transfer: "",
+      reason_of_referral: "",
+      reason_for_referral_category: "ROUTINE",
+      emergency_detail: {
+        emergency_justification: "",
       },
-    ],
+      condition_at_referral: "STABLE",
+      mode_of_transport: "OTHER",
+      accompanying_person_name: "",
+      accompanying_person_phone: "",
+      target_hospital_id: "",
+      target_dept_id: "",
+      liaison_officer_id: undefined,
+      status: "SUBMITTED",
+      vitals: {
+        systolic_bp: 120,
+        diastolic_bp: 80,
+        heart_rate: 80,
+        respiratory_rate: 16,
+        temperature: 37,
+        sp_o2: 98,
+        gcs_score: 15,
+      },
+      diagnoses: [
+        {
+          diagnosis_certainty: "SUSPECTED",
+          icd_code: "",
+          is_primary: true,
+        },
+      ],
+    },
   });
 
+  // Patient creation form state (only used inside PatientCreationStep)
+  const patientForm = useForm<PatientCreationFormFields>({
+    defaultValues: {
+      first_name: "",
+      middle_name: "",
+      last_name: "",
+      date_of_birth: "",
+      sex: "male",
+      phone_number: "",
+      home_region: "",
+      national_id_enc: "",
+      // Keep optional fields so RHF registration is stable
+      national_id_hash: undefined,
+    },
+  });
+
+  const referralData = referralForm.watch();
+  const nationalIdEnc = patientForm.watch("national_id_enc") || "";
+
   const { data: departments = [], isLoading: isLoadingDepts } = useGetDepartmentsQuery(
-    formData.target_hospital_id || "",
-    { skip: !formData.target_hospital_id }
+    referralData.target_hospital_id || "",
+    { skip: !referralData.target_hospital_id }
   );
 
-  const hospitalsList = useMemo(() => hospitals || [], [hospitals]);
+  const hospitalsList = useMemo(() => networkedHospitals || [], [networkedHospitals]);
   const departmentsList = useMemo(() => departments || [], [departments]);
 
   const handleInputChange = (field: string, value: any) => {
     if (field.includes("vitals.")) {
       const vitalField = field.split(".")[1];
-      setFormData((prev) => ({
-        ...prev,
-        vitals: { ...prev.vitals, [vitalField]: value } as any,
-      }));
+      referralForm.setValue(`vitals.${vitalField}` as any, value, { shouldDirty: true });
     } else if (field.includes("emergency_detail.")) {
-      setFormData((prev) => ({
-        ...prev,
-        emergency_detail: { ...prev.emergency_detail, emergency_justification: value },
-      }));
+      referralForm.setValue(
+        "emergency_detail.emergency_justification" as any,
+        value,
+        { shouldDirty: true }
+      );
     } else {
-      setFormData((prev) => ({ ...prev, [field]: value }));
+      referralForm.setValue(field as any, value, { shouldDirty: true });
     }
   };
 
   const handleDiagnosisChange = (index: number, field: string, value: any) => {
-    const newDiagnoses = [...(formData.diagnoses || [])];
+    const newDiagnoses = [...(referralData.diagnoses || [])];
     newDiagnoses[index] = { ...newDiagnoses[index], [field]: value };
-    setFormData((prev) => ({ ...prev, diagnoses: newDiagnoses }));
+    referralForm.setValue("diagnoses" as any, newDiagnoses, { shouldDirty: true });
   };
 
   const addDiagnosis = () => {
-    setFormData((prev) => ({
-      ...prev,
-      diagnoses: [
-        ...(prev.diagnoses || []),
+    referralForm.setValue(
+      "diagnoses" as any,
+      [
+        ...(referralData.diagnoses || []),
         { diagnosis_certainty: "SUSPECTED", icd_code: "", is_primary: false },
-      ],
-    }));
+      ] as any,
+      { shouldDirty: true }
+    );
   };
 
   const removeDiagnosis = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      diagnoses: prev.diagnoses?.filter((_, i) => i !== index),
-    }));
+    referralForm.setValue(
+      "diagnoses" as any,
+      referralData.diagnoses?.filter((_, i) => i !== index) as any,
+      { shouldDirty: true }
+    );
   };
 
   const handleFileChange = (files: FileList | null) => {
@@ -190,6 +223,103 @@ const CreateReferral = () => {
     handleFileChange(e.dataTransfer.files);
   };
 
+  const cleanPhone = (p: string | undefined) => {
+    if (!p) return undefined;
+    if (p.startsWith("+")) return p;
+    return `+${p.replace(/\D/g, "")}`;
+  };
+
+  const handlePatientLookup = async () => {
+    const national_id = (nationalIdEnc || "").trim();
+    setPatientLookupTried(true);
+    setShowPatientCreate(false);
+    referralForm.setValue("patient_id" as any, "" as any, { shouldDirty: true });
+
+    if (!national_id) {
+      toast.error("National ID is required to search for the patient.");
+      return;
+    }
+
+    try {
+      const lookedUp = await lookupPatient({ national_id }).unwrap();
+      const patientId = lookedUp.id;
+
+      if (!patientId) {
+        toast.error("Patient lookup succeeded but no patient id was returned.");
+        return;
+      }
+
+      referralForm.setValue("patient_id" as any, patientId as any, { shouldDirty: true });
+      setShowPatientCreate(false);
+      setStep(2);
+      toast.success("Patient linked successfully.");
+    } catch (err: any) {
+      if (err?.status === 404 || err?.originalStatus === 404) {
+        setShowPatientCreate(true);
+        patientForm.setValue("national_id_enc", national_id, { shouldDirty: false });
+        return;
+      }
+      console.error("Patient lookup failed:", err);
+      toast.error(err?.data?.message || "Failed to look up patient.");
+    }
+  };
+
+  const handlePatientCreate = async () => {
+    const values = patientForm.getValues();
+    const national_id = (values.national_id_enc || "").trim();
+
+    if (!national_id) {
+      toast.error("National ID is required to create the patient.");
+      return;
+    }
+
+    const requiredFields: Array<keyof PatientCreationFormFields> = [
+      "first_name",
+      "last_name",
+      "date_of_birth",
+      "sex",
+      "home_region",
+      "phone_number",
+    ];
+
+    for (const field of requiredFields) {
+      const val = (values as any)[field];
+      if (!val || String(val).trim() === "") {
+        toast.error(`Please fill ${field.replace("_", " ")}.`);
+        return;
+      }
+    }
+
+    const patientPayload = {
+      first_name: values.first_name as string,
+      middle_name: values.middle_name || undefined,
+      last_name: values.last_name as string,
+      date_of_birth: values.date_of_birth as string,
+      sex: values.sex as "male" | "female",
+      home_region: values.home_region as string,
+      phone_number: cleanPhone(values.phone_number) || (values.phone_number as string),
+      national_id,
+    };
+
+    try {
+      const created = await createPatient(patientPayload).unwrap();
+      const patientId = created.id;
+
+      if (!patientId) {
+        toast.error("Patient creation succeeded but no patient id was returned.");
+        return;
+      }
+
+      referralForm.setValue("patient_id" as any, patientId as any, { shouldDirty: true });
+      setShowPatientCreate(false);
+      setStep(2);
+      toast.success("Patient created and linked successfully.");
+    } catch (err: any) {
+      console.error("Patient creation failed:", err);
+      toast.error(err?.data?.message || "Failed to create patient.");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -199,46 +329,95 @@ const CreateReferral = () => {
     }
 
     try {
-      const payload = {
-        ...(formData as CreateReferralRequest),
-        doctor_id: user.id || (user as any).ID || (user as any).doctor_id,
-        hospital_id: user.hospital_id || (user as any).HospitalID || (user as any).hospital_id,
-      };
-
-      // Clean phone numbers and formatting
-      const cleanPhone = (p: string) => {
-        if (!p) return undefined;
-        if (p.startsWith("+")) return p;
-        return `+${p.replace(/\D/g, "")}`;
-      };
-
-      payload.phone_number = cleanPhone(payload.phone_number) || "";
-      if (payload.accompanying_person_phone) {
-        payload.accompanying_person_phone = cleanPhone(payload.accompanying_person_phone);
-      } else {
-        delete payload.accompanying_person_phone;
+      const patient_id = referralData.patient_id;
+      if (!patient_id) {
+        toast.error("Please select or create a patient first (Step 1).");
+        return;
       }
 
-      // Cleanup emergency detail if not emergency
-      if (payload.reason_for_referral_category !== "EMERGENCY") {
-        delete payload.emergency_detail;
+      const payload: CreateReferralRequest = {
+        patient_id,
+        clinical_summary: referralData.clinical_summary || "",
+        patient_history: referralData.patient_history || "",
+        physical_examination_findings: referralData.physical_examination_findings || undefined,
+        investigation_results: referralData.investigation_results || undefined,
+        treatment_given_before_referral: referralData.treatment_given_before_referral || undefined,
+        medication_on_transfer: referralData.medication_on_transfer || undefined,
+
+        reason_for_referral_category: referralData.reason_for_referral_category as any,
+        reason_of_referral: referralData.reason_of_referral || "",
+        condition_at_referral: referralData.condition_at_referral as any,
+        status: referralData.status as any,
+
+        mode_of_transport: referralData.mode_of_transport as any,
+        accompanying_person_name: referralData.accompanying_person_name || undefined,
+        accompanying_person_phone: cleanPhone(referralData.accompanying_person_phone) || undefined,
+
+        target_hospital_id: referralData.target_hospital_id || "",
+        target_dept_id: referralData.target_dept_id || "",
+        liaison_officer_id: referralData.liaison_officer_id || undefined,
+
+        vitals: referralData.vitals as any,
+        diagnoses: (referralData.diagnoses || []) as any,
+
+        emergency_detail:
+          referralData.reason_for_referral_category === "EMERGENCY"
+            ? {
+                emergency_justification: referralData.emergency_detail?.emergency_justification || "",
+              }
+            : undefined,
+      };
+
+      // Clean up optional/empty values before sending
+      if (!payload.accompanying_person_phone) delete (payload as any).accompanying_person_phone;
+      if (!payload.liaison_officer_id) delete (payload as any).liaison_officer_id;
+      if (!payload.investigation_results) delete (payload as any).investigation_results;
+      if (!payload.physical_examination_findings)
+        delete (payload as any).physical_examination_findings;
+      if (!payload.treatment_given_before_referral)
+        delete (payload as any).treatment_given_before_referral;
+      if (!payload.medication_on_transfer) delete (payload as any).medication_on_transfer;
+      if (payload.reason_for_referral_category !== "EMERGENCY") delete (payload as any).emergency_detail;
+
+      // patient_id is already validated above
+
+      // console.log("Submitting referral payload:", JSON.stringify(payload, null, 2));
+      const submitRes = await createReferral(payload).unwrap();
+
+      if (attachedFiles.length > 0 && submitRes.upload_config) {
+        setIsUploading(true);
+        let completed = 0;
+        
+        // Ensure referral ID exists (if nested or flat)
+        const refId = submitRes.referral?.id || submitRes.id;
+
+        if (!refId) {
+          throw new Error("Missing referral ID in response");
+        }
+
+        for (const file of attachedFiles) {
+          try {
+            await uploadAttachment({
+              file,
+              config: submitRes.upload_config,
+              referralId: refId
+            }).unwrap();
+            completed++;
+            setUploadProgress(Math.round((completed / attachedFiles.length) * 100));
+          } catch (uploadErr) {
+            console.error("File upload failed:", uploadErr);
+            toast.error(`Failed to upload ${file.name}`);
+          }
+        }
+        setIsUploading(false);
       }
-
-      // Remove empty optional strings
-      if (!payload.middle_name) delete payload.middle_name;
-      if (!payload.national_id_enc) delete payload.national_id_enc;
-      if (!payload.national_id_hash) delete payload.national_id_hash;
-      if (!payload.liaison_officer_id) delete payload.liaison_officer_id;
-      if (!payload.investigation_results) delete payload.investigation_results;
-      if (!payload.physical_examination_findings) delete payload.physical_examination_findings;
-
-      console.log("Submitting referral payload:", JSON.stringify(payload, null, 2));
-      await createReferral(payload).unwrap();
 
       toast.success("Referral submitted successfully!", {
-        description: "Your referral has been sent for admin approval.",
+        description: attachedFiles.length > 0 
+          ? "Your referral and files have been submitted."
+          : "Your referral has been sent for admin approval.",
       });
-      router.push("/referrals");
+      router.push("/referring-doctor");
     } catch (err: any) {
       console.error("Referral creation failed:", err);
       toast.error(err.data?.message || "Failed to submit referral. Please try again.");
@@ -248,6 +427,12 @@ const CreateReferral = () => {
   const handleNext = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (step === 1) {
+      if (!referralData.patient_id) {
+        toast.error("Select or create a patient first (Step 1).");
+        return;
+      }
+    }
     if (step < 4) setStep(step + 1);
   };
 
@@ -271,7 +456,8 @@ const CreateReferral = () => {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-0">
+      <Form {...referralForm}>
+        <form onSubmit={handleSubmit} className="space-y-0">
         <Card className="overflow-hidden rounded-xl border-0 bg-muted/30 shadow-sm ring-1 ring-border/50">
           <CardContent className="p-6 sm:p-8">
             <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -349,91 +535,64 @@ const CreateReferral = () => {
                     <ClipboardList className="h-4 w-4" />
                   </div>
                   <h3 className="text-base font-semibold text-foreground">
-                    1. Patient Information
+                    1. Patient Lookup / Registration
                   </h3>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+                <div className="space-y-4 rounded-xl border bg-muted/20 p-4">
                   <div className="space-y-2">
-                    <Label>First Name <span className="text-destructive">*</span></Label>
-                    <Input 
-                      placeholder="First name" 
-                      required 
-                      value={formData.first_name}
-                      onChange={(e) => handleInputChange("first_name", e.target.value)}
-                      className="h-11 rounded-xl bg-background border-border/70" 
+                    <Label>
+                      National ID <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      placeholder="Enter national ID"
+                      value={nationalIdEnc}
+                      onChange={(e) =>
+                        patientForm.setValue("national_id_enc", e.target.value, { shouldDirty: true })
+                      }
+                      className="h-11 rounded-xl bg-background border-border/70"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Middle Name</Label>
-                    <Input 
-                      placeholder="Middle name" 
-                      value={formData.middle_name}
-                      onChange={(e) => handleInputChange("middle_name", e.target.value)}
-                      className="h-11 rounded-xl bg-background border-border/70" 
-                    />
+
+                  <div className="flex items-center gap-3">
+                    <Button
+                      type="button"
+                      onClick={handlePatientLookup}
+                      disabled={isLookingUpPatient || isCreatingPatient}
+                    >
+                      {isLookingUpPatient ? "Searching..." : "Search Patient"}
+                    </Button>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Last Name <span className="text-destructive">*</span></Label>
-                    <Input 
-                      placeholder="Last name" 
-                      required 
-                      value={formData.last_name}
-                      onChange={(e) => handleInputChange("last_name", e.target.value)}
-                      className="h-11 rounded-xl bg-background border-border/70" 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Date of Birth <span className="text-destructive">*</span></Label>
-                    <Input 
-                      type="date" 
-                      required 
-                      value={formData.date_of_birth}
-                      onChange={(e) => handleInputChange("date_of_birth", e.target.value)}
-                      className="h-11 rounded-xl bg-background border-border/70" 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Sex <span className="text-destructive">*</span></Label>
-                    <Select onValueChange={(v) => handleInputChange("sex", v)} value={formData.sex}>
-                      <SelectTrigger className={selectTriggerCls}>
-                        <SelectValue placeholder="Select sex" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl shadow-lg">
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Home Region <span className="text-destructive">*</span></Label>
-                    <Input 
-                      placeholder="Region" 
-                      required 
-                      value={formData.home_region}
-                      onChange={(e) => handleInputChange("home_region", e.target.value)}
-                      className="h-11 rounded-xl bg-background border-border/70" 
-                    />
-                  </div>
-                  <div className="space-y-2 sm:col-span-1">
-                    <Label>Phone <span className="text-destructive">*</span></Label>
-                    <Input 
-                      placeholder="+251 ..." 
-                      required
-                      value={formData.phone_number}
-                      onChange={(e) => handleInputChange("phone_number", e.target.value)}
-                      className="h-11 rounded-xl bg-background border-border/70" 
-                    />
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>National ID (Optional)</Label>
-                    <Input 
-                      placeholder="ID number" 
-                      value={formData.national_id_enc}
-                      onChange={(e) => handleInputChange("national_id_enc", e.target.value)}
-                      className="h-11 rounded-xl bg-background border-border/70" 
-                    />
-                  </div>
+
+                  {patientLookupTried && !showPatientCreate && referralData.patient_id && (
+                    <p className="text-sm text-muted-foreground">
+                      Selected patient id:{" "}
+                      <span className="font-medium">{referralData.patient_id}</span>
+                    </p>
+                  )}
                 </div>
+
+                {showPatientCreate && (
+                  <div className="space-y-4">
+                    <div className="rounded-xl border bg-destructive/5 p-4 text-sm">
+                      Patient not found. Please create the patient to continue.
+                    </div>
+
+                    <Form {...patientForm}>
+                      <PatientCreationStep />
+                    </Form>
+
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        onClick={handlePatientCreate}
+                        disabled={isCreatingPatient}
+                      >
+                        {isCreatingPatient ? "Creating..." : "Create Patient"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -458,7 +617,7 @@ const CreateReferral = () => {
                         placeholder="Brief clinical overview..."
                         rows={4}
                         required
-                        value={formData.clinical_summary}
+                        value={referralData.clinical_summary}
                         onChange={(e) => handleInputChange("clinical_summary", e.target.value)}
                         className="resize-none rounded-xl"
                       />
@@ -469,7 +628,7 @@ const CreateReferral = () => {
                         placeholder="Relevant past medical history..."
                         rows={4}
                         required
-                        value={formData.patient_history}
+                        value={referralData.patient_history}
                         onChange={(e) => handleInputChange("patient_history", e.target.value)}
                         className="resize-none rounded-xl"
                       />
@@ -479,7 +638,7 @@ const CreateReferral = () => {
                       <Textarea
                         placeholder="Findings from physical exam..."
                         rows={4}
-                        value={formData.physical_examination_findings}
+                        value={referralData.physical_examination_findings}
                         onChange={(e) => handleInputChange("physical_examination_findings", e.target.value)}
                         className="resize-none rounded-xl"
                       />
@@ -489,7 +648,7 @@ const CreateReferral = () => {
                       <Textarea
                         placeholder="Lab results, imaging, etc..."
                         rows={4}
-                        value={formData.investigation_results}
+                        value={referralData.investigation_results}
                         onChange={(e) => handleInputChange("investigation_results", e.target.value)}
                         className="resize-none rounded-xl"
                       />
@@ -513,7 +672,7 @@ const CreateReferral = () => {
                       <Label>Systolic BP (mmHg)</Label>
                       <Input 
                         type="number" 
-                        value={formData.vitals?.systolic_bp}
+                        value={referralData.vitals?.systolic_bp}
                         onChange={(e) => handleInputChange("vitals.systolic_bp", Number(e.target.value))}
                         className="h-11 rounded-xl"
                       />
@@ -522,7 +681,7 @@ const CreateReferral = () => {
                       <Label>Diastolic BP (mmHg)</Label>
                       <Input 
                         type="number" 
-                        value={formData.vitals?.diastolic_bp}
+                        value={referralData.vitals?.diastolic_bp}
                         onChange={(e) => handleInputChange("vitals.diastolic_bp", Number(e.target.value))}
                         className="h-11 rounded-xl"
                       />
@@ -531,7 +690,7 @@ const CreateReferral = () => {
                       <Label>Heart Rate (bpm)</Label>
                       <Input 
                         type="number" 
-                        value={formData.vitals?.heart_rate}
+                        value={referralData.vitals?.heart_rate}
                         onChange={(e) => handleInputChange("vitals.heart_rate", Number(e.target.value))}
                         className="h-11 rounded-xl"
                       />
@@ -541,7 +700,7 @@ const CreateReferral = () => {
                       <Input 
                         type="number" 
                         step="0.1"
-                        value={formData.vitals?.temperature}
+                        value={referralData.vitals?.temperature}
                         onChange={(e) => handleInputChange("vitals.temperature", Number(e.target.value))}
                         className="h-11 rounded-xl"
                       />
@@ -550,7 +709,7 @@ const CreateReferral = () => {
                       <Label>Resp. Rate (bpm)</Label>
                       <Input 
                         type="number" 
-                        value={formData.vitals?.respiratory_rate}
+                        value={referralData.vitals?.respiratory_rate}
                         onChange={(e) => handleInputChange("vitals.respiratory_rate", Number(e.target.value))}
                         className="h-11 rounded-xl"
                       />
@@ -559,7 +718,7 @@ const CreateReferral = () => {
                       <Label>SpO2 (%)</Label>
                       <Input 
                         type="number" 
-                        value={formData.vitals?.sp_o2}
+                        value={referralData.vitals?.sp_o2}
                         onChange={(e) => handleInputChange("vitals.sp_o2", Number(e.target.value))}
                         className="h-11 rounded-xl"
                       />
@@ -569,7 +728,7 @@ const CreateReferral = () => {
                       <Input 
                         type="number" 
                         min="3" max="15"
-                        value={formData.vitals?.gcs_score}
+                        value={referralData.vitals?.gcs_score}
                         onChange={(e) => handleInputChange("vitals.gcs_score", Number(e.target.value))}
                         className="h-11 rounded-xl"
                       />
@@ -600,17 +759,25 @@ const CreateReferral = () => {
                   </div>
 
                   <div className="space-y-3">
-                    {formData.diagnoses?.map((diag, idx) => (
+                    {referralData.diagnoses?.map((diag, idx) => (
                       <div key={idx} className="flex flex-wrap items-end gap-3 p-3 rounded-xl border bg-muted/20">
-                        <div className="flex-1 min-w-[150px] space-y-2">
-                          <Label className="text-xs">ICD Code / Diagnosis</Label>
-                          <Input 
-                            placeholder="e.g. I21.9" 
-                            required={idx === 0}
+                        <div className="flex-1 min-w-[200px] space-y-2">
+                          <Label className="text-xs">ICD-10 Code</Label>
+                          <Select
                             value={diag.icd_code}
-                            onChange={(e) => handleDiagnosisChange(idx, "icd_code", e.target.value)}
-                            className="h-9 text-sm rounded-lg"
-                          />
+                            onValueChange={(v) => handleDiagnosisChange(idx, "icd_code", v)}
+                          >
+                            <SelectTrigger className="h-9 text-sm rounded-lg">
+                              <SelectValue placeholder={idx === 0 ? "Select primary ICD-10 code" : "Select ICD-10 code"} />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-64">
+                              {icdCodes.map((code, codeIdx) => (
+                                  <SelectItem key={`${code.code}-${codeIdx}`} value={code.code}>
+                                    {code.code} — {code.description}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="w-[140px] space-y-2">
                           <Label className="text-xs">Certainty</Label>
@@ -637,7 +804,7 @@ const CreateReferral = () => {
                           />
                           <Label htmlFor={`primary-${idx}`} className="text-xs cursor-pointer">Primary</Label>
                         </div>
-                        {formData.diagnoses!.length > 1 && (
+                        {referralData.diagnoses!.length > 1 && (
                           <Button 
                             type="button" 
                             variant="ghost" 
@@ -670,14 +837,14 @@ const CreateReferral = () => {
                         placeholder="Main reason for referring..."
                         rows={3}
                         required
-                        value={formData.reason_of_referral}
+                        value={referralData.reason_of_referral}
                         onChange={(e) => handleInputChange("reason_of_referral", e.target.value)}
                         className="resize-none rounded-xl"
                       />
                     </div>
                     <div className="space-y-2">
                       <Label>Category <span className="text-destructive">*</span></Label>
-                      <Select onValueChange={(v) => handleInputChange("reason_for_referral_category", v)} value={formData.reason_for_referral_category}>
+                      <Select onValueChange={(v) => handleInputChange("reason_for_referral_category", v)} value={referralData.reason_for_referral_category}>
                         <SelectTrigger className={selectTriggerCls}>
                           <SelectValue placeholder="Category" />
                         </SelectTrigger>
@@ -687,14 +854,14 @@ const CreateReferral = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    {formData.reason_for_referral_category === "EMERGENCY" && (
+                    {referralData.reason_for_referral_category === "EMERGENCY" && (
                       <div className="space-y-2 md:col-span-2">
                         <Label>Emergency Justification <span className="text-destructive">*</span></Label>
                         <Textarea
                           placeholder="Why is this an emergency?..."
                           rows={2}
                           required
-                          value={formData.emergency_detail?.emergency_justification}
+                          value={referralData.emergency_detail?.emergency_justification}
                           onChange={(e) => handleInputChange("emergency_detail.emergency_justification", e.target.value)}
                           className="resize-none rounded-xl border-destructive/50 focus:ring-destructive/20"
                         />
@@ -702,7 +869,7 @@ const CreateReferral = () => {
                     )}
                     <div className="space-y-2">
                       <Label>Condition <span className="text-destructive">*</span></Label>
-                      <Select onValueChange={(v) => handleInputChange("condition_at_referral", v)} value={formData.condition_at_referral}>
+                      <Select onValueChange={(v) => handleInputChange("condition_at_referral", v)} value={referralData.condition_at_referral}>
                         <SelectTrigger className={selectTriggerCls}>
                           <SelectValue placeholder="Condition" />
                         </SelectTrigger>
@@ -715,7 +882,7 @@ const CreateReferral = () => {
                     </div>
                     <div className="space-y-2">
                       <Label>Mode of Transport <span className="text-destructive">*</span></Label>
-                      <Select onValueChange={(v) => handleInputChange("mode_of_transport", v)} value={formData.mode_of_transport}>
+                      <Select onValueChange={(v) => handleInputChange("mode_of_transport", v)} value={referralData.mode_of_transport}>
                         <SelectTrigger className={selectTriggerCls}>
                           <SelectValue placeholder="Transport" />
                         </SelectTrigger>
@@ -731,7 +898,7 @@ const CreateReferral = () => {
                       <Label>Accompanying Person</Label>
                       <Input 
                         placeholder="Name" 
-                        value={formData.accompanying_person_name}
+                        value={referralData.accompanying_person_name}
                         onChange={(e) => handleInputChange("accompanying_person_name", e.target.value)}
                         className="h-11 rounded-xl"
                       />
@@ -740,7 +907,7 @@ const CreateReferral = () => {
                       <Label>Accompanying Phone</Label>
                       <Input 
                         placeholder="+251 ..." 
-                        value={formData.accompanying_person_phone}
+                        value={referralData.accompanying_person_phone}
                         onChange={(e) => handleInputChange("accompanying_person_phone", e.target.value)}
                         className="h-11 rounded-xl"
                       />
@@ -839,7 +1006,7 @@ const CreateReferral = () => {
                     <Label>Receiving Hospital <span className="text-destructive">*</span></Label>
                     <Select 
                       onValueChange={(v) => handleInputChange("target_hospital_id", v)} 
-                      value={formData.target_hospital_id}
+                      value={referralData.target_hospital_id}
                     >
                       <SelectTrigger className={selectTriggerCls}>
                         <SelectValue placeholder={isLoadingHospitals ? "Loading hospitals..." : "Select hospital"} />
@@ -850,8 +1017,8 @@ const CreateReferral = () => {
                             Loading hospitals...
                           </div>
                         ) : hospitalsList.length > 0 ? (
-                          hospitalsList.map((h) => (
-                            <SelectItem key={h.id} value={h.id}>
+                          hospitalsList.map((h, hIdx) => (
+                            <SelectItem key={`${h.id}-${hIdx}`} value={h.id}>
                               {h.name}
                             </SelectItem>
                           ))
@@ -867,8 +1034,8 @@ const CreateReferral = () => {
                     <Label>Target Department <span className="text-destructive">*</span></Label>
                     <Select 
                       onValueChange={(v) => handleInputChange("target_dept_id", v)} 
-                      value={formData.target_dept_id}
-                      disabled={!formData.target_hospital_id || isLoadingDepts}
+                      value={referralData.target_dept_id}
+                      disabled={!referralData.target_hospital_id || isLoadingDepts}
                     >
                       <SelectTrigger className={selectTriggerCls}>
                         <SelectValue placeholder={isLoadingDepts ? "Loading departments..." : "Select department"} />
@@ -879,9 +1046,9 @@ const CreateReferral = () => {
                             Loading departments...
                           </div>
                         ) : departmentsList.length > 0 ? (
-                          departmentsList.map((d) => (
-                            <SelectItem key={d.ID} value={d.ID}>
-                              {d.Name}
+                          departmentsList.map((d, dIdx) => (
+                            <SelectItem key={`${d.id}-${dIdx}`} value={d.id}>
+                              {d.name}
                             </SelectItem>
                           ))
                         ) : (
@@ -894,12 +1061,31 @@ const CreateReferral = () => {
                   </div>
                   <div className="space-y-2 sm:col-span-2">
                     <Label>Liaison Officer ID (Optional)</Label>
-                    <Input 
-                      placeholder="e.g. LIA-12345" 
-                      value={formData.liaison_officer_id}
-                      onChange={(e) => handleInputChange("liaison_officer_id", e.target.value)}
-                      className="h-11 rounded-xl bg-background border-border/70" 
-                    />
+                    <Select
+                      onValueChange={(v) => handleInputChange("liaison_officer_id", v)}
+                      value={referralData.liaison_officer_id || ""}
+                    >
+                      <SelectTrigger className={selectTriggerCls}>
+                        <SelectValue placeholder={isLoadingLiaisons ? "Loading liaisons..." : "Select liaison officer"} />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl shadow-lg">
+                        {isLoadingLiaisons ? (
+                          <div className="p-4 text-center text-sm text-muted-foreground">
+                            Loading liaisons...
+                          </div>
+                        ) : liaisons.length > 0 ? (
+                          liaisons.map((liaison, liaisonIdx) => (
+                            <SelectItem key={`${liaison.id}-${liaisonIdx}`} value={liaison.id}>
+                              {[liaison.first_name, liaison.last_name].filter(Boolean).join(" ") || liaison.email || liaison.id}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <div className="p-4 text-center text-sm text-muted-foreground">
+                            No liaisons found
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
@@ -919,12 +1105,12 @@ const CreateReferral = () => {
                 <div className="rounded-xl border bg-muted/20 p-4 space-y-4">
                   <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-sm">
                     <span className="text-muted-foreground">Patient:</span>
-                    <span className="font-medium">{formData.first_name} {formData.middle_name} {formData.last_name}</span>
+                    <span className="font-medium">{referralData.patient_id || "Not linked"}</span>
                     
                     <span className="text-muted-foreground">Category:</span>
                     <span className="font-medium flex items-center gap-2">
-                      {formData.reason_for_referral_category}
-                      {formData.reason_for_referral_category === "EMERGENCY" && (
+                      {referralData.reason_for_referral_category}
+                      {referralData.reason_for_referral_category === "EMERGENCY" && (
                         <span className="bg-destructive/10 text-destructive text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">
                           Urgent
                         </span>
@@ -932,21 +1118,21 @@ const CreateReferral = () => {
                     </span>
 
                     <span className="text-muted-foreground">Transport:</span>
-                    <span className="font-medium">{formData.mode_of_transport}</span>
+                    <span className="font-medium">{referralData.mode_of_transport}</span>
 
                     <span className="text-muted-foreground">Hospital:</span>
                     <span className="font-medium">
-                      {hospitalsList.find(h => h.id === formData.target_hospital_id)?.name || "Not selected"}
+                      {hospitalsList.find(h => h.id === referralData.target_hospital_id)?.name || "Not selected"}
                     </span>
 
                     <span className="text-muted-foreground">Department:</span>
                     <span className="font-medium">
-                      {departmentsList.find(d => d.ID === formData.target_dept_id)?.Name || "Not selected"}
+                      {departmentsList.find(d => d.id === referralData.target_dept_id)?.name || "Not selected"}
                     </span>
 
                     <span className="text-muted-foreground">Diagnoses:</span>
                     <span className="font-medium">
-                      {formData.diagnoses?.length || 0} entry(s)
+                      {referralData.diagnoses?.length || 0} entry(s)
                     </span>
 
                     <span className="text-muted-foreground">Attachments:</span>
@@ -954,6 +1140,16 @@ const CreateReferral = () => {
                       {attachedFiles.length} file(s) attached
                     </span>
                   </div>
+                  
+                  {isUploading && (
+                    <div className="space-y-2 border-t pt-4 border-border/50">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground font-medium">Uploading attachments...</span>
+                        <span className="font-bold text-primary">{uploadProgress}%</span>
+                      </div>
+                      <Progress value={uploadProgress} className="h-2 transition-all duration-300" />
+                    </div>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground italic">
                   By submitting, you confirm that all information provided is accurate to the best of your knowledge.
@@ -991,16 +1187,21 @@ const CreateReferral = () => {
                 <Button 
                   type="submit" 
                   className="gap-2 px-8" 
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isLookingUpPatient || isCreatingPatient || isUploading}
                 >
-                  {isSubmitting ? "Submitting..." : "Submit Referral"}
-                  {!isSubmitting && <ArrowRight className="h-4 w-4" />}
+                  {isSubmitting
+                    ? "Submitting..."
+                    : isUploading
+                      ? "Uploading Files..."
+                      : "Submit Referral"}
+                  {!isSubmitting && !isUploading && <ArrowRight className="h-4 w-4" />}
                 </Button>
               )}
             </div>
           </div>
         </Card>
-      </form>
+        </form>
+      </Form>
     </div>
   );
 };

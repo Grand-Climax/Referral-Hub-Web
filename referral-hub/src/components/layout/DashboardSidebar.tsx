@@ -66,6 +66,11 @@ const NAV_BY_ROLE = {
       url: "/referring-doctor/newReferral",
       icon: FilePlus,
     },
+    {
+      title: "Referral Review",
+      url: "/referring-doctor/review",
+      icon: FilePlus,
+    },
   ],
   hospital_admin: [
     { title: "Dashboard", url: "/hospital-admin", icon: LayoutDashboard },
@@ -97,7 +102,6 @@ const NAV_BY_ROLE = {
       ],
     },
     { title: "Reports", url: "/liaison-officer/report", icon: Users },
-    { title: "Doctors", url: "/liaison-officer/doctors", icon: Users },
   ],
 };
 
@@ -215,6 +219,10 @@ export function DashboardSidebar() {
                 const isActive = item.items
                   ? item.items.some((subItem) => pathname === subItem.url)
                   : pathname === item.url;
+                const isMainRouteActive = pathname === item.url;
+                const isSubRouteActive = Boolean(
+                  item.items?.some((subItem) => pathname === subItem.url),
+                );
 
                 if (item.items && item.items.length > 0) {
                   return (
@@ -228,11 +236,11 @@ export function DashboardSidebar() {
                         <CollapsibleTrigger asChild>
                           <SidebarMenuButton
                             tooltip={item.title}
-                            isActive={isActive}
+                            isActive={isMainRouteActive}
                             onClick={() => router.push(item.url)}
-                            className={`group-data-[collapsible=icon]:justify-center  ${
-                              isActive
-                                ? "bg-primary/10 text-primary font-semibold"
+                            className={`group-data-[collapsible=icon]:justify-center ${
+                              isMainRouteActive
+                                ? "bg-primary/10 text-primary font-semibold border-l-primary border-l-[3px] rounded-l-md"
                                 : "text-sidebar-foreground"
                             }`}
                           >
@@ -245,20 +253,29 @@ export function DashboardSidebar() {
                         </CollapsibleTrigger>
                         <CollapsibleContent>
                           <SidebarMenuSub>
-                            {item.items.map((subItem) => (
-                              <SidebarMenuSubItem key={subItem.title}>
-                                <SidebarMenuSubButton
-                                  asChild
-                                  isActive={pathname === subItem.url}
-                                >
-                                  <Link href={subItem.url}>
-                                    <span className="group-data-[collapsible=icon]:hidden">
-                                      {subItem.title}
-                                    </span>
-                                  </Link>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            ))}
+                            {item.items.map((subItem) => {
+                              const isSubItemActive = pathname === subItem.url;
+
+                              return (
+                                <SidebarMenuSubItem key={subItem.title}>
+                                  <SidebarMenuSubButton
+                                    asChild
+                                    isActive={isSubItemActive}
+                                    className={`group-data-[collapsible=icon]:justify-center ${
+                                      isSubItemActive
+                                        ? "bg-primary/10 text-primary font-semibold border-l-primary border-l-[3px] rounded-l-md"
+                                        : ""
+                                    }`}
+                                  >
+                                    <Link href={subItem.url} className="w-full">
+                                      <span className="group-data-[collapsible=icon]:hidden">
+                                        {subItem.title}
+                                      </span>
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              );
+                            })}
                           </SidebarMenuSub>
                         </CollapsibleContent>
                       </SidebarMenuItem>
@@ -275,7 +292,7 @@ export function DashboardSidebar() {
                       className={`group-data-[collapsible=icon]:justify-center
                         ${
                           isActive
-                            ? "bg-primary/10 text-primary font-semibold"
+                            ? "bg-primary/10 text-primary font-semibold border-l-primary border-l-[3px] rounded-l-md"
                             : "text-sidebar-foreground"
                         }
                         `}

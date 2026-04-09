@@ -25,8 +25,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { useAppSelector } from "@/lib/store/hooks";
+import { SidebarSkeleton } from "@/components/skeletons/SidebarSkeleton";
+import {
+  useLogoutMutation,
+  useGetCurrentUserQuery,
+} from "@/features/auth/authApi";
+import { useGetHospitalByIdQuery } from "@/features/hospitals/hospitalsApi";
 
 interface NavItem {
   title: string;
@@ -70,18 +75,32 @@ const ROLE_MAP: Record<string, RoleKey> = {
 export function ReceivingHospitalSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const rawRole = useAppSelector((state) => state.auth.user?.role ?? "");
-  const role = ROLE_MAP[rawRole] as RoleKey | undefined;
+  const [logoutApi] = useLogoutMutation();
+  const { data: userProfile, isLoading: isUserLoading } =
+    useGetCurrentUserQuery();
 
-  useEffect(() => {
-    if (!role) {
-      router.replace("/login");
+  const reduxRole = useAppSelector((state) => state.auth.user?.role);
+  const rawRole = reduxRole || userProfile?.role;
+  const role = rawRole
+    ? ROLE_MAP[rawRole.toUpperCase()] || ROLE_MAP[rawRole]
+    : undefined;
+  const menuItems = (role ? NAV_BY_ROLE[role] : []) as NavItem[];
+
+  const { data: hospital, isLoading: isHospitalLoading } =
+    useGetHospitalByIdQuery(userProfile?.hospital_id ?? "", {
+      skip: !userProfile?.hospital_id,
+    });
+
+  const handleLogout = async () => {
+    try {
+      await logoutApi().unwrap();
+      router.push("/login");
+    } catch (err) {
+      console.error("Failed to log out", err);
     }
-  }, [role, router]);
+  };
 
-  if (!role) return null;
-
-  const menuItems = NAV_BY_ROLE[role] as NavItem[];
+  if (isUserLoading || !role) return <SidebarSkeleton />;
 
   return (
     <Sidebar className="border-r">
@@ -99,7 +118,9 @@ export function ReceivingHospitalSidebar() {
           </div>
           <div>
             <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Role</p>
-            <p className="text-sm font-semibold tracking-tight">Receiving Specialist</p>
+            <p className="text-sm font-semibold tracking-tight capitalize">
+              {role?.replace("_", " ")}
+            </p>
           </div>
         </div>
       </SidebarHeader>
@@ -149,6 +170,7 @@ export function ReceivingHospitalSidebar() {
             <SidebarMenuButton
               asChild
               className="h-11 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              onClick={handleLogout}
             >
               <button type="button" className="flex w-full items-center gap-3">
                 <LogOut className="h-4 w-4" />

@@ -9,7 +9,7 @@ export default function LiaisonAllReferralsPage() {
           <p className="text-muted-foreground mt-2">Manage all incoming and outgoing referral requests.</p>
         </div>
       </div>
-      <ReferralsTable statusFilter="all" title="All Cases" description="A complete list of referrals under your purview." />
+      <ReferralsTable statusFilter="all" />
     </div>
   );
 }

@@ -1,6 +1,5 @@
-"use client";
-import { MOCK_REFERRALS } from "@/data/mock";
-
+'use client'
+import { useGetReferralsQuery } from "@/features/referral/referralApi";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { Search } from "lucide-react";
@@ -10,13 +9,17 @@ import { useRouter } from "next/navigation";
 
 const ReferralList = () => {
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
   const router = useRouter();
-  const referrals = MOCK_REFERRALS.filter(
-    (r) =>
-      r.patient.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      r.provisionalDiagnosis.toLowerCase().includes(search.toLowerCase()) ||
-      r.id.toLowerCase().includes(search.toLowerCase()),
-  );
+
+  const pageSize = 10;
+  const { data: response, isLoading, isFetching } = useGetReferralsQuery({ 
+    page, 
+    limit: pageSize,
+  });
+
+  const referrals = response?.data ?? [];
+  const total = response?.total ?? 0;
 
   const showActions = "referring_doctor";
 
@@ -27,7 +30,7 @@ const ReferralList = () => {
           <div>
             <h1 className="text-2xl font-bold text-foreground">Referrals</h1>
             <p className="text-sm text-muted-foreground">
-              {referrals.length} referrals found
+              {isLoading ? "Loading..." : `${total} referrals found`}
             </p>
           </div>
           <div className="relative w-full sm:w-64">
@@ -36,15 +39,23 @@ const ReferralList = () => {
               placeholder="Search referrals..."
               className="pl-9"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(0); // Reset to first page on search
+              }}
             />
           </div>
         </div>
 
         <div className="bg-card rounded-lg border overflow-hidden">
           <ReferralTable
-            referrals={referrals}
-            onRowClick={(ref) => router.push(`/referring-doctor/${ref.id}`)}
+            data={referrals}
+            total={total}
+            isLoading={isLoading}
+            isFetching={isFetching}
+            page={page}
+            onPageChange={setPage}
+            pageSize={pageSize}
             actionSlot={
               showActions
                 ? (ref) => (

@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MOCK_REFERRALS } from "@/data/mock";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,33 +11,59 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Eye,
-  Filter,
-  Download,
-  Search,
-} from "lucide-react";
+import { Eye, Filter, Download, Search } from "lucide-react";
 import { ReferralTable } from "@/components/referral/ReferralTable";
 import Link from "next/link";
 import { Referral } from "@/types/referral";
-import { Badge } from "@/components/ui/badge";
+import { ReferralListItem } from "@/types/referral-list";
 
 type SortField = "time" | "name" | "status";
 type SortOrder = "asc" | "desc";
-type FilterStatus = "all" | "accepted" | "rejected" | "redirected";
+type FilterStatus = "all" | "ACCEPTED" | "REJECTED" | "COMPLETED";
+
+const getPatientFullName = (ref: Referral) => {
+  const first = ref.patient?.first_name ?? "";
+  const middle = ref.patient?.middle_name ?? "";
+  const last = ref.patient?.last_name ?? "";
+  return [first, middle, last].filter(Boolean).join(" ").trim();
+};
+
+const getDiagnosis = (ref: Referral) => {
+  const primaryDiagnosis =
+    ref.diagnoses?.find((dx) => dx.is_primary) ?? ref.diagnoses?.[0];
+  return primaryDiagnosis?.code_info?.description ?? "Unspecified Diagnosis";
+};
+
+const toListItem = (ref: Referral): ReferralListItem => ({
+  id: ref.id,
+  status: ref.status,
+  date: ref.updated_at,
+  department: ref.target_dept_id,
+  condition_at_referral: ref.referral_form?.condition_at_referral ?? "STABLE",
+  diagnosis: getDiagnosis(ref),
+  icd_code: ref.diagnoses?.[0]?.icd_code ?? "N/A",
+  patient_first_name: ref.patient?.first_name ?? "Unknown",
+  patient_middle_name: ref.patient?.middle_name ?? "",
+  patient_last_name: ref.patient?.last_name ?? "Patient",
+  created_at: ref.created_at,
+  updated_at: ref.updated_at,
+  patient_region: ref.patient?.home_region ?? "N/A",
+});
 
 export function ReferralArchive() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<SortField>("time");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
+  const [page, setPage] = useState(0);
+  const pageSize = 8;
 
   // Only show processed requests in the history page
-  const referrals = MOCK_REFERRALS.filter(r => 
-    r.status === 'accepted' ||
-    r.status === 'rejected' || 
-    r.status === 'redirected' || 
-    r.status === 'completed'
+  const referrals = MOCK_REFERRALS.filter(
+    (r) =>
+      r.status === "ACCEPTED" ||
+      r.status === "REJECTED" ||
+      r.status === "COMPLETED",
   );
 
   const filteredAndSortedReferrals = useMemo(() => {
@@ -45,7 +71,7 @@ export function ReferralArchive() {
 
     // Status Filtering
     if (statusFilter !== "all") {
-        result = result.filter(ref => ref.status === statusFilter);
+      result = result.filter((ref) => ref.status === statusFilter);
     }
 
     // Search Filtering
@@ -53,9 +79,9 @@ export function ReferralArchive() {
       const query = searchQuery.toLowerCase();
       result = result.filter(
         (ref) =>
-          ref.patient.fullName.toLowerCase().includes(query) ||
-          ref.referringHospital.toLowerCase().includes(query) ||
-          ref.provisionalDiagnosis.toLowerCase().includes(query)
+          getPatientFullName(ref).toLowerCase().includes(query) ||
+          ref.sender_hospital_id.toLowerCase().includes(query) ||
+          getDiagnosis(ref).toLowerCase().includes(query),
       );
     }
 
@@ -64,10 +90,13 @@ export function ReferralArchive() {
       let comparison = 0;
       switch (sortField) {
         case "time":
-          comparison = new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+          comparison =
+            new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime();
           break;
         case "name":
-          comparison = a.patient.fullName.localeCompare(b.patient.fullName);
+          comparison = getPatientFullName(a).localeCompare(
+            getPatientFullName(b),
+          );
           break;
         case "status":
           comparison = a.status.localeCompare(b.status);
@@ -79,53 +108,89 @@ export function ReferralArchive() {
     return result;
   }, [referrals, searchQuery, sortField, sortOrder, statusFilter]);
 
+  const tableData = useMemo(
+    () => filteredAndSortedReferrals.map(toListItem),
+    [filteredAndSortedReferrals],
+  );
+  const pagedData = useMemo(() => {
+    const start = page * pageSize;
+    return tableData.slice(start, start + pageSize);
+  }, [page, pageSize, tableData]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery, sortField, sortOrder, statusFilter]);
+
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(tableData.length / pageSize) - 1);
+    if (page > maxPage) {
+      setPage(maxPage);
+    }
+  }, [page, pageSize, tableData.length]);
+
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
     } else {
       setSortField(field);
-      setSortOrder("desc"); 
+      setSortOrder("desc");
     }
   };
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto pb-8">
+    <div className="space-y-6 max-w-350 mx-auto pb-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight mb-1">Referral History</h1>
-        <p className="text-muted-foreground">Log of past referral decisions and outcomes.</p>
+        <h1 className="text-2xl font-bold tracking-tight mb-1">
+          Referral History
+        </h1>
+        <p className="text-muted-foreground">
+          Log of past referral decisions and outcomes.
+        </p>
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button 
-          variant={statusFilter === 'all' ? 'default' : 'outline'} 
-          size="sm" 
+        <Button
+          variant={statusFilter === "all" ? "default" : "outline"}
+          size="sm"
           onClick={() => setStatusFilter("all")}
         >
           All
         </Button>
-        <Button 
-          variant={statusFilter === 'accepted' ? 'default' : 'outline'} 
-          size="sm" 
-          onClick={() => setStatusFilter("accepted")}
-          className={statusFilter === 'accepted' ? 'bg-emerald-600 hover:bg-emerald-700' : 'text-emerald-700 hover:text-emerald-800'}
+        <Button
+          variant={statusFilter === "ACCEPTED" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setStatusFilter("ACCEPTED")}
+          className={
+            statusFilter === "ACCEPTED"
+              ? "bg-emerald-600 hover:bg-emerald-700"
+              : "text-emerald-700 hover:text-emerald-800"
+          }
         >
           Accepted
         </Button>
-        <Button 
-          variant={statusFilter === 'rejected' ? 'default' : 'outline'} 
-          size="sm" 
-          onClick={() => setStatusFilter("rejected")}
-          className={statusFilter === 'rejected' ? 'bg-rose-600 hover:bg-rose-700' : 'text-rose-700 hover:text-rose-800'}
+        <Button
+          variant={statusFilter === "REJECTED" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setStatusFilter("REJECTED")}
+          className={
+            statusFilter === "REJECTED"
+              ? "bg-rose-600 hover:bg-rose-700"
+              : "text-rose-700 hover:text-rose-800"
+          }
         >
           Rejected
         </Button>
-        <Button 
-          variant={statusFilter === 'redirected' ? 'default' : 'outline'} 
-          size="sm" 
-          onClick={() => setStatusFilter("redirected")}
-          className={statusFilter === 'redirected' ? 'bg-blue-600 hover:bg-blue-700' : 'text-blue-700 hover:text-blue-800'}
+        <Button
+          variant={statusFilter === "COMPLETED" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setStatusFilter("COMPLETED")}
+          className={
+            statusFilter === "COMPLETED"
+              ? "bg-blue-600 hover:bg-blue-700"
+              : "text-blue-700 hover:text-blue-800"
+          }
         >
-          Redirected
+          Completed
         </Button>
       </div>
 
@@ -149,24 +214,37 @@ export function ReferralArchive() {
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 gap-2 text-sm font-medium border-border">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 gap-2 text-sm font-medium border-border"
+                >
                   <Filter className="h-4 w-4" />
                   Sort By
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => handleSort('time')} className="font-medium">
-                  Decision Date {sortField === 'time' && (sortOrder === 'asc' ? '↑' : '↓')}
+                <DropdownMenuItem
+                  onClick={() => handleSort("time")}
+                  className="font-medium"
+                >
+                  Decision Date{" "}
+                  {sortField === "time" && (sortOrder === "asc" ? "↑" : "↓")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSort('name')}>
-                  Patient Name {sortField === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
+                <DropdownMenuItem onClick={() => handleSort("name")}>
+                  Patient Name{" "}
+                  {sortField === "name" && (sortOrder === "asc" ? "↑" : "↓")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSort('status')}>
-                  Status {sortField === 'status' && (sortOrder === 'asc' ? '↑' : '↓')}
+                <DropdownMenuItem onClick={() => handleSort("status")}>
+                  Status{" "}
+                  {sortField === "status" && (sortOrder === "asc" ? "↑" : "↓")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button size="sm" className="h-9 gap-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white">
+            <Button
+              size="sm"
+              className="h-9 gap-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white"
+            >
               <Download className="h-4 w-4" />
               Export
             </Button>
@@ -174,7 +252,12 @@ export function ReferralArchive() {
         </CardHeader>
         <CardContent className="p-0">
           <ReferralTable
-            referrals={filteredAndSortedReferrals}
+            data={pagedData}
+            total={tableData.length}
+            page={page}
+            onPageChange={setPage}
+            pageSize={pageSize}
+            detailHrefPrefix="/receiving-specialist"
             actionSlot={(ref) => (
               <Link href={`/receiving-specialist/${ref.id}`}>
                 <Button
@@ -197,7 +280,11 @@ export function ReferralArchive() {
                 <Button variant="outline" size="sm" className="h-8" disabled>
                   Previous
                 </Button>
-                <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700 text-white px-4" disabled>
+                <Button
+                  size="sm"
+                  className="h-8 bg-blue-600 hover:bg-blue-700 text-white px-4"
+                  disabled
+                >
                   Next
                 </Button>
               </div>

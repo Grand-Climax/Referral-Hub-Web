@@ -34,9 +34,11 @@ export const ReferralLogsTable = () => {
             <TableRow key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors cursor-pointer group">
               <TableCell className="py-4 px-6">
                 <div>
-                  <p className="font-bold text-sm text-slate-900 dark:text-slate-50">{log.patient.fullName}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {log.patient.age}Y — {log.patient.sex} — {log.patient.mrn}
+                  <p className="font-bold text-sm text-slate-900 dark:text-slate-50">
+                    {log.patient ? [log.patient.first_name, log.patient.last_name].filter(Boolean).join(' ') : 'Unknown Patient'}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5 whitespace-nowrap">
+                    {log.patient ? `${log.patient.sex} — ${log.patient.id}` : '—'}
                   </p>
                 </div>
               </TableCell>
@@ -46,12 +48,12 @@ export const ReferralLogsTable = () => {
                 </code>
               </TableCell>
               <TableCell className="py-4 px-6 text-sm text-slate-600 dark:text-slate-400">
-                {log.requiredSpecialty}
+                {log.target_dept_id}
               </TableCell>
               <TableCell className="py-4 px-6">
                 <PriorityIndicator
-                  severity={log.severity}
-                  score={log.severityScore}
+                  severity={log.severity || 'medium'}
+                  score={0}
                   compact
                 />
               </TableCell>
@@ -59,7 +61,7 @@ export const ReferralLogsTable = () => {
                 <StatusBadge status={log.status} />
               </TableCell>
               <TableCell className="py-4 px-6 text-xs text-slate-400">
-                {formatDistanceToNow(new Date(log.createdAt), { addSuffix: true })}
+                {log.created_at ? formatDistanceToNow(new Date(log.created_at), { addSuffix: true }) : '—'}
               </TableCell>
               <TableCell className="py-4 px-6 text-right">
                 <div className="flex items-center justify-end gap-2">

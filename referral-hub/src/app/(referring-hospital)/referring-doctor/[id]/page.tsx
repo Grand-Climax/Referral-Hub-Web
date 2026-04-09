@@ -2,9 +2,9 @@ import ReferralDetail from "@/components/referral/ReferralDetail";
 
     
 interface ReferralDetailPageProps {
-    params: {
+    params: Promise<{
         id: string;
-    };
+    }>;
 }
 
 const ReferralDetailPage = async ({ params }: ReferralDetailPageProps) => {
@@ -16,4 +16,4 @@ const ReferralDetailPage = async ({ params }: ReferralDetailPageProps) => {
     );
 };
 
-export default ReferralDetailPage;
+export default ReferralDetailPage;  

@@ -37,6 +37,7 @@ export default function Home() {
 
           {/* Referral Form */}
           <Link href="/referring-doctor">
+          <Link href="/referring-doctor">
             <div className="bg-card border rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer h-full">
               <div className="flex items-center gap-4 mb-4">
                 <div className="p-3 bg-primary/10 rounded-lg">
@@ -52,20 +53,24 @@ export default function Home() {
 
           {/* Triage Board */}
           <Link href="/receptionist">
+          <Link href="/receptionist">
             <div className="bg-card border rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer h-full">
               <div className="flex items-center gap-4 mb-4">
                 <div className="p-3 bg-primary/10 rounded-lg">
                   <ClipboardList className="h-6 w-6 text-primary" />
                 </div>
                 <h2 className="text-xl font-semibold">Receptionist</h2>
+                <h2 className="text-xl font-semibold">Receptionist</h2>
               </div>
               <p className="text-muted-foreground">
+                Manage and track incoming referrals
                 Manage and track incoming referrals
               </p>
             </div>
           </Link>
 
           {/* Liaison Dashboard */}
+          <Link href="/liaison-officer">
           <Link href="/liaison-officer">
             <div className="bg-card border rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer h-full">
               <div className="flex items-center gap-4 mb-4">

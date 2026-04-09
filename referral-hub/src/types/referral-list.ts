@@ -4,6 +4,7 @@ export type ReferralListStatus =
   | "PENDING"
   | "ACCEPTED"
   | "REJECTED"
+  | "REJECTED_BY_SPECIALIST"
   | "COMPLETED";
 
 export type ReferralListMlStatus =

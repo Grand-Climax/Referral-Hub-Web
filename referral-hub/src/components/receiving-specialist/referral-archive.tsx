@@ -45,6 +45,9 @@ const toListItem = (ref: Referral): ReferralListItem => ({
   patient_first_name: ref.patient?.first_name ?? "Unknown",
   patient_middle_name: ref.patient?.middle_name ?? "",
   patient_last_name: ref.patient?.last_name ?? "Patient",
+  created_at: ref.created_at,
+  updated_at: ref.updated_at,
+  patient_region: ref.patient?.home_region ?? "N/A",
 });
 
 export function ReferralArchive() {

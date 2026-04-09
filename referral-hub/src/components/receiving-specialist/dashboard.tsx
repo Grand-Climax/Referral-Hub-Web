@@ -100,7 +100,7 @@ export default function Dashboard() {
   const pageSize = 8;
   const { data: response, isLoading, isError } = useGetReferralsQuery({
     page: page + 1,
-    page_size: pageSize,
+    limit: pageSize,
   });
 
 

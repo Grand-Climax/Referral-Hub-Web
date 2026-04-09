@@ -11,7 +11,7 @@ const ReferralHistoryPage = () => {
 
   const { data: response, isLoading, isFetching, isError } = useGetReferralsQuery({
     page: page + 1,
-    page_size: pageSize,
+    limit: pageSize,
   });
 
   if (isLoading) {

@@ -11,11 +11,11 @@ export const specialistApi = createApi({
   baseQuery: baseQueryWithReauth,
   tagTypes: ['SpecialistReferral'],
   endpoints: (builder) => ({
-    getReferrals: builder.query<SpecialistReferralListResponse, { page?: number; page_size?: number } | void>({
+    getReferrals: builder.query<SpecialistReferralListResponse, { page?: number; limit?: number } | void>({
       query: (params) => {
         const pageNum = params?.page ?? 1;
-        const pageSize = params?.page_size ?? 20;
-        return `${SPECIALIST_ROUTES.LIST}?page=${pageNum}&page_size=${pageSize}`;
+        const limit = params?.limit ?? 20;
+        return `${SPECIALIST_ROUTES.LIST}?page=${pageNum}&limit=${limit}`;
       },
       providesTags: ['SpecialistReferral'],
     }),

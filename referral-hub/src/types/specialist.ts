@@ -1,16 +1,9 @@
 import { Diagnosis, ReferralForm, ReferralPatient, Vital } from "./referral";
+import { ReferralListItem, ReferralListStatus } from "./referral-list";
 
-export interface SpecialistReferralListItem {
-  id: string;
-  patient_first_name: string;
-  patient_middle_name: string;
-  patient_last_name: string;
-  department: string;
-  date: string;
-  status: string;
-  icd_code: string;
-  diagnosis: string;
-  condition_at_referral: string;
+export interface SpecialistReferralListItem extends ReferralListItem {
+  // All common fields are inherited from ReferralListItem
+  // We specify they are required for specialist if needed, but ReferralListItem already has them.
 }
 
 export interface SpecialistReferralListResponse {
@@ -19,7 +12,7 @@ export interface SpecialistReferralListResponse {
   message: string;
   total: number;
   page: number;
-  page_size: number;
+  limit: number;
 }
 
 export interface SpecialistReferralDetail {
@@ -30,7 +23,7 @@ export interface SpecialistReferralDetail {
   target_hospital_id: string;
   liaison_officer_id?: string | null;
   target_dept_id: string;
-  status: string;
+  status: ReferralListStatus;
   waiting_hours_weight: number;
   ml_status: string;
   ml_retry_count: number;

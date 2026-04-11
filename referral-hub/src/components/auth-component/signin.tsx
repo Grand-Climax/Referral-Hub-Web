@@ -199,8 +199,8 @@ const Login = () => {
             </Form>
 
             <div className="relative">
-                <Separator />
-              </div>
+              <Separator />
+            </div>
           </div>
         </div>
       </div>

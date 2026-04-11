@@ -4,6 +4,12 @@ import Cookies from 'js-cookie'
 import { API_BASE_URL, AUTH_ROUTES } from '@/config/api'
 import { logout } from '@/redux/slices/authSlice'
 
+const isProduction = process.env.NODE_ENV === 'production'
+const cookieOptions = {
+    secure: isProduction,
+    sameSite: isProduction ? ('strict' as const) : ('lax' as const),
+}
+
 const rawBaseQuery = fetchBaseQuery({
     baseUrl: API_BASE_URL,
     prepareHeaders: (headers) => {
@@ -58,8 +64,7 @@ export const baseQueryWithReauth: BaseQueryFn<
                     const { access_token } = refreshResult.data as { access_token: string }
                     Cookies.set('access_token', access_token, {
                         expires: 1,
-                        secure: true,
-                        sameSite: 'strict',
+                        ...cookieOptions,
                     })
                     return true
                 }

@@ -57,6 +57,8 @@ const Login = () => {
         LIAISON_OFFICER: "/liaison-officer",
         RECEIVING_SPECIALIST: "/receiving-specialist",
         RECEPTIONIST: "/receptionist",
+        DEPT_HEAD: "/department-head",
+        DEPARTMENT_HEAD: "/department-head",
       };
 
       if (result.user && result.user.role) {

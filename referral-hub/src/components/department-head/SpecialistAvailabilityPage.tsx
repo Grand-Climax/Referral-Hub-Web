@@ -222,8 +222,8 @@ export default function SpecialistAvailabilityPage() {
               key={f}
               onClick={() => setFilter(f)}
               className={`h-9 rounded-lg px-3.5 text-xs font-semibold capitalize transition-colors ${filter === f
-                  ? 'bg-primary text-primary-foreground'
-                  : 'border border-border bg-background text-muted-foreground hover:bg-muted'
+                ? 'bg-primary text-primary-foreground'
+                : 'border border-border bg-background text-muted-foreground hover:bg-muted'
                 }`}
             >
               {f === 'all' ? 'All' : f === 'off-duty' ? 'Off Duty' : f === 'busy' ? 'At Capacity' : 'Available'}

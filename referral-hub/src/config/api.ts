@@ -63,4 +63,3 @@ export const SYSTEM_ADMIN_ROUTES = {
     `/api/v1/system-admin/users/${id}/profile/image`,
   USER_ROLE: (id: string) => `/api/v1/system-admin/users/${id}/role`,
 } as const;
-

@@ -8,7 +8,6 @@ import { ReferralHistorySkeleton } from "@/components/skeletons/ReferralHistoryS
 const ReferralHistoryPage = () => {
   const [page, setPage] = useState(0);
   const pageSize = 10;
-
   const {
     data: response,
     isLoading,
@@ -50,7 +49,6 @@ const ReferralHistoryPage = () => {
           View and manage all your incoming referrals.
         </p>
       </div>
-
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden h-[calc(100vh-200px)]">
         <ReferralTable
           data={referrals}

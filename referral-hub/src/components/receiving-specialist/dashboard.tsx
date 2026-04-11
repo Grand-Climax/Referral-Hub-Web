@@ -107,6 +107,7 @@ export default function Dashboard() {
     limit: pageSize,
   });
 
+
   const referrals = response?.data ?? [];
   const totalCount = response?.total ?? 0;
 
@@ -164,7 +165,7 @@ export default function Dashboard() {
         <p className="text-rose-500 font-semibold text-lg">
           Failed to load referrals. Please try again later.
         </p>
-      </div>
+      </div >
     );
   }
 

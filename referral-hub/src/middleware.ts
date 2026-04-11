@@ -32,12 +32,10 @@ export function middleware(req: NextRequest) {
   const protectedRoutePrefix = Object.keys(ROLE_ROUTE_MAP).find((prefix) =>
     path.startsWith(`/${prefix}`)
   );
-  // console.log("protectedRoutePrefix", protectedRoutePrefix);
-
   if (protectedRoutePrefix) {
     // If no token is present, redirect to login
     if (!token) {
-        return NextResponse.redirect(new URL("/login", req.url));
+      return NextResponse.redirect(new URL("/login", req.url));
     }
 
     const requiredRole = ROLE_ROUTE_MAP[protectedRoutePrefix];

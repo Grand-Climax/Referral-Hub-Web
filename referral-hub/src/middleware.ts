@@ -10,6 +10,7 @@ const ROLE_ROUTE_MAP: Record<string, string> = {
   "receiving-admin": "RECEIVING_ADMIN",
   "receiving-specialist": "RECEIVING_SPECIALIST",
   "receptionist": "RECEPTIONIST",
+  "department-head": "DEPT_HEAD",
 };
 
 export function middleware(req: NextRequest) {
@@ -17,7 +18,7 @@ export function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
   let role: string | undefined;
-
+  console.log("token", token)
   if (token) {
     try {
       const decoded: any = jwtDecode(token);
@@ -31,6 +32,7 @@ export function middleware(req: NextRequest) {
   const protectedRoutePrefix = Object.keys(ROLE_ROUTE_MAP).find((prefix) =>
     path.startsWith(`/${prefix}`)
   );
+  console.log("protectedRoutePrefix", protectedRoutePrefix);
 
   if (protectedRoutePrefix) {
     // If no token is present, redirect to login
@@ -56,6 +58,7 @@ export const config = {
     "/receiving-admin/:path*",
     "/receiving-specialist/:path*",
     "/receptionist/:path*",
+    "/department-head/:path*",
     "/admin/:path*",
   ],
 };

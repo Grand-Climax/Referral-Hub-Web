@@ -22,6 +22,7 @@ import {
   Hospital,
   FileText,
   ListChecks,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -62,6 +63,10 @@ const NAV_BY_ROLE = {
     { title: "Schedule", url: "/receptionist/schedule", icon: CalendarCheck },
     { title: "Profile", url: "/receptionist/profile", icon: User }
   ],
+  department_head: [
+    { title: "Dashboard", url: "/department-head", icon: LayoutDashboard },
+    { title: "Specialist Availability", url: "/department-head/specialist-availability", icon: Users },
+  ],
 };
 
 type RoleKey = keyof typeof NAV_BY_ROLE;
@@ -70,6 +75,8 @@ const ROLE_MAP: Record<string, RoleKey> = {
   HOSPITAL_ADMIN: "hospital_admin",
   RECEIVING_SPECIALIST: "receiving_specialist",
   RECEPTIONIST: "receptionist",
+  DEPT_HEAD: "department_head",
+  DEPARTMENT_HEAD: "department_head",
 };
 
 export function ReceivingHospitalSidebar() {

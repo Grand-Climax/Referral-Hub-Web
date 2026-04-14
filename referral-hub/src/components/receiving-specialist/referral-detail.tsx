@@ -31,20 +31,79 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
-import { 
-  useGetReferralByIdQuery, 
-  useAcceptReferralMutation, 
-  useRejectReferralMutation 
+import {
+  useGetReferralByIdQuery,
+  useAcceptReferralMutation,
+  useRejectReferralMutation,
+  useMarkReferralReadMutation,
+  useReleaseReferralMutation,
 } from "@/features/specialist/specialistApi";
+import { useGetUserByIdQuery } from "@/features/auth/authApi";
 import { ReferralDetailSkeleton } from "@/components/skeletons/ReferralDetailSkeleton";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 const ReferralDetail = ({ referralId }: { referralId: string }) => {
   const [rejectionReason, setRejectionReason] = useState("");
-  const { data: referral, isLoading, isError } = useGetReferralByIdQuery(referralId);
-  const [acceptReferral, { isLoading: isAccepting }] = useAcceptReferralMutation();
-  const [rejectReferral, { isLoading: isRejecting }] = useRejectReferralMutation();
+  const {
+    data: referral,
+    isLoading,
+    isError,
+  } = useGetReferralByIdQuery(referralId);
+  const [acceptReferral, { isLoading: isAccepting }] =
+    useAcceptReferralMutation();
+  const [rejectReferral, { isLoading: isRejecting }] =
+    useRejectReferralMutation();
+  const [markReferralRead, { isLoading: isMarkingRead }] =
+    useMarkReferralReadMutation();
+  const [releaseReferral, { isLoading: isReleasing }] =
+    useReleaseReferralMutation();
+  const { data: doctor } = useGetUserByIdQuery(
+    referral?.referring_doctor_id || "",
+    {
+      skip: !referral?.referring_doctor_id,
+    },
+  );
+
+  const doctorName = doctor
+    ? [doctor.first_name, doctor.middle_name, doctor.last_name]
+        .filter(Boolean)
+        .join(" ")
+    : referral?.referring_doctor_id;
+
+  const lastProcessedId = useRef<string | null>(null);
+  const handleMarkRead = async () => {
+    if (lastProcessedId.current === referralId) return;
+    try {
+      lastProcessedId.current = referralId;
+      await markReferralRead(referralId).unwrap();
+      toast.success("Referral marked as read.");
+    } catch (error) {
+      lastProcessedId.current = null;
+      toast.error("Failed to mark referral as read.");
+    }
+  };
+
+  // console.log("referral status", referral?.status)
+  useEffect(() => {
+    // Strictly trigger FORWARDED only and only once per referralId
+    if (
+      referral?.status === "FORWARDED" &&
+      lastProcessedId.current !== referralId &&
+      !isMarkingRead
+    ) {
+      handleMarkRead();
+    }
+  }, [referral?.status, referralId, isMarkingRead]);
+
+  const handleRelease = async () => {
+    try {
+      await releaseReferral(referralId).unwrap();
+      toast.success("Referral released (unassigned).");
+    } catch (error) {
+      toast.error("Failed to release referral.");
+    }
+  };
 
   const handleAccept = async () => {
     try {
@@ -61,7 +120,10 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
       return;
     }
     try {
-      await rejectReferral({ id: referralId, rejection_reason: rejectionReason }).unwrap();
+      await rejectReferral({
+        id: referralId,
+        rejection_reason: rejectionReason,
+      }).unwrap();
       toast.success("Referral rejected successfully.");
     } catch (error) {
       toast.error("Failed to reject referral.");
@@ -77,8 +139,12 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
       <div className="flex flex-col items-center justify-center py-16 gap-4">
         <AlertCircle className="h-12 w-12 text-rose-500 opacity-50" />
         <div className="text-center">
-          <h2 className="text-xl font-bold text-foreground">Referral not found</h2>
-          <p className="text-muted-foreground">The referral might have been moved or doesn't exist.</p>
+          <h2 className="text-xl font-bold text-foreground">
+            Referral not found
+          </h2>
+          <p className="text-muted-foreground">
+            The referral might have been moved or doesn't exist.
+          </p>
         </div>
         <Link href="/receiving-specialist">
           <Button variant="outline">Back to Dashboard</Button>
@@ -111,7 +177,8 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
     "No relevant medical history provided.";
   const displayStatus =
     referral.status === "PENDING" ? "Pending Review" : referral.status;
-  const severityScore = referral.ml_status === "SUCCESS" ? referral.waiting_hours_weight ?? 0 : 0; 
+  const severityScore =
+    referral.ml_status === "SUCCESS" ? (referral.waiting_hours_weight ?? 0) : 0;
 
   return (
     <div className="mx-auto space-y-6 pb-12">
@@ -120,18 +187,14 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
         <div>
           <Link
             href="/receiving-specialist"
-            className="flex items-center text-sm text-muted-foreground mb-2"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition"
           >
-            <ChevronLeft className="h-4 w-4 mx-1" />
-            <span className="font-medium text-foreground">
-              Review: #{referral.id.replace("REF-", "")}
-            </span>
+            <ChevronLeft className="h-4 w-4" />
+            Back
           </Link>
 
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold tracking-tight">
-              Patient #
-              {(patient?.id ?? referral.patient_id).replace("p", "882")}:{" "}
               {patientFullName}
             </h1>
             <Badge
@@ -145,7 +208,7 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
           <div className="flex items-center text-sm text-muted-foreground mt-2">
             <Clock className="h-4 w-4 mr-1.5" />
             Submitted {formatDistanceToNow(new Date(referral.created_at))} ago
-            by {referral.referring_doctor_id} (Primary Care)
+            by {doctorName} (Primary Care)
           </div>
         </div>
 
@@ -428,96 +491,116 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
               </div>
             </CardHeader>
             <CardContent className="p-5 space-y-5">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Assign Department
-                </label>
-                <Select defaultValue={referral.target_dept_id.toLowerCase()}>
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Select Department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={referral.target_dept_id.toLowerCase()}>
-                      {referral.target_dept_id} (Recommended)
-                    </SelectItem>
-                    <SelectItem value="general-surgery">
-                      General Surgery
-                    </SelectItem>
-                    <SelectItem value="internal-medicine">
-                      Internal Medicine
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {referral?.status === "FORWARDED" && (
+                <div className="flex flex-col items-center justify-center py-8 space-y-3">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+                  <p className="text-sm font-medium text-blue-600 animate-pulse">
+                    Initiating clinical review...
+                  </p>
+                </div>
+              )}
 
-              <Button 
-                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold h-11 gap-2"
-                onClick={handleAccept}
-                disabled={isAccepting || referral.status !== "PENDING"}
-              >
-                {isAccepting ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <CheckCircle2 className="h-5 w-5" />}
-                {referral.status === "ACCEPTED" ? "Already Accepted" : "Accept Referral"}
-              </Button>
+              {referral.status === "UNDER_SPECIALIST_REVIEW" && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      Assign Department
+                    </label>
+                    <Select
+                      defaultValue={referral.target_dept_id.toLowerCase()}
+                    >
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Select Department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem
+                          value={referral.target_dept_id.toLowerCase()}
+                        >
+                          {referral.target_dept_id} (Recommended)
+                        </SelectItem>
+                        <SelectItem value="general-surgery">
+                          General Surgery
+                        </SelectItem>
+                        <SelectItem value="internal-medicine">
+                          Internal Medicine
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  variant="outline"
-                  className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 gap-2"
-                  onClick={handleReject}
-                  disabled={isRejecting || referral.status !== "PENDING"}
-                >
-                  {isRejecting ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-rose-600 border-t-transparent" /> : <XCircle className="h-4 w-4" />}
-                  Reject
-                </Button>
-                <Button variant="outline" className="gap-2" disabled={referral.status !== "PENDING"}>
-                  <CornerUpRight className="h-4 w-4" />
-                  Redirect
-                </Button>
-              </div>
+                  <Button
+                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold h-11 gap-2"
+                    onClick={handleAccept}
+                    disabled={isAccepting}
+                  >
+                    {isAccepting ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ) : (
+                      <CheckCircle2 className="h-5 w-5" />
+                    )}
+                    Accept Referral
+                  </Button>
 
-              <div className="space-y-2 pt-2 border-t border-border">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Reason for Rejection / Redirect
-                </label>
-                <Textarea
-                  placeholder="Provide clinical justification..."
-                  className="resize-none h-20 bg-background"
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  disabled={referral.status !== "PENDING"}
-                />
-              </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      variant="outline"
+                      className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 gap-2"
+                      onClick={handleReject}
+                      disabled={isRejecting}
+                    >
+                      {isRejecting ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-rose-600 border-t-transparent" />
+                      ) : (
+                        <XCircle className="h-4 w-4" />
+                      )}
+                      Reject
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="gap-2"
+                      onClick={handleRelease}
+                      disabled={isReleasing}
+                    >
+                      {isReleasing ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                      ) : (
+                        <CornerUpRight className="h-4 w-4" />
+                      )}
+                      Release
+                    </Button>
+                  </div>
 
-              <div className="bg-muted/30 rounded-lg p-3 border border-border">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-2">
-                  Redirect Destination
-                </label>
-                <Select>
-                  <SelectTrigger className="bg-background">
-                    <div className="flex items-center gap-2">
-                      <div className="bg-muted text-muted-foreground rounded p-0.5">
-                        <Plus className="h-3 w-3" />
-                      </div>
-                      <span>St. Mary's General Hospital</span>
+                  <div className="space-y-2 pt-2 border-t border-border">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      Reason for Rejection / Release
+                    </label>
+                    <Textarea
+                      placeholder="Provide clinical justification..."
+                      className="resize-none h-20 bg-background"
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
+
+              {referral.status !== "FORWARDED" &&
+                referral.status !== "UNDER_SPECIALIST_REVIEW" && (
+                  <div className="flex flex-col items-center justify-center p-8 bg-muted/20 rounded-lg border border-dashed border-border">
+                    <div className="text-sm font-medium text-muted-foreground mb-2">
+                      Current Status
                     </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="st-marys">
-                      St. Mary's General Hospital
-                    </SelectItem>
-                    <SelectItem value="regional-clinic">
-                      Regional Clinic
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button
-                className="w-full bg-blue-400 hover:bg-blue-500 text-white font-medium"
-                disabled
-              >
-                Submit Decision
-              </Button>
+                    <Badge
+                      variant="secondary"
+                      className="bg-orange-100 text-orange-700 hover:bg-orange-100 uppercase text-xs px-4 py-1"
+                    >
+                      {displayStatus}
+                    </Badge>
+                    <p className="text-[11px] text-muted-foreground mt-4 text-center">
+                      No actions available for this status.
+                    </p>
+                  </div>
+                )}
             </CardContent>
           </Card>
 

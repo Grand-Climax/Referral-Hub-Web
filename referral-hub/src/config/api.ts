@@ -50,4 +50,7 @@ export const SPECIALIST_ROUTES = {
     GET_BY_ID: (id: string) => `/api/v1/specialist/referrals/${id}`,
     ACCEPT: (id: string) => `/api/v1/specialist/referrals/${id}/accept`,
     REJECT: (id: string) => `/api/v1/specialist/referrals/${id}/reject`,
+    READ: (id: string) => `/api/v1/specialist/referrals/${id}/read`,
+    RELEASE: (id: string) => `/api/v1/specialist/referrals/${id}/release`,
 } as const;
+

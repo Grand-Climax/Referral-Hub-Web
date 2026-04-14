@@ -18,7 +18,6 @@ export function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
   let role: string | undefined;
-  console.log("token", token)
   if (token) {
     try {
       const decoded: any = jwtDecode(token);

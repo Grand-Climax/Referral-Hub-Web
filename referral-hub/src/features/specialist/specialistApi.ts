@@ -38,6 +38,21 @@ export const specialistApi = createApi({
       }),
       invalidatesTags: (result, error, { id }) => [{ type: 'SpecialistReferral', id }, 'SpecialistReferral'],
     }),
+    markReferralRead: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `${SPECIALIST_ROUTES.READ(id)}`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, id) => [{ type: 'SpecialistReferral', id }, 'SpecialistReferral'],
+    }),
+
+    releaseReferral: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `${SPECIALIST_ROUTES.RELEASE(id)}`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, id) => [{ type: 'SpecialistReferral', id }, 'SpecialistReferral'],
+    }),
   }),
 })
 
@@ -45,5 +60,8 @@ export const {
   useGetReferralsQuery, 
   useGetReferralByIdQuery,
   useAcceptReferralMutation,
-  useRejectReferralMutation
+  useRejectReferralMutation,
+  useMarkReferralReadMutation,
+  useReleaseReferralMutation
 } = specialistApi
+

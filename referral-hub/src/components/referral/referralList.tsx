@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import { useGetReferralsQuery } from "@/features/referral/referralApi";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
@@ -13,8 +13,12 @@ const ReferralList = () => {
   const router = useRouter();
 
   const pageSize = 10;
-  const { data: response, isLoading, isFetching } = useGetReferralsQuery({ 
-    page, 
+  const {
+    data: response,
+    isLoading,
+    isFetching,
+  } = useGetReferralsQuery({
+    page,
     limit: pageSize,
   });
 

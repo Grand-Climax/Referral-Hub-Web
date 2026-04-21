@@ -58,8 +58,8 @@ const Login = () => {
         RECEIVING_SPECIALIST: "/receiving-specialist",
         RECEPTIONIST: "/receptionist",
         DEPT_HEAD: "/department-head",
-        DEPARTMENT_HEAD: "/department-head",
         MOH_ANALYST: "/analytics",
+        SYSTEM_SUPER_ADMIN: "/systemAdmin",
       };
 
       if (result.user && result.user.role) {
@@ -199,8 +199,8 @@ const Login = () => {
             </Form>
 
             <div className="relative">
-                <Separator />
-              </div>
+              <Separator />
+            </div>
           </div>
         </div>
       </div>

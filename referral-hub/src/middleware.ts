@@ -11,6 +11,7 @@ const ROLE_ROUTE_MAP: Record<string, string> = {
   "receiving-specialist": "RECEIVING_SPECIALIST",
   "receptionist": "RECEPTIONIST",
   "department-head": "DEPT_HEAD",
+  "analytics": "MOH_ANALYST",
 };
 
 export function middleware(req: NextRequest) {
@@ -31,7 +32,7 @@ export function middleware(req: NextRequest) {
   const protectedRoutePrefix = Object.keys(ROLE_ROUTE_MAP).find((prefix) =>
     path.startsWith(`/${prefix}`)
   );
-  console.log("protectedRoutePrefix", protectedRoutePrefix);
+  // console.log("protectedRoutePrefix", protectedRoutePrefix);
 
   if (protectedRoutePrefix) {
     // If no token is present, redirect to login
@@ -59,5 +60,6 @@ export const config = {
     "/receptionist/:path*",
     "/department-head/:path*",
     "/admin/:path*",
+    "/analytics/:path*",
   ],
 };

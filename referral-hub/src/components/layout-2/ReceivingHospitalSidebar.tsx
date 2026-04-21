@@ -75,7 +75,6 @@ const ROLE_MAP: Record<string, RoleKey> = {
   RECEIVING_SPECIALIST: "receiving_specialist",
   RECEPTIONIST: "receptionist",
   DEPT_HEAD: "department_head",
-  DEPARTMENT_HEAD: "department_head",
 };
 
 export function ReceivingHospitalSidebar() {

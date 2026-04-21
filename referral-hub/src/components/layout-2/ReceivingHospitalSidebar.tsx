@@ -59,8 +59,7 @@ const NAV_BY_ROLE = {
   ],
   receptionist: [
     { title: "Dashboard", url: "/receptionist", icon: LayoutDashboard },
-    { title: "Accepted Referrals", url: "/receptionist/referrals", icon: FileText },
-    { title: "Schedule", url: "/receptionist/schedule", icon: CalendarCheck },
+    { title: "Scheduled Patients", url: "/receptionist/scheduled-patients", icon: FileText },
     { title: "Profile", url: "/receptionist/profile", icon: User }
   ],
   department_head: [

@@ -2,10 +2,13 @@ export type ReferralListStatus =
   | "DRAFT"
   | "SUBMITTED"
   | "PENDING"
+  | "FORWARDED"
+  | "UNDER_SPECIALIST_REVIEW"
   | "ACCEPTED"
   | "REJECTED"
   | "REJECTED_BY_SPECIALIST"
   | "COMPLETED";
+
 
 export type ReferralListMlStatus =
   | "PENDING"

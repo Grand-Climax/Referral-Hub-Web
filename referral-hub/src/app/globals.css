@@ -47,6 +47,15 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 :root {
   --radius: 0.625rem;
   /* Medical-friendly calming blues and greens with high contrast */

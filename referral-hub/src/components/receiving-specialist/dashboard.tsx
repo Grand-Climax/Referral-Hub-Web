@@ -98,22 +98,29 @@ export default function Dashboard() {
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [page, setPage] = useState(0);
   const pageSize = 8;
-  const { data: response, isLoading, isError } = useGetReferralsQuery({
+  const {
+    data: response,
+    isLoading,
+    isError,
+  } = useGetReferralsQuery({
     page: page + 1,
     limit: pageSize,
   });
-
 
   const referrals = response?.data ?? [];
   const totalCount = response?.total ?? 0;
 
   const total = totalCount;
   const high = referrals.filter(
-    (r) => r.condition_at_referral === "UNSTABLE" || r.condition_at_referral === "CRITICAL",
+    (r) =>
+      r.condition_at_referral === "UNSTABLE" ||
+      r.condition_at_referral === "CRITICAL",
   ).length;
   const pending = referrals.filter((r) => r.status === "PENDING").length;
   const accepted = referrals.filter((r) => r.status === "ACCEPTED").length;
-  const rejected = referrals.filter((r) => r.status === "REJECTED_BY_SPECIALIST" || r.status === "REJECTED").length;
+  const rejected = referrals.filter(
+    (r) => r.status === "REJECTED_BY_SPECIALIST" || r.status === "REJECTED",
+  ).length;
   const scheduled = referrals.filter((r) => r.status === "ACCEPTED").length;
 
   const counts: Record<string, number> = {
@@ -154,7 +161,9 @@ export default function Dashboard() {
   if (isError) {
     return (
       <div className="flex items-center justify-center h-[400px]">
-        <p className="text-rose-500 font-semibold text-lg">Failed to load referrals. Please try again later.</p>
+        <p className="text-rose-500 font-semibold text-lg">
+          Failed to load referrals. Please try again later.
+        </p>
       </div>
     );
   }

@@ -1,9 +1,10 @@
-'use client'
+"use client";
 import { Search, HelpCircle, Settings } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { useGetCurrentUserQuery } from "@/features/auth/authApi";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ThemeToggle } from "@/components/theme-toggler";
 
 export function ReceivingHospitalHeader() {
   const { data: user, isLoading } = useGetCurrentUserQuery();
@@ -27,6 +28,7 @@ export function ReceivingHospitalHeader() {
 
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-3">
+          <ThemeToggle />
           <button className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted transition-colors">
             <HelpCircle className="h-5 w-5" />
           </button>
@@ -54,9 +56,14 @@ export function ReceivingHospitalHeader() {
             )}
           </div>
           <Avatar className="h-10 w-10 border border-border">
-            <AvatarImage src="/user.png" alt={user ? `${user.first_name} ${user.last_name}` : "User"} />
+            <AvatarImage
+              src="/user.png"
+              alt={user ? `${user.first_name} ${user.last_name}` : "User"}
+            />
             <AvatarFallback className="bg-primary/10 text-primary">
-              {isLoading ? "..." : getInitials(user?.first_name, user?.last_name) || "U"}
+              {isLoading
+                ? "..."
+                : getInitials(user?.first_name, user?.last_name) || "U"}
             </AvatarFallback>
           </Avatar>
         </div>

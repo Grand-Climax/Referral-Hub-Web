@@ -207,12 +207,6 @@ export default function DeptHeadDashboard() {
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
 
-      {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Cardiology Department</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Hospital Referral &amp; Triage Management System</p>
-      </div>
-
       {/* Stat Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         <ActiveReferralsCard />

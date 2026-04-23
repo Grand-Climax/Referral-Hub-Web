@@ -23,6 +23,7 @@ import {
   FileText,
   ListChecks,
   Users,
+  LayoutGrid,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -63,8 +64,9 @@ const NAV_BY_ROLE = {
     { title: "Profile", url: "/receptionist/profile", icon: User }
   ],
   department_head: [
-    { title: "Dashboard", url: "/department-head", icon: LayoutDashboard },
-    { title: "Specialist Availability", url: "/department-head/specialist-availability", icon: Users },
+    { title: "Dashboard",              url: "/department-head",                            icon: LayoutDashboard },
+    { title: "Specialist Availability", url: "/department-head/specialist-availability",   icon: Users },
+    { title: "Capacity Management",    url: "/department-head/capacity-management",        icon: LayoutGrid },
   ],
 };
 

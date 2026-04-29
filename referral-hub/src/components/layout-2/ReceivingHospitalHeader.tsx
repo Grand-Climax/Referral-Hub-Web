@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import { Search, HelpCircle, Settings } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -63,7 +63,6 @@ export function ReceivingHospitalHeader() {
               {isLoading
                 ? "..."
                 : getInitials(user?.first_name, user?.last_name) || "U"}
-
             </AvatarFallback>
           </Avatar>
         </div>

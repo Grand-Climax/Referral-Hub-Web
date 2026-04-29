@@ -107,7 +107,6 @@ export default function Dashboard() {
     limit: pageSize,
   });
 
-
   const referrals = response?.data ?? [];
   const totalCount = response?.total ?? 0;
 
@@ -120,7 +119,7 @@ export default function Dashboard() {
   const pending = referrals.filter((r) => r.status === "PENDING").length;
   const accepted = referrals.filter((r) => r.status === "ACCEPTED").length;
   const rejected = referrals.filter(
-    (r) => r.status === "REJECTED_BY_SPECIALIST" || r.status === "REJECTED",
+    (r) => String(r.status) === "REJECTED_BY_SPECIALIST" || String(r.status) === "REJECTED",
   ).length;
   const scheduled = referrals.filter((r) => r.status === "ACCEPTED").length;
 

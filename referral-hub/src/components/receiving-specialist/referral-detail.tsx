@@ -67,8 +67,8 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
 
   const doctorName = doctor
     ? [doctor.first_name, doctor.middle_name, doctor.last_name]
-        .filter(Boolean)
-        .join(" ")
+      .filter(Boolean)
+      .join(" ")
     : referral?.referring_doctor_id;
 
   const lastProcessedId = useRef<string | null>(null);

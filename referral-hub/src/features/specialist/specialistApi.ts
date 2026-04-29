@@ -1,9 +1,9 @@
 import { createApi } from '@reduxjs/toolkit/query/react'
 import { baseQueryWithReauth } from '@/lib/baseQuery'
 import { SPECIALIST_ROUTES } from '@/config/api'
-import { 
-  SpecialistReferralListResponse, 
-  SpecialistReferralDetailResponse 
+import {
+  SpecialistReferralListResponse,
+  SpecialistReferralDetailResponse
 } from '@/types/specialist'
 
 export const specialistApi = createApi({
@@ -56,12 +56,11 @@ export const specialistApi = createApi({
   }),
 })
 
-export const { 
-  useGetReferralsQuery, 
+export const {
+  useGetReferralsQuery,
   useGetReferralByIdQuery,
   useAcceptReferralMutation,
   useRejectReferralMutation,
   useMarkReferralReadMutation,
   useReleaseReferralMutation
 } = specialistApi
-

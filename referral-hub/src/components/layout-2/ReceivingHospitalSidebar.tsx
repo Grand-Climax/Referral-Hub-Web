@@ -23,6 +23,7 @@ import {
   FileText,
   ListChecks,
   Users,
+  LayoutGrid,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -63,8 +64,9 @@ const NAV_BY_ROLE = {
     { title: "Profile", url: "/receptionist/profile", icon: User }
   ],
   department_head: [
-    { title: "Dashboard", url: "/department-head", icon: LayoutDashboard },
-    { title: "Specialist Availability", url: "/department-head/specialist-availability", icon: Users },
+    { title: "Dashboard",              url: "/department-head",                            icon: LayoutDashboard },
+    { title: "Specialist Availability", url: "/department-head/specialist-availability",   icon: Users },
+    { title: "Capacity Management",    url: "/department-head/capacity-management",        icon: LayoutGrid },
   ],
 };
 
@@ -75,7 +77,6 @@ const ROLE_MAP: Record<string, RoleKey> = {
   RECEIVING_SPECIALIST: "receiving_specialist",
   RECEPTIONIST: "receptionist",
   DEPT_HEAD: "department_head",
-  DEPARTMENT_HEAD: "department_head",
 };
 
 export function ReceivingHospitalSidebar() {
@@ -117,7 +118,7 @@ export function ReceivingHospitalSidebar() {
           </div>
           <span>Referral Hub</span>
         </div>
-        
+
         <div className="rounded-xl bg-muted/50 p-3 mb-2 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600">
             <ClipboardList className="h-5 w-5" />
@@ -144,11 +145,10 @@ export function ReceivingHospitalSidebar() {
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
-                      className={`h-11 justify-between transition-colors ${
-                        isActive
+                      className={`h-11 justify-between transition-colors ${isActive
                           ? "bg-primary/10 text-primary font-medium hover:bg-primary/15 hover:text-primary"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      }`}
+                        }`}
                     >
                       <Link href={item.url}>
                         <div className="flex items-center gap-3">

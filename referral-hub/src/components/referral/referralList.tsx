@@ -63,19 +63,19 @@ const ReferralList = () => {
             actionSlot={
               showActions
                 ? (ref) => (
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/referring-doctor/${ref.id}`);
-                        }}
-                      >
-                        View
-                      </Button>
-                    </div>
-                  )
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/referring-doctor/${ref.id}`);
+                      }}
+                    >
+                      View
+                    </Button>
+                  </div>
+                )
                 : undefined
             }
           />

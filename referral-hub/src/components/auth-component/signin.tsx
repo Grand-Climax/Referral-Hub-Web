@@ -60,6 +60,7 @@ const Login = () => {
         DEPT_HEAD: "/department-head",
         MOH_ANALYST: "/analytics",
         SYSTEM_SUPER_ADMIN: "/systemAdmin",
+        DEPARTMENT_HEAD: "/department-head",
       };
 
       if (result.user && result.user.role) {
@@ -199,8 +200,8 @@ const Login = () => {
             </Form>
 
             <div className="relative">
-                <Separator />
-              </div>
+              <Separator />
+            </div>
           </div>
         </div>
       </div>

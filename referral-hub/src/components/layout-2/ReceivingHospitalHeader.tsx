@@ -1,11 +1,10 @@
-"use client";
+'use client'
 import { Search, HelpCircle, Settings } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { useGetCurrentUserQuery } from "@/features/auth/authApi";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThemeToggle } from "@/components/theme-toggler";
-
 export function ReceivingHospitalHeader() {
   const { data: user, isLoading } = useGetCurrentUserQuery();
 
@@ -64,6 +63,7 @@ export function ReceivingHospitalHeader() {
               {isLoading
                 ? "..."
                 : getInitials(user?.first_name, user?.last_name) || "U"}
+
             </AvatarFallback>
           </Avatar>
         </div>

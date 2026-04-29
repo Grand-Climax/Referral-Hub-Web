@@ -45,19 +45,19 @@ interface DutySpecialist {
 // ─── Mock Data ─────────────────────────────────────────────────────────────────
 
 const TRIAGE_QUEUE: TriagePatient[] = [
-  { id: 'REF-9021', name: 'Jameson, R.', age: 64, sex: 'Male',   urgency: 'CRITICAL', mlScore: 9.4, facility: 'Central Metro ER',  eta: '04m' },
-  { id: 'REF-9044', name: 'Lin, Mei',    age: 52, sex: 'Female', urgency: 'HIGH',     mlScore: 7.8, facility: 'Westside Clinic',   eta: '12m' },
-  { id: 'REF-8998', name: 'Harrison, P.',age: 79, sex: 'Male',   urgency: 'MEDIUM',   mlScore: 5.2, facility: 'Riverside Gen',     eta: 'Arrived' },
-  { id: 'REF-9102', name: "O'Neill, Sarah", age: 33, sex: 'Female', urgency: 'LOW',  mlScore: 2.1, facility: "St. Mary's ER",     eta: '24m' },
+  { id: 'REF-9021', name: 'Jameson, R.', age: 64, sex: 'Male', urgency: 'CRITICAL', mlScore: 9.4, facility: 'Central Metro ER', eta: '04m' },
+  { id: 'REF-9044', name: 'Lin, Mei', age: 52, sex: 'Female', urgency: 'HIGH', mlScore: 7.8, facility: 'Westside Clinic', eta: '12m' },
+  { id: 'REF-8998', name: 'Harrison, P.', age: 79, sex: 'Male', urgency: 'MEDIUM', mlScore: 5.2, facility: 'Riverside Gen', eta: 'Arrived' },
+  { id: 'REF-9102', name: "O'Neill, Sarah", age: 33, sex: 'Female', urgency: 'LOW', mlScore: 2.1, facility: "St. Mary's ER", eta: '24m' },
 ];
 
 const DUTY_SPECIALISTS: DutySpecialist[] = [
-  { id: 's1', name: 'Dr. Sarah Smith', specialty: 'Cardiologist', load: '3/5 patients', available: true,  avatarFallback: 'SS' },
-  { id: 's2', name: 'Dr. Alan Chen',   specialty: 'Neurologist',  load: '5/5 patients', available: false, avatarFallback: 'AC' },
-  { id: 's3', name: 'Dr. Mia Torres',  specialty: 'Pulmonologist',load: '2/5 patients', available: true,  avatarFallback: 'MT' },
+  { id: 's1', name: 'Dr. Sarah Smith', specialty: 'Cardiologist', load: '3/5 patients', available: true, avatarFallback: 'SS' },
+  { id: 's2', name: 'Dr. Alan Chen', specialty: 'Neurologist', load: '5/5 patients', available: false, avatarFallback: 'AC' },
+  { id: 's3', name: 'Dr. Mia Torres', specialty: 'Pulmonologist', load: '2/5 patients', available: true, avatarFallback: 'MT' },
 ];
 
-const ACTIVE_COUNT  = 12;
+const ACTIVE_COUNT = 12;
 const HIGH_SEV_COUNT = 4;
 const SPECIALISTS_ON_DUTY = 6;
 const AVG_WAIT = 14;
@@ -67,9 +67,9 @@ const PAGE_SIZE = 4;
 
 const URGENCY_STYLES: Record<UrgencyLevel, { badge: string; bar: string }> = {
   CRITICAL: { badge: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300', bar: 'bg-rose-500' },
-  HIGH:     { badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300', bar: 'bg-amber-500' },
-  MEDIUM:   { badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',   bar: 'bg-blue-500' },
-  LOW:      { badge: 'bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-300', bar: 'bg-slate-400' },
+  HIGH: { badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300', bar: 'bg-amber-500' },
+  MEDIUM: { badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300', bar: 'bg-blue-500' },
+  LOW: { badge: 'bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-300', bar: 'bg-slate-400' },
 };
 
 function UrgencyBadge({ level }: { level: UrgencyLevel }) {
@@ -207,12 +207,6 @@ export default function DeptHeadDashboard() {
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
 
-      {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Cardiology Department</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Hospital Referral &amp; Triage Management System</p>
-      </div>
-
       {/* Stat Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         <ActiveReferralsCard />
@@ -261,9 +255,8 @@ export default function DeptHeadDashboard() {
                   {displayed.map((patient) => (
                     <tr
                       key={patient.id}
-                      className={`transition-colors hover:bg-muted/40 ${
-                        patient.urgency === 'CRITICAL' ? 'bg-rose-50/40 dark:bg-rose-950/20' : ''
-                      }`}
+                      className={`transition-colors hover:bg-muted/40 ${patient.urgency === 'CRITICAL' ? 'bg-rose-50/40 dark:bg-rose-950/20' : ''
+                        }`}
                     >
                       <td className="px-6 py-4 text-xs font-mono font-medium text-muted-foreground whitespace-nowrap">
                         {patient.id}
@@ -284,9 +277,8 @@ export default function DeptHeadDashboard() {
                         {patient.facility}
                       </td>
                       <td className="px-4 py-4">
-                        <span className={`text-sm font-bold tabular-nums ${
-                          patient.eta === 'Arrived' ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground'
-                        }`}>
+                        <span className={`text-sm font-bold tabular-nums ${patient.eta === 'Arrived' ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground'
+                          }`}>
                           {patient.eta}
                         </span>
                       </td>
@@ -375,14 +367,12 @@ export default function DeptHeadDashboard() {
                   <button
                     onClick={() => toggleSpecialist(spec.id)}
                     aria-label={`Toggle ${spec.name} availability`}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                      spec.available ? 'bg-primary' : 'bg-muted-foreground/30'
-                    }`}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${spec.available ? 'bg-primary' : 'bg-muted-foreground/30'
+                      }`}
                   >
                     <span
-                      className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform ${
-                        spec.available ? 'translate-x-4' : 'translate-x-0'
-                      }`}
+                      className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform ${spec.available ? 'translate-x-4' : 'translate-x-0'
+                        }`}
                     />
                   </button>
                 </div>

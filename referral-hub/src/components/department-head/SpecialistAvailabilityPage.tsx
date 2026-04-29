@@ -131,9 +131,9 @@ function LoadBar({ load, maxLoad, status }: { load: number; maxLoad: number; sta
   const pct = maxLoad > 0 ? (load / maxLoad) * 100 : 0;
   const color =
     status === 'off-duty' ? 'bg-slate-300 dark:bg-slate-600'
-    : pct >= 100 ? 'bg-amber-500'
-    : pct >= 60 ? 'bg-blue-500'
-    : 'bg-emerald-500';
+      : pct >= 100 ? 'bg-amber-500'
+        : pct >= 60 ? 'bg-blue-500'
+          : 'bg-emerald-500';
 
   return (
     <div className="mt-2">
@@ -184,8 +184,8 @@ export default function SpecialistAvailabilityPage() {
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         {[
           { label: 'Available', count: available, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', dot: 'bg-emerald-500' },
-          { label: 'At Capacity', count: busy,      color: 'text-amber-600 dark:text-amber-400',   bg: 'bg-amber-50 dark:bg-amber-900/20',   dot: 'bg-amber-500' },
-          { label: 'Off Duty',   count: offDuty,    color: 'text-slate-600 dark:text-slate-400',   bg: 'bg-slate-50 dark:bg-slate-800/30',   dot: 'bg-slate-400' },
+          { label: 'At Capacity', count: busy, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20', dot: 'bg-amber-500' },
+          { label: 'Off Duty', count: offDuty, color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-50 dark:bg-slate-800/30', dot: 'bg-slate-400' },
         ].map((s) => (
           <Card key={s.label} className={`border shadow-sm ${s.bg}`}>
             <CardContent className="p-5 flex items-center gap-4">
@@ -221,11 +221,10 @@ export default function SpecialistAvailabilityPage() {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`h-9 rounded-lg px-3.5 text-xs font-semibold capitalize transition-colors ${
-                filter === f
-                  ? 'bg-primary text-primary-foreground'
-                  : 'border border-border bg-background text-muted-foreground hover:bg-muted'
-              }`}
+              className={`h-9 rounded-lg px-3.5 text-xs font-semibold capitalize transition-colors ${filter === f
+                ? 'bg-primary text-primary-foreground'
+                : 'border border-border bg-background text-muted-foreground hover:bg-muted'
+                }`}
             >
               {f === 'all' ? 'All' : f === 'off-duty' ? 'Off Duty' : f === 'busy' ? 'At Capacity' : 'Available'}
             </button>
@@ -240,9 +239,8 @@ export default function SpecialistAvailabilityPage() {
           return (
             <Card
               key={spec.id}
-              className={`border bg-card shadow-sm transition-shadow hover:shadow-md ${
-                spec.status === 'off-duty' ? 'opacity-70' : ''
-              }`}
+              className={`border bg-card shadow-sm transition-shadow hover:shadow-md ${spec.status === 'off-duty' ? 'opacity-70' : ''
+                }`}
             >
               <CardContent className="p-5">
                 {/* Top row */}

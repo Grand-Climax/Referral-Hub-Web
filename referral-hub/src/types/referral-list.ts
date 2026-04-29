@@ -6,7 +6,7 @@ export type ReferralListStatus =
   | "UNDER_SPECIALIST_REVIEW"
   | "ACCEPTED"
   | "REJECTED"
-  | "REJECTED_BY_SPECIALIST"
+  | "REJECTED_BY_SP ECIALIST"
   | "COMPLETED";
 
 

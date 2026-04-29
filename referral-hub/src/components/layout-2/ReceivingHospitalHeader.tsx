@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { useGetCurrentUserQuery } from "@/features/auth/authApi";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThemeToggle } from "@/components/theme-toggler";
-
 export function ReceivingHospitalHeader() {
   const { data: user, isLoading } = useGetCurrentUserQuery();
 

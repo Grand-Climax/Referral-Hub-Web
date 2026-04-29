@@ -119,7 +119,7 @@ export default function Dashboard() {
   const pending = referrals.filter((r) => r.status === "PENDING").length;
   const accepted = referrals.filter((r) => r.status === "ACCEPTED").length;
   const rejected = referrals.filter(
-    (r) => r.status === "REJECTED_BY_SPECIALIST" || r.status === "REJECTED",
+    (r) => String(r.status) === "REJECTED_BY_SPECIALIST" || String(r.status) === "REJECTED",
   ).length;
   const scheduled = referrals.filter((r) => r.status === "ACCEPTED").length;
 
@@ -164,7 +164,7 @@ export default function Dashboard() {
         <p className="text-rose-500 font-semibold text-lg">
           Failed to load referrals. Please try again later.
         </p>
-      </div>
+      </div >
     );
   }
 

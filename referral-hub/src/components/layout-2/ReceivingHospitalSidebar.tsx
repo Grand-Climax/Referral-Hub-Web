@@ -23,6 +23,7 @@ import {
   ListChecks,
   Users,
   Sparkles,
+  LayoutGrid,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -84,12 +85,9 @@ const NAV_BY_ROLE = {
     { title: "Profile", url: "/receptionist/profile", icon: User },
   ],
   department_head: [
-    { title: "Dashboard", url: "/department-head", icon: LayoutDashboard },
-    {
-      title: "Specialist Availability",
-      url: "/department-head/specialist-availability",
-      icon: Users,
-    },
+    { title: "Dashboard",              url: "/department-head",                            icon: LayoutDashboard },
+    { title: "Specialist Availability", url: "/department-head/specialist-availability",   icon: Users },
+    { title: "Capacity Management",    url: "/department-head/capacity-management",        icon: LayoutGrid },
   ],
 };
 
@@ -100,7 +98,6 @@ const ROLE_MAP: Record<string, RoleKey> = {
   RECEIVING_SPECIALIST: "receiving_specialist",
   RECEPTIONIST: "receptionist",
   DEPT_HEAD: "department_head",
-  DEPARTMENT_HEAD: "department_head",
 };
 
 export function ReceivingHospitalSidebar() {

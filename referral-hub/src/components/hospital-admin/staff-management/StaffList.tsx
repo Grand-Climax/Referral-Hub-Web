@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -8,40 +8,52 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Edit2, MoreHorizontal, Loader2, UserX, RefreshCw } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { HospitalAdminStaff } from '@/types/hospital-admin';
+import {
+  HospitalAdminStaff,
+  formatHospitalStaffRole,
+  hospitalStaffRoleBadgeClass,
+} from '@/types/hospital-admin';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
+import { useUpdateStaffActivationMutation } from '@/features/hospitalAdmin/hospitalAdminApi';
+import { toast } from 'sonner';
 
 interface StaffListProps {
   staffList: HospitalAdminStaff[];
   isLoading: boolean;
+  departmentNameById?: Record<string, string>;
   onEditRole: (staff: HospitalAdminStaff) => void;
   onReplace: (staff: HospitalAdminStaff) => void;
   onDelete: (id: string) => void;
 }
 
-const getRoleColor = (role: string) => {
-  switch (role) {
-    case 'Specialist':
-      return 'bg-blue-50 text-blue-600 border-blue-200';
-    case 'Liaison Officer':
-      return 'bg-slate-50 text-slate-600 border-slate-200';
-    case 'Doctor':
-      return 'bg-indigo-50 text-indigo-600 border-indigo-200';
-    case 'Admin Staff':
-      return 'bg-orange-50 text-orange-600 border-orange-200';
-    case 'Nursing Admin':
-      return 'bg-purple-50 text-purple-600 border-purple-200';
-    default:
-      return 'bg-slate-50 text-slate-600 border-slate-200';
-  }
-};
-
-export const StaffList = ({ staffList, isLoading, onEditRole, onReplace, onDelete }: StaffListProps) => {
+export const StaffList = ({
+  staffList,
+  isLoading,
+  departmentNameById,
+  onEditRole,
+  onReplace,
+  onDelete,
+}: StaffListProps) => {
   const router = useRouter();
+  const [updateStaffActivation] = useUpdateStaffActivationMutation();
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  const handleActiveChange = async (staff: HospitalAdminStaff, checked: boolean) => {
+    setTogglingId(staff.id);
+    try {
+      await updateStaffActivation({ id: staff.id, is_active: checked }).unwrap();
+      toast.success(checked ? 'Staff activated' : 'Staff deactivated');
+    } catch {
+      toast.error('Could not update status');
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   return (
     <div className="bg-white dark:bg-slate-950 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
@@ -72,7 +84,12 @@ export const StaffList = ({ staffList, isLoading, onEditRole, onReplace, onDelet
           ) : (
             staffList.map((staff) => {
               const initials = `${staff.first_name?.[0] || ''}${staff.last_name?.[0] || ''}`.toUpperCase();
-              const fullName = `${staff.first_name} ${staff.last_name}`;
+              const fullName = [staff.first_name, staff.middle_name, staff.last_name]
+                .filter(Boolean)
+                .join(' ');
+              const deptLabel = staff.department_id
+                ? departmentNameById?.[staff.department_id] ?? staff.department_id
+                : '—';
               return (
                 <TableRow 
                   key={staff.id} 
@@ -91,12 +108,12 @@ export const StaffList = ({ staffList, isLoading, onEditRole, onReplace, onDelet
                     </div>
                   </TableCell>
                   <TableCell className="py-4 px-6">
-                    <Badge variant="outline" className={`${getRoleColor(staff.role)} py-0.5 px-2 text-[10px] font-bold rounded-md uppercase tracking-wide border`}>
-                      {staff.role}
+                    <Badge variant="outline" className={`${hospitalStaffRoleBadgeClass(staff.role)} py-0.5 px-2 text-[10px] font-bold rounded-md uppercase tracking-wide border`}>
+                      {formatHospitalStaffRole(staff.role)}
                     </Badge>
                   </TableCell>
                   <TableCell className="py-4 px-6 text-sm text-slate-600 dark:text-slate-400">
-                    {staff.department_id || 'N/A'}
+                    {deptLabel}
                   </TableCell>
                   <TableCell className="py-4 px-6">
                     {/* Permissions can be derived from role or added to model later */}
@@ -104,9 +121,14 @@ export const StaffList = ({ staffList, isLoading, onEditRole, onReplace, onDelet
                       Standard
                     </Badge>
                   </TableCell>
-                  <TableCell className="py-4 px-6">
-                    <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${staff.is_active ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-800'}`}>
-                      <span className={`pointer-events-none block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform ${staff.is_active ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  <TableCell className="py-4 px-6" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id={`staff-active-${staff.id}`}
+                        checked={staff.is_active}
+                        disabled={togglingId === staff.id}
+                        onCheckedChange={(checked) => void handleActiveChange(staff, checked)}
+                      />
                     </div>
                   </TableCell>
                   <TableCell className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>

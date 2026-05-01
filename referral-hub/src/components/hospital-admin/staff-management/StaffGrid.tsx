@@ -1,39 +1,34 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Edit2, MoreHorizontal, Loader2, UserX, RefreshCw } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { HospitalAdminStaff } from '@/types/hospital-admin';
+import {
+  HospitalAdminStaff,
+  formatHospitalStaffRole,
+  hospitalStaffRoleBadgeClass,
+} from '@/types/hospital-admin';
 import { useRouter } from 'next/navigation';
 
 interface StaffGridProps {
   staffList: HospitalAdminStaff[];
   isLoading: boolean;
+  departmentNameById?: Record<string, string>;
   onEditRole: (staff: HospitalAdminStaff) => void;
   onReplace: (staff: HospitalAdminStaff) => void;
   onDelete: (id: string) => void;
 }
 
-const getRoleColor = (role: string) => {
-  switch (role) {
-    case 'Specialist':
-      return 'bg-blue-50 text-blue-600 border-blue-200';
-    case 'Liaison Officer':
-      return 'bg-slate-50 text-slate-600 border-slate-200';
-    case 'Doctor':
-      return 'bg-indigo-50 text-indigo-600 border-indigo-200';
-    case 'Admin Staff':
-      return 'bg-orange-50 text-orange-600 border-orange-200';
-    case 'Nursing Admin':
-      return 'bg-purple-50 text-purple-600 border-purple-200';
-    default:
-      return 'bg-slate-50 text-slate-600 border-slate-200';
-  }
-};
-
-export const StaffGrid = ({ staffList, isLoading, onEditRole, onReplace, onDelete }: StaffGridProps) => {
+export const StaffGrid = ({
+  staffList,
+  isLoading,
+  departmentNameById,
+  onEditRole,
+  onReplace,
+  onDelete,
+}: StaffGridProps) => {
   const router = useRouter();
 
   if (isLoading) {
@@ -56,7 +51,10 @@ export const StaffGrid = ({ staffList, isLoading, onEditRole, onReplace, onDelet
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {staffList.map((staff) => {
         const initials = `${staff.first_name?.[0] || ''}${staff.last_name?.[0] || ''}`.toUpperCase();
-        const fullName = `${staff.first_name} ${staff.last_name}`;
+        const fullName = [staff.first_name, staff.middle_name, staff.last_name].filter(Boolean).join(' ');
+        const deptLabel = staff.department_id
+          ? departmentNameById?.[staff.department_id] ?? staff.department_id
+          : '—';
         
         return (
           <Card 
@@ -98,15 +96,15 @@ export const StaffGrid = ({ staffList, isLoading, onEditRole, onReplace, onDelet
 
             <div className="flex flex-col gap-3">
               <div className="flex justify-between items-center">
-                <Badge variant="outline" className={`${getRoleColor(staff.role)} py-0.5 px-2 text-[10px] font-bold rounded-md uppercase tracking-wide border`}>
-                  {staff.role}
+                <Badge variant="outline" className={`${hospitalStaffRoleBadgeClass(staff.role)} py-0.5 px-2 text-[10px] font-bold rounded-md uppercase tracking-wide border`}>
+                  {formatHospitalStaffRole(staff.role)}
                 </Badge>
                 <div className={`h-2.5 w-2.5 rounded-full ${staff.is_active ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-700'}`} />
               </div>
               
               <div className="text-sm text-slate-600 dark:text-slate-400">
                 <p className="font-medium text-[10px] text-slate-400 uppercase tracking-wider mb-1">Department</p>
-                <p>{staff.department_id || 'N/A'}</p>
+                <p>{deptLabel}</p>
               </div>
 
               <div className="pt-2 border-t border-slate-50 dark:border-slate-800">

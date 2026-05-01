@@ -78,6 +78,8 @@ export const HOSPITAL_ADMIN_ROUTES = {
   STATUS_HISTORY: (id: string) => `/api/v1/hospital-admin/referrals/${id}/status-history`,
   STAFF: "/api/v1/hospital-admin/staff",
   STAFF_BY_ID: (id: string) => `/api/v1/hospital-admin/staff/${id}`,
+  /** PATCH body: `{ "is_active": boolean }` */
+  STAFF_ACTIVATION: (id: string) => `/api/v1/hospital-admin/staff/${id}/activation`,
   REPLACE_STAFF: (id: string) => `/api/v1/hospital-admin/staff/${id}/replace`,
   CHANGE_ROLE: (id: string) => `/api/v1/hospital-admin/staff/${id}/role`,
 } as const;

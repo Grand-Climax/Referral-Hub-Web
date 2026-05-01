@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { StaffHeader } from './StaffHeader';
 import { StaffStats } from './StaffStats';
 import { StaffList } from './StaffList';
@@ -23,17 +23,62 @@ import {
 } from 'lucide-react';
 
 import { useGetStaffQuery, useDeleteStaffMutation } from '@/features/hospitalAdmin/hospitalAdminApi';
+import { useGetDepartmentsQuery } from '@/features/department/department';
 import { toast } from 'sonner';
 import { EditStaffRoleModal } from './EditStaffRoleModal';
 import { ReplaceStaffModal } from './ReplaceStaffModal';
-import { HospitalAdminStaff } from '@/types/hospital-admin';
+import {
+  HospitalAdminStaff,
+  HOSPITAL_STAFF_ROLE_OPTIONS,
+  HOSPITAL_STAFF_ROLE_LABELS,
+} from '@/types/hospital-admin';
+
+const PAGE_SIZE = 12;
 
 export const StaffManagement = () => {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [page, setPage] = useState(1);
-  const limit = 12;
+  const [deptId, setDeptId] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  const { data, isLoading } = useGetStaffQuery({ page, limit });
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchInput.trim()), 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [deptId, roleFilter, statusFilter, debouncedSearch]);
+
+  const { data: departments = [] } = useGetDepartmentsQuery();
+  const departmentNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const d of departments) m[d.id] = d.name;
+    return m;
+  }, [departments]);
+
+  const searchLooksLikeEmail = debouncedSearch.includes('@');
+  const staffQueryArgs = useMemo(
+    () => ({
+      page,
+      page_size: PAGE_SIZE,
+      ...(deptId !== 'all' ? { dept_id: deptId } : {}),
+      ...(roleFilter !== 'all' ? { role: roleFilter } : {}),
+      ...(statusFilter === 'active' ? { is_active: true as const } : {}),
+      ...(statusFilter === 'inactive' ? { is_active: false as const } : {}),
+      ...(debouncedSearch
+        ? searchLooksLikeEmail
+          ? { email: debouncedSearch }
+          : { name: debouncedSearch }
+        : {}),
+    }),
+    [page, deptId, roleFilter, statusFilter, debouncedSearch, searchLooksLikeEmail],
+  );
+
+  const { data, isLoading } = useGetStaffQuery(staffQueryArgs);
   const [deleteStaff] = useDeleteStaffMutation();
 
   const [isEditRoleModalOpen, setIsEditRoleModalOpen] = useState(false);
@@ -52,8 +97,8 @@ export const StaffManagement = () => {
   };
 
   const staffList = data?.data || [];
-  const totalItems = data?.total || 0;
-  const totalPages = Math.ceil(totalItems / limit) || 1;
+  const totalItems = data?.total ?? 0;
+  const totalPages = Math.ceil(totalItems / PAGE_SIZE) || 1;
 
   return (
     <div className="mx-auto min-h-screen bg-slate-50/30 dark:bg-transparent">
@@ -63,35 +108,55 @@ export const StaffManagement = () => {
       {/* Filters & View Toggle */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div className="flex flex-wrap items-center gap-3">
-          <Select defaultValue="all-departments">
-            <SelectTrigger className="w-[180px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-lg">
-              <SelectValue placeholder="All Departments" />
+          <Select value={deptId} onValueChange={setDeptId}>
+            <SelectTrigger className="w-[200px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-lg">
+              <SelectValue placeholder="All departments" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all-departments">All Departments</SelectItem>
-              <SelectItem value="cardiology">Cardiology</SelectItem>
-              <SelectItem value="neurology">Neurology</SelectItem>
-              <SelectItem value="pediatrics">Pediatrics</SelectItem>
+              <SelectItem value="all">All departments</SelectItem>
+              {departments.map((d) => (
+                <SelectItem key={d.id} value={d.id}>
+                  {d.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
-          <Select defaultValue="all-roles">
-            <SelectTrigger className="w-[150px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-lg">
-              <SelectValue placeholder="All Roles" />
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="w-[190px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-lg">
+              <SelectValue placeholder="All roles" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all-roles">All Roles</SelectItem>
-              <SelectItem value="specialist">Specialist</SelectItem>
-              <SelectItem value="doctor">Doctor</SelectItem>
-              <SelectItem value="admin">Admin Staff</SelectItem>
+              <SelectItem value="all">All roles</SelectItem>
+              {HOSPITAL_STAFF_ROLE_OPTIONS.map((role) => (
+                <SelectItem key={role} value={role}>
+                  {HOSPITAL_STAFF_ROLE_LABELS[role]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => setStatusFilter(v as 'all' | 'active' | 'inactive')}
+          >
+            <SelectTrigger className="w-[150px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-lg">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
             </SelectContent>
           </Select>
           
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input 
-              placeholder="Search personnel..." 
-              className="pl-9 w-[240px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-lg"
+            <Input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search by name or email..."
+              className="pl-9 w-[260px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-lg"
             />
           </div>
         </div>
@@ -123,7 +188,8 @@ export const StaffManagement = () => {
         {viewMode === 'list' ? (
           <StaffList 
             staffList={staffList} 
-            isLoading={isLoading} 
+            isLoading={isLoading}
+            departmentNameById={departmentNameById}
             onEditRole={(staff) => { setSelectedStaff(staff); setIsEditRoleModalOpen(true); }}
             onReplace={(staff) => { setSelectedStaff(staff); setIsReplaceModalOpen(true); }}
             onDelete={handleDelete}
@@ -131,7 +197,8 @@ export const StaffManagement = () => {
         ) : (
           <StaffGrid 
             staffList={staffList} 
-            isLoading={isLoading} 
+            isLoading={isLoading}
+            departmentNameById={departmentNameById}
             onEditRole={(staff) => { setSelectedStaff(staff); setIsEditRoleModalOpen(true); }}
             onReplace={(staff) => { setSelectedStaff(staff); setIsReplaceModalOpen(true); }}
             onDelete={handleDelete}
@@ -142,7 +209,7 @@ export const StaffManagement = () => {
       {/* Pagination */}
       <div className="flex items-center justify-between mt-auto py-4">
         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-          SHOWING {totalItems > 0 ? (page - 1) * limit + 1 : 0}-{Math.min(page * limit, totalItems)} OF {totalItems}
+          SHOWING {totalItems > 0 ? (page - 1) * PAGE_SIZE + 1 : 0}-{Math.min(page * PAGE_SIZE, totalItems)} OF {totalItems}
         </p>
         <div className="flex items-center gap-2">
           <Button 

@@ -6,7 +6,22 @@ import { useGetStaffQuery } from '@/features/hospitalAdmin/hospitalAdminApi';
 import { Loader2 } from 'lucide-react';
 
 export const StaffStats = () => {
-  const { data, isLoading } = useGetStaffQuery({ limit: 1000 });
+  const { data: totalData, isLoading: isLoadingTotal } = useGetStaffQuery({
+    page: 1,
+    page_size: 1,
+  });
+  const { data: activeData, isLoading: isLoadingActive } = useGetStaffQuery({
+    page: 1,
+    page_size: 1,
+    is_active: true,
+  });
+  const { data: inactiveData, isLoading: isLoadingInactive } = useGetStaffQuery({
+    page: 1,
+    page_size: 1,
+    is_active: false,
+  });
+
+  const isLoading = isLoadingTotal || isLoadingActive || isLoadingInactive;
 
   if (isLoading) {
     return (
@@ -16,10 +31,9 @@ export const StaffStats = () => {
     );
   }
 
-  const staff = data?.data || [];
-  const totalStaff = staff.length;
-  const activeStaff = staff.filter(s => s.is_active).length;
-  const inactiveStaff = totalStaff - activeStaff;
+  const totalStaff = totalData?.total ?? 0;
+  const activeStaff = activeData?.total ?? 0;
+  const inactiveStaff = inactiveData?.total ?? 0;
 
   const stats = [
     {

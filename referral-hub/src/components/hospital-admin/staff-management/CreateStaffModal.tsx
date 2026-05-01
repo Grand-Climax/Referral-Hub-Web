@@ -6,6 +6,10 @@ import { Label } from "@/components/ui/label";
 import { useCreateStaffMutation } from "@/features/hospitalAdmin/hospitalAdminApi";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  HOSPITAL_STAFF_ROLE_OPTIONS,
+  HOSPITAL_STAFF_ROLE_LABELS,
+} from "@/types/hospital-admin";
 
 export function CreateStaffModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const [createStaff, { isLoading }] = useCreateStaffMutation();
@@ -65,12 +69,11 @@ export function CreateStaffModal({ open, onOpenChange }: { open: boolean; onOpen
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="doctor">Doctor</SelectItem>
-                <SelectItem value="specialist">Specialist</SelectItem>
-                <SelectItem value="receptionist">Receptionist</SelectItem>
-                <SelectItem value="liaison">Liaison Officer</SelectItem>
-                <SelectItem value="system_admin">System Admin</SelectItem>
-                <SelectItem value="hospital_admin">Hospital Admin</SelectItem>
+                {HOSPITAL_STAFF_ROLE_OPTIONS.map((role) => (
+                  <SelectItem key={role} value={role}>
+                    {HOSPITAL_STAFF_ROLE_LABELS[role]}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

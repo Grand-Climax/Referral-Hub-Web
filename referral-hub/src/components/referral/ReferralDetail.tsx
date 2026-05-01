@@ -1,27 +1,56 @@
 'use client'
-import { MOCK_REFERRALS } from "@/data/mock";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, User, FileText, Building2 } from "lucide-react";
+import { ArrowLeft, User, FileText, Building2, Paperclip, Download, ImageIcon } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { ROLE_LABELS } from "@/types/referral";
+import { Referral, ROLE_LABELS, SeverityLevel } from "@/types/referral";
 import { StatusBadge } from "../StatusBadge";
 import { PriorityIndicator } from "../PriorityIndicator";
 import { useRouter } from "next/navigation";
+import { useGetReferralByIdQuery } from "@/features/referral/referralApi";
 
 const ReferralDetail = ({id}: {id: string}) => {
-    const router = useRouter();
-  const referral = MOCK_REFERRALS.find((r) => r.id === id);
-  if (!referral) {
+  const router = useRouter();
+  const { data: referral, isLoading, error } = useGetReferralByIdQuery(id);
+
+  console.log(referral);
+  if (isLoading) {
+    return (
+      <div className="text-center py-12">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
+          <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!referral || error) {
     return (
       <div>
         <div className="text-center py-12">
-          <p className="text-muted-foreground">Referral not found</p>
+          <p className="text-muted-foreground">Referral not found or an error occurred.</p>
           <Button variant="outline" className="mt-4" onClick={() => router.back()}>Go back</Button>
         </div>
       </div>
     );
   }
+
+  // Safe extract helpers
+  const severityStr = (referral.severity || referral.referral_form?.condition_at_referral || "medium").toLowerCase();
+  const severity = (["critical", "high", "medium", "low"].includes(severityStr) ? severityStr : "medium") as SeverityLevel;
+  
+  const vital = referral.vitals?.[0];
+  const primaryDiagnosis = referral.diagnoses?.find(d => d.is_primary)?.code_info?.description || referral.diagnoses?.[0]?.code_info?.description || "Not recorded";
+
+  const calculateAge = (dobString: string) => {
+    if (!dobString) return "N/A";
+    const dob = new Date(dobString);
+    if (isNaN(dob.getTime())) return "N/A";
+    const ageDifMs = Date.now() - dob.getTime();
+    const ageDate = new Date(ageDifMs);
+    return Math.abs(ageDate.getUTCFullYear() - 1970);
+  };
+
   return (
     <div className="mx-auto space-y-6 py-4 lg:py-6">
       {/* Top bar */}
@@ -51,12 +80,11 @@ const ReferralDetail = ({id}: {id: string}) => {
                 </h1>
                 <StatusBadge status={referral.status} />
                 <PriorityIndicator
-                  severity={referral.severity}
-                  score={referral.severityScore}
+                  severity={severity}
                 />
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Submitted on Oct 24, 2023 at 14:32 PM • ID:{" "}
+                Submitted on {new Date(referral.created_at).toLocaleString()} • ID:{" "}
                 <span className="font-mono text-foreground">{referral.id}</span>
               </p>
             </div>
@@ -86,7 +114,7 @@ const ReferralDetail = ({id}: {id: string}) => {
               </p>
               <p className="text-xs text-amber-800">
                 This referral is currently being assessed by the receiving
-                clinical team at {referral.receivingHospital}.
+                clinical team at Hospital ID: {referral.target_hospital_id}.
               </p>
             </div>
           </div>
@@ -122,7 +150,7 @@ const ReferralDetail = ({id}: {id: string}) => {
                   Clinical Summary
                 </p>
                 <p className="leading-relaxed text-muted-foreground">
-                  {referral.clinicalHistory || referral.provisionalDiagnosis}
+                  {referral.referral_form?.clinical_summary || primaryDiagnosis}
                 </p>
               </div>
               <div className="grid gap-6 md:grid-cols-2">
@@ -131,7 +159,7 @@ const ReferralDetail = ({id}: {id: string}) => {
                     Patient History
                   </p>
                   <p className="leading-relaxed text-muted-foreground">
-                    {referral.clinicalHistory || referral.reasonForReferral}
+                    {referral.referral_form?.patient_history || referral.referral_form?.reason_of_referral || "Not provided."}
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -139,7 +167,9 @@ const ReferralDetail = ({id}: {id: string}) => {
                     Physical Examination Findings
                   </p>
                   <p className="leading-relaxed text-muted-foreground">
-                    {`BP ${referral.vitals.bp}, HR ${referral.vitals.heartRate} bpm, O₂ Sat ${referral.vitals.oxygenSaturation}% on room air.`}
+                    {vital 
+                      ? `BP ${vital.systolic_bp}/${vital.diastolic_bp}, HR ${vital.heart_rate} bpm, O₂ Sat ${vital.sp_o2}% on room air, Temp ${vital.temperature}°C.` 
+                      : (referral.referral_form?.physical_examination_findings || "No vitals or findings recorded.")}
                   </p>
                 </div>
               </div>
@@ -164,7 +194,7 @@ const ReferralDetail = ({id}: {id: string}) => {
                   Investigation Results
                 </p>
                 <p className="mt-1 leading-relaxed text-muted-foreground">
-                  {"Investigation details not recorded for this referral."}
+                  {referral.referral_form?.investigation_results || "Investigation details not recorded for this referral."}
                 </p>
               </div>
               <Separator />
@@ -174,7 +204,7 @@ const ReferralDetail = ({id}: {id: string}) => {
                     Treatment Before Referral
                   </p>
                   <p className="mt-1 leading-relaxed text-muted-foreground">
-                    {"Not specified by referring clinician."}
+                    {referral.referral_form?.treatment_given_before_referral || "Not specified by referring clinician."}
                   </p>
                 </div>
                 <div>
@@ -182,8 +212,56 @@ const ReferralDetail = ({id}: {id: string}) => {
                     Medication On Transfer
                   </p>
                   <p className="mt-1 leading-relaxed text-muted-foreground">
-                    {"No active medications documented at transfer."}
+                    {referral.referral_form?.medication_on_transfer || "No active medications documented at transfer."}
                   </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Attached Documentation */}
+          <Card className="border-0 shadow-sm ring-1 ring-border/60">
+            <CardHeader className="flex flex-row items-center gap-2 pb-4">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Paperclip className="h-4 w-4" />
+              </div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+                Attached Documentation
+              </p>
+            </CardHeader>
+            <CardContent className="border-t border-dashed border-border/60 pt-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {/* PDF */}
+                <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600 ring-1 ring-rose-100">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">Clinical_Summary.pdf</p>
+                    <p className="text-xs text-muted-foreground">2.4 MB</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="flex items-center justify-center shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
+                </div>
+                {/* Image */}
+                <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+                    <ImageIcon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">Lab_Results.png</p>
+                    <p className="text-xs text-muted-foreground">1.8 MB</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="flex items-center justify-center shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             </CardContent>
@@ -198,7 +276,7 @@ const ReferralDetail = ({id}: {id: string}) => {
             </CardHeader>
             <CardContent className="space-y-4 border-t border-dashed border-border/60 pt-4 text-sm">
               <p className="leading-relaxed text-foreground">
-                {referral.reasonForReferral}
+                {referral.referral_form?.reason_of_referral || "Reason not provided."}
               </p>
               <div className="grid gap-3 text-xs md:grid-cols-3">
                 <div className="space-y-1">
@@ -206,7 +284,7 @@ const ReferralDetail = ({id}: {id: string}) => {
                     Category
                   </p>
                   <span className="inline-flex rounded-full bg-rose-50 px-3 py-1 text-[11px] font-medium text-rose-700 ring-1 ring-rose-100">
-                    {referral.requiredSpecialty || "General referral"}
+                    {referral.referral_form?.reason_for_referral_category || referral.target_dept_id || "General referral"}
                   </span>
                 </div>
                 <div className="space-y-1">
@@ -221,7 +299,9 @@ const ReferralDetail = ({id}: {id: string}) => {
                   <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                     Mode of Transport
                   </p>
-                  <p className="text-sm font-medium">Private vehicle</p>
+                  <p className="text-sm font-medium">
+                    {referral.referral_form?.mode_of_transport || "Private vehicle"}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -243,9 +323,8 @@ const ReferralDetail = ({id}: {id: string}) => {
               </div>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <p className="font-medium text-foreground">Robert Thompson</p>
-              <p className="text-xs text-muted-foreground">Relationship: Son</p>
-              <p className="text-xs text-primary">+1 (555) 012-3456</p>
+              <p className="font-medium text-foreground">{referral.referral_form?.accompanying_person_name || "Not provided."}</p>
+              <p className="text-xs text-primary">{referral.referral_form?.accompanying_person_phone || ""}</p>
             </CardContent>
           </Card>
 
@@ -262,28 +341,28 @@ const ReferralDetail = ({id}: {id: string}) => {
             <CardContent className="space-y-4 pt-0 text-xs">
               <div>
                 <p className="text-lg font-bold tracking-tight text-white">
-                  {referral.patient.fullName}
+                  {referral.patient ? `${referral.patient.first_name} ${referral.patient.middle_name || ''} ${referral.patient.last_name}` : "Unknown Patient"}
                 </p>
                 <p className="mt-0.5 text-[11px] text-slate-400">
-                  DOB: — ({referral.patient.age} yrs)
+                  DOB: {referral.patient?.date_of_birth} ({referral.patient ? calculateAge(referral.patient.date_of_birth) : '-'} yrs)
                 </p>
               </div>
               <div className="space-y-0 border-t border-slate-700/80 pt-3">
                 <div className="flex items-center justify-between py-2.5 border-b border-slate-700/80">
                   <span className="text-slate-400">Gender</span>
                   <span className="font-medium text-white capitalize">
-                    {referral.patient.sex === "M" ? "Male" : "Female"}
+                    {referral.patient?.sex || "N/A"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-2.5 border-b border-slate-700/80">
                   <span className="text-slate-400">Patient ID</span>
-                  <span className="font-mono font-medium text-white">
-                    {referral.patient.mrn}
+                  <span className="font-mono font-medium text-white truncate max-w-[120px]">
+                    {referral.patient_id}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-2.5">
-                  <span className="text-slate-400">Language</span>
-                  <span className="font-medium text-white">English</span>
+                  <span className="text-slate-400">Phone</span>
+                  <span className="font-medium text-white">{referral.patient?.phone_number || "N/A"}</span>
                 </div>
               </div>
             </CardContent>
@@ -302,14 +381,14 @@ const ReferralDetail = ({id}: {id: string}) => {
               </div>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <p className="font-medium">{referral.referringHospital}</p>
+              <p className="font-medium">Hospital ID: {referral.sender_hospital_id}</p>
               <p className="text-xs text-muted-foreground">
-                Referred to {referral.receivingHospital}
+                Referred to Dept: {referral.target_dept_id}
               </p>
               <p className="text-xs text-muted-foreground">
-                Referring clinician:{" "}
+                Referring Doc ID:{" "}
                 <span className="font-medium">
-                  {referral.referringDoctor || "Not recorded"}
+                  {referral.referring_doctor_id || "Not recorded"}
                 </span>
               </p>
             </CardContent>
@@ -323,7 +402,7 @@ const ReferralDetail = ({id}: {id: string}) => {
               </p>
             </CardHeader>
             <CardContent className="space-y-3 text-xs">
-              {referral.comments.length === 0 ? (
+              {!Array.isArray(referral.comments) || referral.comments.length === 0 ? (
                 <p className="text-muted-foreground">
                   No system activity recorded yet.
                 </p>
@@ -336,8 +415,8 @@ const ReferralDetail = ({id}: {id: string}) => {
                     <p className="font-medium text-foreground">
                       {c.author}{" "}
                       <span className="text-[11px] font-normal text-muted-foreground">
-                        ({ROLE_LABELS[c.role]})
-                      </span>
+                        ({ROLE_LABELS[c.role] || c.role})
+                        </span>
                     </p>
                     <p className="text-muted-foreground">{c.text}</p>
                   </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ReferralLogsContainer } from '@/components/referral-logs/ReferralLogsContainer';
+import { ReferralLogsContainer } from '@/components/hospital-admin/referral-logs/ReferralLogsContainer';
 
 const ReferralLogsPage = () => {
   return (

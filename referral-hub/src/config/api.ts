@@ -63,3 +63,23 @@ export const SYSTEM_ADMIN_ROUTES = {
     `/api/v1/system-admin/users/${id}/profile/image`,
   USER_ROLE: (id: string) => `/api/v1/system-admin/users/${id}/role`,
 } as const;
+
+export const RECEPTIONIST_ROUTES = {
+  LIST: "/api/v1/receptionist",
+  SCHEDULE: "/api/v1/receptionist/schedule",
+  WALK_IN: "/api/v1/receptionist/walk-in",
+  GET_BY_ID: (id: string) => `/api/v1/receptionist/${id}`,
+  ARRIVE: (id: string) => `/api/v1/receptionist/${id}/arrive`,
+  ASSIGN_DOCTOR: (id: string) => `/api/v1/receptionist/${id}/assign-doctor`,
+  MISS: (id: string) => `/api/v1/receptionist/${id}/miss`,
+} as const;
+
+export const HOSPITAL_ADMIN_ROUTES = {
+  STATUS_HISTORY: (id: string) => `/api/v1/hospital-admin/referrals/${id}/status-history`,
+  STAFF: "/api/v1/hospital-admin/staff",
+  STAFF_BY_ID: (id: string) => `/api/v1/hospital-admin/staff/${id}`,
+  /** PATCH body: `{ "is_active": boolean }` */
+  STAFF_ACTIVATION: (id: string) => `/api/v1/hospital-admin/staff/${id}/activation`,
+  REPLACE_STAFF: (id: string) => `/api/v1/hospital-admin/staff/${id}/replace`,
+  CHANGE_ROLE: (id: string) => `/api/v1/hospital-admin/staff/${id}/role`,
+} as const;

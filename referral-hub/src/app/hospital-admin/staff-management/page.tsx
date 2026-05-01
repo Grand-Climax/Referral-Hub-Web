@@ -1,5 +1,5 @@
 import React from 'react';
-import { StaffManagement } from '@/components/staff-management/StaffManagement';
+import { StaffManagement } from '@/components/hospital-admin/staff-management/StaffManagement';
 
 const StaffManagementPage = () => {
   return (

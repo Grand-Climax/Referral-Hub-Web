@@ -103,6 +103,19 @@ const NAV_BY_ROLE = {
     },
     { title: "Reports", url: "/liaison-officer/report", icon: Users },
   ],
+  dept_head: [
+    { title: "Dashboard", url: "/department-head", icon: LayoutDashboard },
+    {
+      title: "Capacity Management",
+      url: "/department-head/capacity-management",
+      icon: CalendarCheck,
+    },
+    {
+      title: "Specialist Availability",
+      url: "/department-head/specialist-availability",
+      icon: Users,
+    },
+  ],
 };
 
 type RoleKey = keyof typeof NAV_BY_ROLE;
@@ -111,12 +124,14 @@ const ROLE_MAP: Record<string, RoleKey> = {
   REFERRING_DOCTOR: "referring_doctor",
   HOSPITAL_ADMIN: "hospital_admin",
   LIAISON_OFFICER: "liaison_officer",
+  DEPT_HEAD: "dept_head",
 };
 
 const PROFILE_PATH_BY_ROLE: Record<RoleKey, string> = {
   referring_doctor: "/referring-doctor/profile",
   hospital_admin: "/hospital-admin/profile",
   liaison_officer: "/liaison-officer/profile",
+  dept_head: "/department-head/profile",
 };
 
 export function DashboardSidebar() {

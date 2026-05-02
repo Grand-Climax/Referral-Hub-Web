@@ -153,3 +153,69 @@ export interface ReferralStatusHistory {
   notes?: string;
   [key: string]: any;
 }
+
+/** Hospital admin audit trail (GET /hospital-admin/audit-logs). */
+export interface HospitalAdminAuditLog {
+  id: string;
+  user_id: string;
+  action_type: string;
+  resource: string;
+  resource_id: string;
+  ip_address: string;
+  user_agent: string;
+  timestamp: string;
+}
+
+/** Query params for GET /hospital-admin/audit-logs (paginated). */
+export interface GetAuditLogsParams {
+  page?: number;
+  page_size?: number;
+  action_type?: string;
+  /** YYYY-MM-DD */
+  start_date?: string;
+  /** YYYY-MM-DD */
+  end_date?: string;
+}
+
+export interface HospitalAdminAuditLogListResponse {
+  data: HospitalAdminAuditLog[];
+  page: number;
+  total: number;
+  success?: boolean;
+  message?: string;
+}
+
+export interface AcceptanceRejectionReport {
+  acceptance_rate: number;
+  rejection_rate: number;
+  success?: boolean;
+  message?: string;
+}
+
+export interface AverageWaitTimeReport {
+  average_wait_time: number;
+  success?: boolean;
+  message?: string;
+}
+
+export interface BusiestDepartmentRow {
+  department_id: string;
+  count: number;
+}
+
+export interface MissedAppointmentReport {
+  missed_appointment_rate: number;
+  success?: boolean;
+  message?: string;
+}
+
+export interface MonthlyReferralRow {
+  month: string;
+  count: number;
+}
+
+export interface TopReferringHospitalRow {
+  hospital_id: string;
+  hospital_name: string;
+  count: number;
+}

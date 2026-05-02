@@ -8,6 +8,14 @@ export const AUTH_ROUTES = {
   ME: "/api/v1/users/me",
 } as const;
 
+/** Hospital-scoped user directory & profile (Bearer). */
+export const USER_ROUTES = {
+  LIST: "/api/v1/users",
+  ME: "/api/v1/users/me",
+  BY_ID: (id: string) => `/api/v1/users/${id}`,
+  PROFILE_IMAGE: "/api/v1/users/profile/image",
+} as const;
+
 export const HOSPITAL_ROUTES = {
   GET_BY_ID: (id: string) => `/api/v1/hospitals/${id}`,
 } as const;
@@ -75,6 +83,19 @@ export const RECEPTIONIST_ROUTES = {
 } as const;
 
 export const HOSPITAL_ADMIN_ROUTES = {
+  AUDIT_LOGS: "/api/v1/hospital-admin/audit-logs",
+  REPORTS_ACCEPTANCE_REJECTION_RATE:
+    "/api/v1/hospital-admin/reports/acceptance-rejection-rate",
+  REPORTS_AVERAGE_WAIT_TIME:
+    "/api/v1/hospital-admin/reports/average-wait-time",
+  REPORTS_BUSIEST_DEPARTMENTS:
+    "/api/v1/hospital-admin/reports/busiest-departments",
+  REPORTS_MISSED_APPOINTMENT_RATE:
+    "/api/v1/hospital-admin/reports/missed-appointment-rate",
+  REPORTS_MONTHLY_REFERRALS:
+    "/api/v1/hospital-admin/reports/monthly-referrals",
+  REPORTS_TOP_REFERRING_HOSPITALS:
+    "/api/v1/hospital-admin/reports/top-referring-hospitals",
   STATUS_HISTORY: (id: string) => `/api/v1/hospital-admin/referrals/${id}/status-history`,
   STAFF: "/api/v1/hospital-admin/staff",
   STAFF_BY_ID: (id: string) => `/api/v1/hospital-admin/staff/${id}`,

@@ -13,6 +13,7 @@ import { specialistApi } from "@/features/specialist/specialistApi";
 import { systemAdminApi } from "@/features/systemAdmin/systemAdminApi";
 import { receptionistApi } from "@/features/receptionist/receptionistApi";
 import { hospitalAdminApi } from "@/features/hospitalAdmin/hospitalAdminApi";
+import { usersApi } from "@/features/users/usersApi";
 
 export const makeStore = () => {
   return configureStore({
@@ -31,6 +32,7 @@ export const makeStore = () => {
       [systemAdminApi.reducerPath]: systemAdminApi.reducer,
       [receptionistApi.reducerPath]: receptionistApi.reducer,
       [hospitalAdminApi.reducerPath]: hospitalAdminApi.reducer,
+      [usersApi.reducerPath]: usersApi.reducer,
     },
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware().concat(
@@ -47,6 +49,7 @@ export const makeStore = () => {
         systemAdminApi.middleware,
         receptionistApi.middleware,
         hospitalAdminApi.middleware,
+        usersApi.middleware,
       ),
   });
 };

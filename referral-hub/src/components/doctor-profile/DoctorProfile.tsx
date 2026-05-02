@@ -55,9 +55,9 @@ export function DoctorProfile() {
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-1 items-center gap-4 sm:gap-6">
               <div className="relative flex items-center justify-center">
-                <Avatar className="h-32 w-32 ring-4 ring-background shadow-xl" size="lg">
-                  <AvatarImage src={"/user.png"} alt={fullName} />
-                  <AvatarFallback>{fallback}</AvatarFallback>
+                <Avatar className="h-50 w-50 ring-4">
+                  <AvatarImage src={user?.profile_image_url || "/user.png"} alt="Dr. Sarah Jenkins" className="object-cover object-center" />
+                  <AvatarFallback>{fallback[0]}</AvatarFallback>
                 </Avatar>
                 <button
                   type="button"

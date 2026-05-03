@@ -11,6 +11,8 @@ import {
   UpdateMaxSlotsRequest,
   BatchSchedulingResponse,
   ApiSuccessResponse,
+  TriagePatient,
+  TriageQueueResponse,
 } from "@/types/department-head";
 
 /**
@@ -219,6 +221,47 @@ export const departmentHeadApi = createApi({
       }),
       invalidatesTags: ["Schedule"],
     }),
+
+    // ─── Triage Queue Endpoint ──────────────────────────────────────────────
+
+    /**
+     * GET /api/v1/triage
+     * 
+     * Returns a prioritized list of patients waiting for triage.
+     * Sorting: Severity score descending, waiting time ascending.
+     * 
+     * @param limit - Pagination limit (default: 10)
+     * @param offset - Pagination offset (default: 0)
+     * @returns List of triage patients
+     * 
+     * Common Errors:
+     * - 401: Unauthorized
+     * - 500: Internal Server Error
+     */
+    getTriageQueue: builder.query<
+      TriagePatient[],
+      { limit?: number; offset?: number } | void
+    >({
+      query: (params) => ({
+        url: DEPARTMENT_HEAD_ROUTES.TRIAGE_QUEUE,
+        params: params || { limit: 10, offset: 0 },
+      }),
+      transformResponse: (response: TriageQueueResponse | any) => {
+        // Handle different response formats from backend
+        if (Array.isArray(response)) {
+          return response;
+        }
+        if (response.data && Array.isArray(response.data)) {
+          return response.data;
+        }
+        // If response is an object with keys, convert to array
+        if (typeof response === "object" && !response.data) {
+          return Object.values(response);
+        }
+        return [];
+      },
+      providesTags: ["Schedule"], // Using Schedule tag since it's related to patient flow
+    }),
   }),
 });
 
@@ -234,4 +277,7 @@ export const {
   useGetScheduleQuery,
   useRunBatchSchedulingMutation,
   useUpdateMaxSlotsMutation,
+  
+  // Triage Queue hook
+  useGetTriageQueueQuery,
 } = departmentHeadApi;

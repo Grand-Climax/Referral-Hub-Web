@@ -1,5 +1,6 @@
 import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "@/redux/slices/authSlice";
+import specialistAvailabilityReducer from "@/redux/slices/specialistAvailabilitySlice";
 import { authApi } from "@/features/auth/authApi";
 import { hospitalsApi } from "@/features/hospitals/hospitalsApi";
 import { referralApi } from "@/features/referral/referralApi";
@@ -19,6 +20,7 @@ export const makeStore = () => {
   return configureStore({
     reducer: {
       auth: authReducer,
+      specialistAvailability: specialistAvailabilityReducer,
       [authApi.reducerPath]: authApi.reducer,
       [hospitalsApi.reducerPath]: hospitalsApi.reducer,
       [referralApi.reducerPath]: referralApi.reducer,

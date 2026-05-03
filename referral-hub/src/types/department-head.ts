@@ -54,6 +54,27 @@ export interface BatchSchedulingResponse {
   success: boolean;
 }
 
+// ─── Triage Queue Types ───────────────────────────────────────────────────────
+
+export interface TriagePatient {
+  id: string;
+  patient_name: string;
+  patient_age: number;
+  patient_sex: string;
+  urgency_level: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  severity_score: number;
+  referring_facility: string;
+  estimated_arrival?: string;
+  status: string;
+  created_at: string;
+}
+
+export interface TriageQueueResponse {
+  data: TriagePatient[];
+  total: number;
+  success: boolean;
+}
+
 // ─── API Response Types ───────────────────────────────────────────────────────
 
 export interface ApiSuccessResponse {

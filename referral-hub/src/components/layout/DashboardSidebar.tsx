@@ -189,7 +189,7 @@ export function DashboardSidebar() {
             <div className="flex flex-col items-center text-center">
               <div className="relative mb-3 group-data-[collapsible=icon]:mb-0">
                 <Avatar className="h-16 w-16 ring-4 ring-primary/10 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10">
-                  <AvatarImage src="/user.png" alt="Dr. Sarah Jenkins" />
+                  <AvatarImage src={userProfile?.profile_image_url || "/user.png"} alt="Dr. Sarah Jenkins" className="object-cover object-center" />
                   <AvatarFallback>SJ</AvatarFallback>
                 </Avatar>
                 <span className="bg-success absolute bottom-1 right-0 h-3 w-3 rounded-full border-2 border-background group-data-[collapsible=icon]:hidden" />

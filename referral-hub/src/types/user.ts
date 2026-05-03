@@ -37,4 +37,5 @@ export interface UserProfile {
   updated_at: string;
   success?: boolean;
   message?: string;
+  profile_image_url?: string | null;
 }

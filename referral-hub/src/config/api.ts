@@ -98,4 +98,8 @@ export const DEPARTMENT_HEAD_ROUTES = {
   RUN_BATCH_SCHEDULING: "/api/v1/department-head/schedule/batch",
   UPDATE_MAX_SLOTS: (id: string) =>
     `/api/v1/department-head/schedule/${id}/max-slots`,
+  
+  // Triage Queue endpoint (may require RECEIVING_SPECIALIST role)
+  // If 404, department heads might not have access to this endpoint
+  TRIAGE_QUEUE: "/api/v1/triage-queue",
 } as const;

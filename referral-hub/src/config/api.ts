@@ -104,3 +104,23 @@ export const HOSPITAL_ADMIN_ROUTES = {
   REPLACE_STAFF: (id: string) => `/api/v1/hospital-admin/staff/${id}/replace`,
   CHANGE_ROLE: (id: string) => `/api/v1/hospital-admin/staff/${id}/role`,
 } as const;
+
+export const DEPARTMENT_HEAD_ROUTES = {
+  // Capacity Override endpoints
+  LIST_CAPACITY_OVERRIDES: "/api/v1/department-head/capacity/overrides",
+  CREATE_CAPACITY_OVERRIDE: "/api/v1/department-head/capacity/overrides",
+  UPDATE_CAPACITY_OVERRIDE: (id: string) =>
+    `/api/v1/department-head/capacity/overrides/${id}`,
+  DELETE_CAPACITY_OVERRIDE: (id: string) =>
+    `/api/v1/department-head/capacity/overrides/${id}`,
+
+  // Schedule endpoints
+  VIEW_SCHEDULE: "/api/v1/department-head/schedule",
+  RUN_BATCH_SCHEDULING: "/api/v1/department-head/schedule/batch",
+  UPDATE_MAX_SLOTS: (id: string) =>
+    `/api/v1/department-head/schedule/${id}/max-slots`,
+  
+  // Triage Queue endpoint (may require RECEIVING_SPECIALIST role)
+  // If 404, department heads might not have access to this endpoint
+  TRIAGE_QUEUE: "/api/v1/triage-queue",
+} as const;

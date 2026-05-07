@@ -1,5 +1,6 @@
 import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "@/redux/slices/authSlice";
+import specialistAvailabilityReducer from "@/redux/slices/specialistAvailabilitySlice";
 import { authApi } from "@/features/auth/authApi";
 import { hospitalsApi } from "@/features/hospitals/hospitalsApi";
 import { referralApi } from "@/features/referral/referralApi";
@@ -13,12 +14,14 @@ import { specialistApi } from "@/features/specialist/specialistApi";
 import { systemAdminApi } from "@/features/systemAdmin/systemAdminApi";
 import { receptionistApi } from "@/features/receptionist/receptionistApi";
 import { hospitalAdminApi } from "@/features/hospitalAdmin/hospitalAdminApi";
+import { departmentHeadApi } from "@/features/department-head/departmentHeadApi";
 import { usersApi } from "@/features/users/usersApi";
 
 export const makeStore = () => {
   return configureStore({
     reducer: {
       auth: authReducer,
+      specialistAvailability: specialistAvailabilityReducer,
       [authApi.reducerPath]: authApi.reducer,
       [hospitalsApi.reducerPath]: hospitalsApi.reducer,
       [referralApi.reducerPath]: referralApi.reducer,
@@ -32,6 +35,7 @@ export const makeStore = () => {
       [systemAdminApi.reducerPath]: systemAdminApi.reducer,
       [receptionistApi.reducerPath]: receptionistApi.reducer,
       [hospitalAdminApi.reducerPath]: hospitalAdminApi.reducer,
+      [departmentHeadApi.reducerPath]: departmentHeadApi.reducer,
       [usersApi.reducerPath]: usersApi.reducer,
     },
     middleware: (getDefaultMiddleware) =>
@@ -49,6 +53,7 @@ export const makeStore = () => {
         systemAdminApi.middleware,
         receptionistApi.middleware,
         hospitalAdminApi.middleware,
+        departmentHeadApi.middleware,
         usersApi.middleware,
       ),
   });

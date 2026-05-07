@@ -8,7 +8,7 @@ interface PlanningCalendarProps {
   days: Date[];
   selectedDay: number;
   calendarOffset: number;
-  appliedDays: Record<number, boolean>;
+  appliedDays: Record<string, boolean>; // Changed from Record<number, boolean> to Record<string, boolean> for date strings
   visibleCount?: number;
   onSelectDay: (idx: number) => void;
   onOffsetChange: (offset: number) => void;
@@ -60,17 +60,20 @@ export function PlanningCalendar({
         {/* Day buttons */}
         <div className="flex gap-2">
           {visibleDays.map((day, idx) => {
-            const absIdx          = calendarOffset + idx;
+            const absIdx = calendarOffset + idx;
             const { month, dayNum, label } = dayMeta(day, absIdx);
-            const isSelected      = absIdx === selectedDay;
-            const isLocked        = absIdx === 0; // today
-            const isApplied       = appliedDays[absIdx];
+            const isSelected = absIdx === selectedDay;
+            const isLocked = absIdx === 0; // today
+            const dateStr = day.toISOString().split('T')[0]; // YYYY-MM-DD
+            const isApplied = appliedDays[dateStr];
 
             return (
               <button
                 key={absIdx}
                 disabled={isLocked}
-                onClick={() => { if (!isLocked) onSelectDay(absIdx); }}
+                onClick={() => {
+                  if (!isLocked) onSelectDay(absIdx);
+                }}
                 className={`relative flex-1 rounded-xl border p-3 flex flex-col items-center gap-0.5 transition-all ${
                   isLocked
                     ? 'border-border bg-muted/30 opacity-50 cursor-not-allowed'
@@ -83,15 +86,30 @@ export function PlanningCalendar({
                   <Lock className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />
                 )}
                 {isApplied && !isLocked && (
-                  <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-emerald-500" />
+                  <span
+                    className="absolute top-2 right-2 h-2 w-2 rounded-full bg-emerald-500"
+                    title="Has capacity override"
+                  />
                 )}
-                <span className={`text-[10px] font-semibold tracking-wide ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
+                <span
+                  className={`text-[10px] font-semibold tracking-wide ${
+                    isSelected ? 'text-primary' : 'text-muted-foreground'
+                  }`}
+                >
                   {month} {dayNum}
                 </span>
-                <span className={`text-2xl font-extrabold tabular-nums leading-none mt-0.5 ${isSelected ? 'text-primary' : 'text-foreground'}`}>
+                <span
+                  className={`text-2xl font-extrabold tabular-nums leading-none mt-0.5 ${
+                    isSelected ? 'text-primary' : 'text-foreground'
+                  }`}
+                >
                   {String(dayNum).padStart(2, '0')}
                 </span>
-                <span className={`text-[10px] font-semibold uppercase tracking-widest mt-0.5 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
+                <span
+                  className={`text-[10px] font-semibold uppercase tracking-widest mt-0.5 ${
+                    isSelected ? 'text-primary' : 'text-muted-foreground'
+                  }`}
+                >
                   {label}
                 </span>
               </button>

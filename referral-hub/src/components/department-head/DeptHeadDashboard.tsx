@@ -190,8 +190,7 @@ export default function DeptHeadDashboard() {
   }, [dispatch]);
 
   // Fetch triage queue from API
-  // Note: This endpoint is for RECEIVING_SPECIALIST role
-  // Department heads might not have access - handle 404 gracefully
+  // Endpoint: /api/v1/department-head/triage-queue
   const { data: triageQueue = [], isLoading, error } = useGetTriageQueueQuery({
     limit: 100, // Get more records for pagination
     offset: 0,
@@ -306,9 +305,7 @@ export default function DeptHeadDashboard() {
                 <AlertTriangle className="h-8 w-8 text-amber-500" />
                 <span className="mt-3 text-sm font-medium text-foreground">Triage Queue Unavailable</span>
                 <p className="mt-1 text-xs text-muted-foreground text-center max-w-md">
-                  {'status' in error && error.status === 404 
-                    ? 'The triage queue endpoint is not accessible for department heads. This feature may require RECEIVING_SPECIALIST role.'
-                    : 'Failed to load triage queue. Please try again later.'}
+                  Failed to load triage queue. Please try again later or contact support if the issue persists.
                 </p>
               </div>
             )}

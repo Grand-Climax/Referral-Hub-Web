@@ -13,6 +13,10 @@ export const hospitalsApi = createApi({
                 url: HOSPITAL_ROUTES.GET_BY_ID(id),
                 method: 'GET',
             }),
+            transformResponse: (response: Hospital | { data: Hospital }) => {
+                if ('data' in response && response.data) return response.data;  
+                return response as Hospital;
+            },
         }),
         getHospitals: builder.query<Hospital[], void>({
             query: () => ({

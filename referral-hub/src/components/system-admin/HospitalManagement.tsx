@@ -1,9 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Building2, Search, UsersRound } from "lucide-react";
+import { FormEvent, useMemo, useState } from "react";
+import { Building2, Loader2, Plus, Search, UsersRound } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -20,23 +31,86 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { useGetHospitalsQuery } from "@/features/hospitals/hospitalsApi";
-import { useGetSystemAdminUsersQuery } from "@/features/systemAdmin/systemAdminApi";
+import {
+  useCreateHospitalMutation,
+  useGetSystemAdminUsersQuery,
+} from "@/features/systemAdmin/systemAdminApi";
+import type { CreateHospitalRequest } from "@/types/hospital";
 
 const PAGE_SIZE = 8;
+const TIER_LEVEL_OPTIONS = ["PRIMARY", "GENERAL", "SPECIALIZED"] as const;
+
+const defaultHospitalFormValues: CreateHospitalRequest = {
+  address: "",
+  contact_phone: "",
+  name: "",
+  region: "",
+  tier_level: "SPECIALIZED",
+};
 
 export function HospitalManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [hospitalForm, setHospitalForm] = useState<CreateHospitalRequest>(
+    defaultHospitalFormValues,
+  );
 
-  const { data: hospitals = [], isFetching: hospitalsLoading } =
-    useGetHospitalsQuery();
+  const {
+    data: hospitals = [],
+    isFetching: hospitalsLoading,
+    refetch: refetchHospitals,
+  } = useGetHospitalsQuery();
   const { data: users = [] } = useGetSystemAdminUsersQuery({
     page: 1,
     page_size: 500,
   });
+  const [createHospital, { isLoading: isCreatingHospital }] =
+    useCreateHospitalMutation();
+
+  const updateHospitalField = (
+    field: keyof CreateHospitalRequest,
+    value: string,
+  ) => {
+    setHospitalForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  const resetHospitalForm = () => {
+    setHospitalForm(defaultHospitalFormValues);
+  };
+
+  const handleCreateDialogOpenChange = (open: boolean) => {
+    setIsCreateDialogOpen(open);
+    if (!open) {
+      resetHospitalForm();
+    }
+  };
+
+  const handleCreateHospital = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    try {
+      await createHospital({
+        address: hospitalForm.address.trim(),
+        contact_phone: hospitalForm.contact_phone.trim(),
+        name: hospitalForm.name.trim(),
+        region: hospitalForm.region.trim(),
+        tier_level: hospitalForm.tier_level,
+      }).unwrap();
+      toast.success("Hospital created successfully.");
+      handleCreateDialogOpenChange(false);
+      setCurrentPage(1);
+      await refetchHospitals();
+    } catch (error) {
+      console.error(error);
+      toast.error("Could not create hospital. Please try again.");
+    }
+  };
 
   const usersByHospital = useMemo(
     () =>
@@ -88,15 +162,133 @@ export function HospitalManagement() {
 
   return (
     <div className="mx-auto flex w-full max-w-400 flex-col gap-6">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Hospital management
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Review active and inactive hospitals and monitor how many users are
-          assigned per hospital.
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-2">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Hospital management
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Review active and inactive hospitals and monitor how many users are
+            assigned per hospital.
+          </p>
+        </div>
+        <Button
+          type="button"
+          className="gap-2 sm:mt-1"
+          onClick={() => setIsCreateDialogOpen(true)}
+        >
+          <Plus className="h-4 w-4" />
+          Create hospital
+        </Button>
       </div>
+
+      <Dialog
+        open={isCreateDialogOpen}
+        onOpenChange={handleCreateDialogOpenChange}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create hospital</DialogTitle>
+            <DialogDescription>
+              Add a hospital to the network so admins can assign users and
+              departments to it.
+            </DialogDescription>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={handleCreateHospital}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="hospital_name">Hospital name</Label>
+                <Input
+                  id="hospital_name"
+                  value={hospitalForm.name}
+                  onChange={(event) =>
+                    updateHospitalField("name", event.target.value)
+                  }
+                  placeholder="Tikur Anbessa Specialized Hospital"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="hospital_region">Region</Label>
+                <Input
+                  id="hospital_region"
+                  value={hospitalForm.region}
+                  onChange={(event) =>
+                    updateHospitalField("region", event.target.value)
+                  }
+                  placeholder="Addis Ababa"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="hospital_phone">Contact phone</Label>
+                <Input
+                  id="hospital_phone"
+                  value={hospitalForm.contact_phone}
+                  onChange={(event) =>
+                    updateHospitalField("contact_phone", event.target.value)
+                  }
+                  placeholder="+251 11 111 2233"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="hospital_tier">Tier level</Label>
+                <Select
+                  value={hospitalForm.tier_level}
+                  onValueChange={(value) =>
+                    updateHospitalField("tier_level", value)
+                  }
+                >
+                  <SelectTrigger id="hospital_tier" className="w-full">
+                    <SelectValue placeholder="Select tier level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIER_LEVEL_OPTIONS.map((tierLevel) => (
+                      <SelectItem key={tierLevel} value={tierLevel}>
+                        {tierLevel}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="hospital_address">Address</Label>
+              <Input
+                id="hospital_address"
+                value={hospitalForm.address}
+                onChange={(event) =>
+                  updateHospitalField("address", event.target.value)
+                }
+                placeholder="Churchill Road, Addis Ababa, Ethiopia"
+                required
+              />
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleCreateDialogOpenChange(false)}
+                disabled={isCreatingHospital}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isCreatingHospital}>
+                {isCreatingHospital ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Create hospital
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>

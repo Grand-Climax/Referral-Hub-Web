@@ -17,6 +17,7 @@ export const USER_ROUTES = {
 } as const;
 
 export const HOSPITAL_ROUTES = {
+  CREATE: "/api/v1/hospitals",
   GET_BY_ID: (id: string) => `/api/v1/hospitals/${id}`,
 } as const;
 

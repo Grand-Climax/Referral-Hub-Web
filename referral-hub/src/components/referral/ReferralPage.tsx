@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { FileText, Clock, CheckCircle, AlertTriangle } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGetReferralsQuery } from "@/features/referral/referralApi";
 import { ReferralDashboardTable } from "./ReferralDashboardTable";
 import Link from "next/link";
@@ -52,7 +52,7 @@ const ReferralDashboard = () => {
     data: tableResponse, 
     isLoading: isTableLoading, 
     isFetching: isTableFetching 
-  } = useGetReferralsQuery({ page: tablePage, limit: pageSize });
+  } = useGetReferralsQuery({ page: tablePage, limit: pageSize });  
 
   const referrals  = statsResponse?.data  ?? [];
   const totalItems = statsResponse?.total ?? 0;

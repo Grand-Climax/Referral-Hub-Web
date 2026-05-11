@@ -129,7 +129,7 @@ export function SystemAdminDashboard() {
 
   const filteredUsers = users.filter((user) => {
     const searchable =
-      `${user.first_name} ${user.last_name} ${user.email} ${user.id} ${user.hospital?.name ?? ""} ${user.department?.name ?? ""} ${user.hospital?.region ?? ""}`.toLowerCase();
+      `${user.first_name} ${user.middle_name ?? ""} ${user.last_name} ${user.email} ${user.id} ${user.hospital?.name ?? ""} ${user.department?.name ?? ""} ${user.hospital?.region ?? ""}`.toLowerCase();
     const matchesSearch = searchable.includes(searchTerm.toLowerCase());
     const matchesRole =
       roleFilter === "all" ||

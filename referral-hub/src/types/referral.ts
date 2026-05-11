@@ -26,12 +26,14 @@ export interface ReferralPatient {
   id: string;
   national_id_enc?: string | null;
   national_id_hash?: string | null;
+  national_id?: string | null;
   phone_number: string;
   first_name: string;
   middle_name?: string | null;
   last_name: string;
   sex: "male" | "female";
   date_of_birth: string;
+  allow_sms?: boolean;
   home_region?: string | null;
   is_deleted?: boolean;
   deleted_at?: string | null;
@@ -88,6 +90,23 @@ export interface EmergencyDetail {
   emergency_justification: string;
 }
 
+export interface ReferralAttachment {
+  id: string;
+  referral_id: string;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  category?: string | null;
+  storage_path: string;
+  metadata?: {
+    format?: string;
+    height?: number;
+    width?: number;
+  } | null;
+  verification?: string | null;
+  uploaded_at: string;
+}
+
 export interface Referral {
   id: string;
   patient_id: string;
@@ -97,6 +116,7 @@ export interface Referral {
   liaison_officer_id?: string | null;
   target_dept_id: string;
   status: ReferralStatus;
+  triage_status?: string | null;
   waiting_hours_weight?: number;
   ml_status?: ReferralMlStatus;
   ml_retry_count?: number;
@@ -108,6 +128,7 @@ export interface Referral {
   vitals?: Vital[];
   referral_form?: ReferralForm;
   emergency_detail?: EmergencyDetail;
+  attachments?: ReferralAttachment[];
   comments?: ReferralComment[];
 
   [key: string]: unknown;

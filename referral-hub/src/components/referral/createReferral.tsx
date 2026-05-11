@@ -13,7 +13,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
@@ -34,7 +33,7 @@ import {
 import PatientCreationStep from "./PatientCreationStep";
 
 // Redux & API
-import { useCreateReferralMutation, useUploadAttachmentMutation } from "@/features/referral/referralApi";
+import { useCreateReferralMutation } from "@/features/referral/referralApi";
 import { useGetDepartmentsQuery } from "@/features/hospitals/hospitalsApi";
 import { CreateReferralRequest } from "@/types/referral";
 import { useGetCurrentUserQuery } from "@/features/auth/authApi";
@@ -88,9 +87,6 @@ const CreateReferral = () => {
   // Redux & API hooks
   const { data: user, isLoading: isUserLoading } = useGetCurrentUserQuery();
   const [createReferral, { isLoading: isSubmitting }] = useCreateReferralMutation();
-  const [uploadAttachment] = useUploadAttachmentMutation();
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const { data: networkedHospitals = [], isLoading: isLoadingHospitals } = useGetNetworkedHospitalsQuery();
   const [lookupPatient, { isFetching: isLookingUpPatient }] = useLazyLookupPatientQuery();
   const [createPatient, { isLoading: isCreatingPatient }] = useCreatePatientMutation();
@@ -382,35 +378,10 @@ const CreateReferral = () => {
       // patient_id is already validated above
 
       // console.log("Submitting referral payload:", JSON.stringify(payload, null, 2));
-      const submitRes = await createReferral(payload).unwrap();
-
-      if (attachedFiles.length > 0 && submitRes.upload_config) {
-        setIsUploading(true);
-        let completed = 0;
-        
-        // Ensure referral ID exists (if nested or flat)
-        const refId = submitRes.referral?.id || submitRes.id;
-
-        if (!refId) {
-          throw new Error("Missing referral ID in response");
-        }
-
-        for (const file of attachedFiles) {
-          try {
-            await uploadAttachment({
-              file,
-              config: submitRes.upload_config,
-              referralId: refId
-            }).unwrap();
-            completed++;
-            setUploadProgress(Math.round((completed / attachedFiles.length) * 100));
-          } catch (uploadErr) {
-            console.error("File upload failed:", uploadErr);
-            toast.error(`Failed to upload ${file.name}`);
-          }
-        }
-        setIsUploading(false);
-      }
+      await createReferral({
+        ...payload,
+        attachments: attachedFiles,
+      }).unwrap();
 
       toast.success("Referral submitted successfully!", {
         description: attachedFiles.length > 0 
@@ -420,7 +391,7 @@ const CreateReferral = () => {
       router.push("/referring-doctor");
     } catch (err: any) {
       console.error("Referral creation failed:", err);
-      toast.error(err.data?.message || "Failed to submit referral. Please try again.");
+      toast.error(err?.data?.message || "Failed to submit referral. Please try again.");
     }
   };
 
@@ -1141,15 +1112,6 @@ const CreateReferral = () => {
                     </span>
                   </div>
                   
-                  {isUploading && (
-                    <div className="space-y-2 border-t pt-4 border-border/50">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground font-medium">Uploading attachments...</span>
-                        <span className="font-bold text-primary">{uploadProgress}%</span>
-                      </div>
-                      <Progress value={uploadProgress} className="h-2 transition-all duration-300" />
-                    </div>
-                  )}
                 </div>
                 <p className="text-xs text-muted-foreground italic">
                   By submitting, you confirm that all information provided is accurate to the best of your knowledge.
@@ -1187,14 +1149,12 @@ const CreateReferral = () => {
                 <Button 
                   type="submit" 
                   className="gap-2 px-8" 
-                  disabled={isSubmitting || isLookingUpPatient || isCreatingPatient || isUploading}
+                  disabled={isSubmitting || isLookingUpPatient || isCreatingPatient}
                 >
                   {isSubmitting
                     ? "Submitting..."
-                    : isUploading
-                      ? "Uploading Files..."
-                      : "Submit Referral"}
-                  {!isSubmitting && !isUploading && <ArrowRight className="h-4 w-4" />}
+                    : "Submit Referral"}
+                  {!isSubmitting && <ArrowRight className="h-4 w-4" />}
                 </Button>
               )}
             </div>

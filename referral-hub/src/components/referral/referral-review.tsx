@@ -41,7 +41,6 @@ import {
   useGetReferralsQuery,
   useGetReferralByIdQuery,
   useResubmitReferralMutation,
-  useUploadAttachmentMutation,
 } from "@/features/referral/referralApi";
 import { useGetIcdCodesQuery } from "@/features/reference/icdApi";
 import { useGetNetworkedHospitalsQuery } from "@/features/reference/networkedHospitalsApi";
@@ -69,7 +68,6 @@ const ReferralReview = () => {
     skip: !selectedId,
   });
   const [resubmitReferral, { isLoading: isResubmitting }] = useResubmitReferralMutation();
-  const [uploadAttachment] = useUploadAttachmentMutation();
   const { data: icdCodes = [] } = useGetIcdCodesQuery();
   const { data: networkedHospitals = [], isLoading: isLoadingHospitals } = useGetNetworkedHospitalsQuery();
   const { data: liaisons = [], isLoading: isLoadingLiaisons } = useGetLiaisonsQuery();
@@ -290,7 +288,13 @@ const ReferralReview = () => {
     if (payload.reason_for_referral_category !== "EMERGENCY") delete (payload as any).emergency_detail;
 
     try {
-      await resubmitReferral({ id: selectedId, body: payload }).unwrap();
+      await resubmitReferral({
+        id: selectedId,
+        body: {
+          ...payload,
+          attachments: attachedFiles,
+        },
+      }).unwrap();
       toast.success("Referral resubmitted successfully!", {
         description: "Your referral has been sent back for review.",
       });

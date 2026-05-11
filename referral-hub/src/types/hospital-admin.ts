@@ -123,13 +123,14 @@ export interface HospitalAdminStaffResponse {
 }
 
 export interface CreateStaffPayload {
+  department_id: string;
   email: string;
   first_name: string;
+  middle_name: string;
   last_name: string;
+  national_id: string;
+  password: string;
   role: string;
-  password?: string;
-  department_id?: string;
-  [key: string]: any;
 }
 
 export interface ReplaceStaffPayload {

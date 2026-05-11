@@ -33,6 +33,7 @@ import {
 export interface SystemAdminUserFormValues {
   email: string;
   first_name: string;
+  middle_name: string;
   last_name: string;
   national_id: string;
   hospital_id: string;
@@ -45,11 +46,12 @@ export interface SystemAdminUserFormValues {
 const defaultValues: SystemAdminUserFormValues = {
   email: "",
   first_name: "",
+  middle_name: "",
   last_name: "",
   national_id: "",
   hospital_id: "",
   department_id: "",
-  role: "hospital_admin",
+  role: "HOSPITAL_ADMIN",
   password: "",
   is_active: true,
 };
@@ -91,6 +93,7 @@ export function SystemAdminUserForm({
       setFormValues({
         email: selectedUser.email,
         first_name: selectedUser.first_name,
+        middle_name: selectedUser.middle_name ?? "",
         last_name: selectedUser.last_name,
         national_id: selectedUser.national_id ?? "",
         hospital_id: selectedUser.hospital_id,
@@ -118,15 +121,16 @@ export function SystemAdminUserForm({
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const payload = {
-      email: formValues.email,
-      first_name: formValues.first_name,
-      last_name: formValues.last_name,
-      national_id: formValues.national_id || undefined,
+    const payload: CreateSystemAdminUserRequest = {
+      department_id: formValues.department_id,
+      email: formValues.email.trim(),
+      first_name: formValues.first_name.trim(),
+      middle_name: formValues.middle_name.trim(),
       hospital_id: formValues.hospital_id,
-      department_id: formValues.department_id || undefined,
+      last_name: formValues.last_name.trim(),
+      national_id: formValues.national_id.trim(),
+      password: formValues.password,
       role: formValues.role,
-      password: formValues.password || undefined,
       is_active: formValues.is_active,
     };
 
@@ -186,8 +190,24 @@ export function SystemAdminUserForm({
                   updateField("first_name", event.target.value)
                 }
                 placeholder="John"
+                required
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="middle_name">Middle name</Label>
+              <Input
+                id="middle_name"
+                value={formValues.middle_name}
+                onChange={(event) =>
+                  updateField("middle_name", event.target.value)
+                }
+                placeholder="Kebede"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="last_name">Last name</Label>
               <Input
@@ -197,11 +217,9 @@ export function SystemAdminUserForm({
                   updateField("last_name", event.target.value)
                 }
                 placeholder="Doe"
+                required
               />
             </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -210,8 +228,12 @@ export function SystemAdminUserForm({
                 value={formValues.email}
                 onChange={(event) => updateField("email", event.target.value)}
                 placeholder="user@hospital.org"
+                required
               />
             </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="national_id">National ID</Label>
               <Input
@@ -221,6 +243,20 @@ export function SystemAdminUserForm({
                   updateField("national_id", event.target.value)
                 }
                 placeholder="Enter national ID"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={formValues.password}
+                onChange={(event) =>
+                  updateField("password", event.target.value)
+                }
+                placeholder="password123"
+                required
               />
             </div>
           </div>
@@ -304,24 +340,6 @@ export function SystemAdminUserForm({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">
-                Password {selectedUser ? "(optional)" : ""}
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                value={formValues.password}
-                onChange={(event) =>
-                  updateField("password", event.target.value)
-                }
-                placeholder={
-                  selectedUser
-                    ? "Leave blank to keep current password"
-                    : "Temporary password"
-                }
-              />
             </div>
           </div>
 

@@ -116,7 +116,9 @@ export function SystemAdminUsersTable({
                     <TableCell className="px-6 py-4">
                       <div className="space-y-1">
                         <p className="font-medium text-foreground">
-                          {user.first_name} {user.last_name}
+                          {[user.first_name, user.middle_name, user.last_name]
+                            .filter(Boolean)
+                            .join(" ")}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {user.email}

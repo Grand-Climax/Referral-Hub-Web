@@ -12,6 +12,14 @@ export interface Hospital {
   is_deleted?: boolean;
 }
 
+export interface CreateHospitalRequest {
+  address: string;
+  contact_phone: string;
+  name: string;
+  region: string;
+  tier_level: string;
+}
+
 export interface Department {
   id: string;
   name: string;

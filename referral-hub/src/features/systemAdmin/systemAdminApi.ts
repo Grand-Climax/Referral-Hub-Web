@@ -1,6 +1,7 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { baseQueryWithReauth } from "@/lib/baseQuery";
-import { SYSTEM_ADMIN_ROUTES } from "@/config/api";
+import { HOSPITAL_ROUTES, SYSTEM_ADMIN_ROUTES } from "@/config/api";
+import type { CreateHospitalRequest, Hospital } from "@/types/hospital";
 import type {
   AssignSystemAdminRoleRequest,
   CreateSystemAdminUserRequest,
@@ -49,6 +50,13 @@ export const systemAdminApi = createApi({
         body,
       }),
       invalidatesTags: [{ type: "SystemAdminUser", id: "LIST" }],
+    }),
+    createHospital: builder.mutation<Hospital, CreateHospitalRequest>({
+      query: (body) => ({
+        url: HOSPITAL_ROUTES.CREATE,
+        method: "POST",
+        body,
+      }),
     }),
     updateSystemAdminUser: builder.mutation<
       SystemAdminUser,
@@ -104,6 +112,7 @@ export const systemAdminApi = createApi({
 export const {
   useGetSystemAdminUsersQuery,
   useCreateSystemAdminUserMutation,
+  useCreateHospitalMutation,
   useUpdateSystemAdminUserMutation,
   useDeleteSystemAdminUserMutation,
   useModerateSystemAdminProfileImageMutation,

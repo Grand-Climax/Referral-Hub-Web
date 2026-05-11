@@ -41,17 +41,27 @@ const URGENCY_STYLES: Record<UrgencyLevel, { badge: string; bar: string }> = {
   LOW: { badge: 'bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-300', bar: 'bg-slate-400' },
 };
 
-function UrgencyBadge({ level }: { level: UrgencyLevel }) {
+function UrgencyBadge({ level }: { level?: UrgencyLevel | string }) {
+  // Safety check: default to LOW if level is undefined or invalid
+  const safeLevel: UrgencyLevel = 
+    level && typeof level === 'string' && level in URGENCY_STYLES 
+      ? (level as UrgencyLevel)
+      : 'LOW';
+  
+  const styles = URGENCY_STYLES[safeLevel];
+  
   return (
-    <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wide uppercase ${URGENCY_STYLES[level].badge}`}>
-      {level}
+    <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wide uppercase ${styles.badge}`}>
+      {safeLevel}
     </span>
   );
 }
 
-function MlScoreBar({ score }: { score: number }) {
-  const pct = (score / 10) * 100;
-  const level: UrgencyLevel = score >= 8 ? 'CRITICAL' : score >= 6 ? 'HIGH' : score >= 4 ? 'MEDIUM' : 'LOW';
+function MlScoreBar({ score }: { score?: number }) {
+  // Safety check: default to 0 if score is undefined or invalid
+  const safeScore = typeof score === 'number' && !isNaN(score) ? score : 0;
+  const pct = (safeScore / 10) * 100;
+  const level: UrgencyLevel = safeScore >= 8 ? 'CRITICAL' : safeScore >= 6 ? 'HIGH' : safeScore >= 4 ? 'MEDIUM' : 'LOW';
   return (
     <div className="flex items-center gap-2">
       <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
@@ -60,7 +70,7 @@ function MlScoreBar({ score }: { score: number }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-sm font-bold tabular-nums text-foreground">{score.toFixed(1)}</span>
+      <span className="text-sm font-bold tabular-nums text-foreground">{safeScore.toFixed(1)}</span>
     </div>
   );
 }

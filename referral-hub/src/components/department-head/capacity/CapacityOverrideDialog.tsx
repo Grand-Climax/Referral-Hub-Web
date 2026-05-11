@@ -37,6 +37,19 @@ export function CapacityOverrideDialog({
   const user = useSelector((state: RootState) => state.auth.user);
   const departmentId = user?.departmentId;
 
+  // Get schedule to extract the correct dept_id
+  const { data: scheduleData } = useSelector((state: RootState) => {
+    // Try to get schedule data from the cache
+    const scheduleState = (state as any).departmentHeadApi?.queries;
+    const scheduleQuery = Object.values(scheduleState || {}).find(
+      (query: any) => query?.endpointName === 'getSchedule'
+    ) as any;
+    return { data: scheduleQuery?.data };
+  });
+
+  // Extract the actual dept_id from schedule data (it's different from department_id!)
+  const actualDeptId = scheduleData?.[0]?.dept_id || departmentId;
+
   // Debug: Check JWT token
   const [jwtDebugInfo, setJwtDebugInfo] = useState<any>(null);
   
@@ -91,9 +104,9 @@ export function CapacityOverrideDialog({
     setErrorDetails(null);
 
     // Check if we have department ID
-    if (!departmentId) {
-      setErrorDetails('Department ID not found in your profile. Please log out and log back in.');
-      toast.error('Department ID missing. Please log in again.');
+    if (!actualDeptId) {
+      setErrorDetails('Department ID not found. Please refresh the page and try again.');
+      toast.error('Department ID missing. Please refresh the page.');
       return;
     }
 
@@ -129,14 +142,14 @@ export function CapacityOverrideDialog({
         
         toast.success('Capacity override updated successfully');
       } else {
-        // Create new override with dept_id
+        // Create new override with the actual dept_id from schedule
         const requestData = {
           target_date: selectedDate,
           ...formData,
-          dept_id: departmentId, // Include department ID
+          dept_id: actualDeptId, // Use the actual dept_id from schedule data
         };
         
-        console.log('Creating capacity override:', requestData);
+        console.log('Creating capacity override with actual dept_id:', requestData);
         
         await createOverride(requestData).unwrap();
         
@@ -150,7 +163,8 @@ export function CapacityOverrideDialog({
       console.error('Capacity override error:', {
         status: error?.status,
         message: error?.data?.message || error?.message,
-        dept_id: departmentId,
+        dept_id_sent: actualDeptId,
+        department_id_from_jwt: departmentId,
         error: error,
       });
       
@@ -165,14 +179,14 @@ export function CapacityOverrideDialog({
         
         // Check for specific errors
         if (errorMessage.includes('foreign key') || errorMessage.includes('constraint')) {
-          details = `Database error: The department ID "${departmentId}" doesn't exist in the system. Contact your administrator.`;
+          details = `Database error: The dept_id "${actualDeptId}" doesn't exist in the system. Contact your administrator.`;
         } else if (errorMessage.includes('dept_id') || errorMessage.includes('department')) {
-          details = `Department ID issue. Your dept_id: ${departmentId || 'NOT FOUND'}. Please log out and log back in.`;
+          details = `Department ID issue. Actual dept_id: ${actualDeptId}, JWT dept_id: ${departmentId}. Please contact support.`;
         } else if (errorMessage.includes('date')) {
           details = 'Invalid date. Please ensure the date is in the future.';
         }
       } else if (error?.status === 500) {
-        details = `Server error. Dept ID: ${departmentId || 'NONE'}. The department may not exist in the database.`;
+        details = `Server error. Dept ID: ${actualDeptId}. The department may not exist in the database.`;
       }
       
       setErrorDetails(details || 'An error occurred. Please try again.');
@@ -289,7 +303,9 @@ export function CapacityOverrideDialog({
                         target_date: selectedDate,
                         new_limit: formData.new_limit,
                         reason: formData.reason,
-                        dept_id: departmentId || 'NOT FOUND',
+                        dept_id: actualDeptId,
+                        department_id_from_jwt: departmentId,
+                        note: actualDeptId !== departmentId ? '⚠️ Using dept_id from schedule (different from JWT!)' : '✅ dept_id matches JWT',
                       },
                       null,
                       2
@@ -314,13 +330,27 @@ export function CapacityOverrideDialog({
                 </div>
 
                 {/* Warning if dept_id missing */}
-                {!departmentId && (
+                {!actualDeptId && (
                   <div className="bg-destructive/10 border border-destructive rounded p-2">
                     <p className="text-destructive font-medium">
                       ⚠️ Department ID is missing!
                     </p>
                     <p className="text-xs mt-1">
-                      Please log out and log back in. If the issue persists, contact your administrator.
+                      Please refresh the page. If the issue persists, contact your administrator.
+                    </p>
+                  </div>
+                )}
+
+                {/* Warning if dept_ids don't match */}
+                {actualDeptId && departmentId && actualDeptId !== departmentId && (
+                  <div className="bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-900 rounded p-2">
+                    <p className="text-amber-800 dark:text-amber-200 font-medium text-xs">
+                      ℹ️ Using dept_id from schedule data
+                    </p>
+                    <p className="text-[10px] mt-1 text-amber-700 dark:text-amber-300">
+                      JWT has: {departmentId}<br/>
+                      Schedule has: {actualDeptId}<br/>
+                      Using schedule value (correct one)
                     </p>
                   </div>
                 )}

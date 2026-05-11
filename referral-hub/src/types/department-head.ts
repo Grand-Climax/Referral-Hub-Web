@@ -61,8 +61,8 @@ export interface TriagePatient {
   patient_name: string;
   patient_age: number;
   patient_sex: string;
-  urgency_level: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
-  severity_score: number;
+  urgency_level?: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'; // Optional - may not always be present
+  severity_score?: number; // Optional - may not always be present
   referring_facility: string;
   estimated_arrival?: string;
   status: string;

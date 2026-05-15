@@ -18,15 +18,19 @@ export function AssignDoctorModal({ open, onOpenChange, referralId }: AssignDoct
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!referralId) return;
+    if (!referralId) {
+      toast.error("No referral selected");
+      return;
+    }
     
     try {
       await assignDoctor({ id: referralId, doctor_id: doctorId }).unwrap();
       toast.success("Doctor assigned successfully");
       onOpenChange(false);
       setDoctorId("");
-    } catch (err) {
-      toast.error("Failed to assign doctor");
+    } catch (err: any) {
+      const errorMessage = err?.data?.error || "Failed to assign doctor";
+      toast.error(errorMessage);
     }
   };
 
@@ -46,6 +50,9 @@ export function AssignDoctorModal({ open, onOpenChange, referralId }: AssignDoct
               onChange={(e) => setDoctorId(e.target.value)} 
               placeholder="Enter Doctor ID"
             />
+            <p className="text-xs text-slate-500">
+              Doctor must be a RECEIVING_SPECIALIST in the same hospital
+            </p>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

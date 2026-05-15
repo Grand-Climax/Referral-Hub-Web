@@ -10,63 +10,86 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
-
-const appointments = [
-  {
-    name: "Sarah Jenkins",
-    id: "REF-9823-X",
-    time: "09:15 AM",
-    date: "Monday, Oct 24",
-    department: "Cardiology",
-    urgency: "CRITICAL",
-    status: "Confirmed",
-    statusColor: "bg-blue-500",
-    urgencyColor: "bg-red-100 text-red-600",
-  },
-  {
-    name: "Marcus Thorne",
-    id: "REF-1142-A",
-    time: "10:30 AM",
-    date: "Monday, Oct 24",
-    department: "Neurology",
-    urgency: "URGENT",
-    status: "Arrived",
-    statusColor: "bg-orange-500",
-    urgencyColor: "bg-orange-100 text-orange-600",
-  },
-  {
-    name: "Emily Zhang",
-    id: "REF-4490-K",
-    time: "11:00 AM",
-    date: "Monday, Oct 24",
-    department: "Pediatrics",
-    urgency: "ROUTINE",
-    status: "Late",
-    statusColor: "bg-red-500",
-    urgencyColor: "bg-slate-100 text-slate-600",
-  },
-  {
-    name: "Robert Miller",
-    id: "REF-2231-M",
-    time: "11:45 AM",
-    date: "02:30 PM (New)",
-    department: "Orthopedics",
-    urgency: "ROUTINE",
-    status: "Rescheduled",
-    statusColor: "bg-slate-400",
-    urgencyColor: "bg-slate-100 text-slate-600",
-  },
-];
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ChevronLeft, ChevronRight, MoreHorizontal, Loader2, Calendar } from "lucide-react";
+import { useGetScheduleQuery } from "@/features/receptionist/receptionistApi";
+import { useState } from "react";
 
 export function AppointmentTable() {
+  const { data, isLoading, error } = useGetScheduleQuery();
+  const [currentView, setCurrentView] = useState<"list" | "weekly" | "monthly">("list");
+
+  // The schedule endpoint returns scheduled triage records for next 48 hours
+  // The response structure is flexible (additionalProp1: {}), so we need to handle it accordingly
+  const scheduleItems = data ? Object.values(data).flat() : [];
+
+  const formatDateTime = (dateString?: string) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return {
+      time: date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      date: date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+    };
+  };
+
+  const getStatusColor = (status?: string) => {
+    switch (status?.toUpperCase()) {
+      case "CONFIRMED":
+      case "SCHEDULED":
+        return "bg-blue-500";
+      case "ARRIVED":
+        return "bg-green-500";
+      case "LATE":
+      case "MISSED":
+        return "bg-red-500";
+      case "RESCHEDULED":
+        return "bg-slate-400";
+      default:
+        return "bg-slate-300";
+    }
+  };
+
+  const getUrgencyColor = (urgency?: string) => {
+    switch (urgency?.toUpperCase()) {
+      case "CRITICAL":
+      case "EMERGENCY":
+        return "bg-red-100 text-red-600";
+      case "URGENT":
+      case "HIGH":
+        return "bg-orange-100 text-orange-600";
+      default:
+        return "bg-slate-100 text-slate-600";
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
       <div className="p-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
         <div className="flex gap-2">
-          <Button variant="ghost" size="sm" className="text-xs font-bold text-slate-500">Monthly</Button>
-          <Button variant="ghost" size="sm" className="text-xs font-bold text-slate-500">Weekly View</Button>
-          <Button variant="secondary" size="sm" className="text-xs font-bold bg-white text-primary shadow-sm border border-slate-200">List View</Button>
+          <Button 
+            variant={currentView === "monthly" ? "secondary" : "ghost"} 
+            size="sm" 
+            className="text-xs font-bold"
+            onClick={() => setCurrentView("monthly")}
+          >
+            Monthly
+          </Button>
+          <Button 
+            variant={currentView === "weekly" ? "secondary" : "ghost"} 
+            size="sm" 
+            className="text-xs font-bold"
+            onClick={() => setCurrentView("weekly")}
+          >
+            Weekly View
+          </Button>
+          <Button 
+            variant={currentView === "list" ? "secondary" : "ghost"} 
+            size="sm" 
+            className="text-xs font-bold bg-white text-primary shadow-sm border border-slate-200"
+            onClick={() => setCurrentView("list")}
+          >
+            List View
+          </Button>
         </div>
         
         <div className="flex items-center gap-4">
@@ -91,49 +114,94 @@ export function AppointmentTable() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {appointments.map((appt) => (
-            <TableRow key={appt.id} className="border-slate-50 hover:bg-slate-50/50 transition-colors group">
-              <TableCell className="py-6 px-8">
-                <div>
-                  <p className="font-bold text-slate-900 group-hover:text-primary transition-colors">{appt.name}</p>
-                  <p className="text-[10px] font-medium text-slate-400">{appt.id}</p>
+          {isLoading ? (
+            <TableRow>
+              <TableCell colSpan={6} className="py-12 text-center">
+                <div className="flex flex-col items-center justify-center text-slate-400">
+                  <Loader2 className="h-6 w-6 animate-spin mb-2" />
+                  <p className="text-sm">Loading scheduled appointments...</p>
                 </div>
-              </TableCell>
-              <TableCell>
-                <div>
-                  <p className="font-bold text-slate-700">{appt.time}</p>
-                  <p className="text-[10px] font-medium text-slate-400">{appt.date}</p>
-                </div>
-              </TableCell>
-              <TableCell>
-                <p className="text-sm font-medium text-slate-600">{appt.department}</p>
-              </TableCell>
-              <TableCell className="text-center">
-                <span className={`px-2 py-1 rounded text-[10px] font-bold tracking-tight ${appt.urgencyColor}`}>
-                  {appt.urgency}
-                </span>
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full ${appt.status === "Confirmed" ? "bg-primary" : appt.statusColor}`} />
-                  <p className="text-sm font-medium text-slate-600">{appt.status}</p>
-                </div>
-              </TableCell>
-              <TableCell className="text-right px-8">
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-900">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
               </TableCell>
             </TableRow>
-          ))}
+          ) : error ? (
+            <TableRow>
+              <TableCell colSpan={6} className="py-12 text-center text-red-500">
+                Failed to load scheduled appointments.
+              </TableCell>
+            </TableRow>
+          ) : scheduleItems.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={6} className="py-12 text-center">
+                <div className="flex flex-col items-center justify-center text-slate-400">
+                  <Calendar className="h-8 w-8 mb-2" />
+                  <p className="text-sm">No scheduled appointments for the next 48 hours</p>
+                </div>
+              </TableCell>
+            </TableRow>
+          ) : (
+            scheduleItems.map((appt: any, index: number) => {
+              const initials = `${appt.patient_first_name?.[0] || ""}${appt.patient_last_name?.[0] || ""}`;
+              const fullName = `${appt.patient_last_name || ""}, ${appt.patient_first_name || ""}`.toUpperCase();
+              const dateTime = formatDateTime(appt.scheduled_time);
+              
+              return (
+                <TableRow key={appt.id || index} className="border-slate-50 hover:bg-slate-50/50 transition-colors group">
+                  <TableCell className="py-6 px-8">
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-10 w-10 rounded-lg bg-slate-100">
+                        <AvatarFallback className="text-[10px] font-bold text-slate-500 bg-slate-100 rounded-lg">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-bold text-slate-900 group-hover:text-primary transition-colors">{fullName}</p>
+                        <p className="text-[10px] font-medium text-slate-400">{appt.referral_id || appt.id}</p>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div>
+                      <p className="font-bold text-slate-700">{dateTime.time}</p>
+                      <p className="text-[10px] font-medium text-slate-400">{dateTime.date}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <p className="text-sm font-medium text-slate-600">{appt.department || "N/A"}</p>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <span className={`px-2 py-1 rounded text-[10px] font-bold tracking-tight ${getUrgencyColor(appt.urgency)}`}>
+                      {appt.urgency || "ROUTINE"}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2 w-2 rounded-full ${getStatusColor(appt.queue_status || appt.arrival_status)}`} />
+                      <p className="text-sm font-medium text-slate-600">{appt.queue_status || appt.arrival_status || "Scheduled"}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right px-8">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-900">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })
+          )}
         </TableBody>
       </Table>
 
       <div className="p-4 border-t border-slate-50 flex items-center justify-between bg-white text-slate-400">
-        <p className="text-xs italic">Showing 14 appointments for the next 2 days</p>
+        <p className="text-xs italic">
+          {isLoading ? "Loading..." : `Showing ${scheduleItems.length} appointments for the next 48 hours`}
+        </p>
         <div className="flex gap-2">
-          <Button variant="ghost" size="icon" className="h-8 w-8 border border-slate-100"><ChevronLeft className="h-4 w-4" /></Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 border border-slate-100"><ChevronRight className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8 border border-slate-100">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8 border border-slate-100">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>

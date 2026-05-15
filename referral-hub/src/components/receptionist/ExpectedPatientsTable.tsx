@@ -35,22 +35,27 @@ export function ExpectedPatientsTable() {
     try {
       await markArrival(id).unwrap();
       toast.success("Patient arrival marked successfully");
-    } catch (err) {
-      toast.error("Failed to mark patient arrival");
+    } catch (err: any) {
+      const errorMessage = err?.data?.error || "Failed to mark patient arrival";
+      toast.error(errorMessage);
     }
   };
 
   const handleMarkMissed = async (id: string) => {
     try {
-      await markMissed(id).unwrap();
+      await markMissed({ 
+        id, 
+        body: { miss_reason: "PATIENT_NO_SHOW" } 
+      }).unwrap();
       toast.success("Patient marked as missed");
-    } catch (err) {
-      toast.error("Failed to mark patient as missed");
+    } catch (err: any) {
+      const errorMessage = err?.data?.error || "Failed to mark patient as missed";
+      toast.error(errorMessage);
     }
   };
 
   const patients = data?.data || [];
-  const totalPages = data?.total ? Math.ceil(data.total / (data.limit || 10)) : 1;
+  const totalPages = data?.total ? Math.ceil(data.total / (data.page_size || 10)) : 1;
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
       <div className="p-8 border-b border-slate-50 flex items-center justify-between">

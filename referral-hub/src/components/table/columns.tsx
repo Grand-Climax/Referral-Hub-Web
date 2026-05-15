@@ -55,32 +55,38 @@ function getReferralRowPatient(
 const getStatusIcon = (status: string) => {
   switch (status) {
     case "pending":
-      return <Clock className="mr-2 h-4 w-4 text-muted-foreground" />;
+      return <Clock className="h-3.5 w-3.5 text-muted-foreground" />;
     case "approved":
-      return <CheckCircle2 className="mr-2 h-4 w-4 text-primary" />;
+      return <CheckCircle2 className="h-3.5 w-3.5 text-primary" />;
     case "accepted":
-      return <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-500" />;
+      return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />;
     case "rejected":
-      return <XCircle className="mr-2 h-4 w-4 text-destructive" />;
+      return <XCircle className="h-3.5 w-3.5 text-destructive" />;
     default:
-      return <HelpCircle className="mr-2 h-4 w-4 text-muted-foreground" />;
+      return <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />;
   }
 };
 
 const getPriorityIcon = (severity: string) => {
   switch (severity) {
     case "critical":
-      return <ArrowUp className="mr-2 h-4 w-4 text-destructive" />;
+      return <ArrowUp className="h-3.5 w-3.5 text-destructive" />;
     case "high":
-      return <ArrowUp className="mr-2 h-4 w-4 text-orange-500" />;
+      return <ArrowUp className="h-3.5 w-3.5 text-orange-500" />;
     case "medium":
-      return <ArrowRight className="mr-2 h-4 w-4 text-yellow-500" />;
+      return <ArrowRight className="h-3.5 w-3.5 text-yellow-500" />;
     case "low":
-      return <ArrowDown className="mr-2 h-4 w-4 text-emerald-500" />;
+      return <ArrowDown className="h-3.5 w-3.5 text-emerald-500" />;
     default:
       return null;
   }
 };
+
+const humanize = (value: string) =>
+  value
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 
 export const columns: ColumnDef<ReferralRow>[] = [
   {
@@ -92,7 +98,7 @@ export const columns: ColumnDef<ReferralRow>[] = [
       const { pageIndex, pageSize } = table.getState().pagination;
       const displayIndex = pageIndex * pageSize + row.index + 1;
       return (
-        <span className="tabular-nums text-muted-foreground text-xs font-medium min-w-[2rem] inline-block text-right">
+        <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold tabular-nums text-muted-foreground">
           {displayIndex}
         </span>
       );
@@ -134,8 +140,8 @@ export const columns: ColumnDef<ReferralRow>[] = [
       const id = (row.original as any).id || (row.original as any).ID;
       
       const content = (
-        <span className="block w-[70px] truncate font-mono text-[10px]">
-          {icdCode}
+        <span className="inline-flex max-w-[90px] truncate rounded-md bg-sky-50 px-2 py-1 font-mono text-[10px] font-semibold text-sky-700 ring-1 ring-sky-100">
+          {icdCode || "N/A"}
         </span>
       );
 
@@ -158,7 +164,7 @@ export const columns: ColumnDef<ReferralRow>[] = [
     cell: ({ row }) => {
       const specialty = (row.getValue("target_dept_id") as string) || (row.original as any).department;
       return (
-        <Badge variant="outline" className="font-medium text-[10px] uppercase tracking-wider px-2 py-0 h-5 bg-muted/50 border-muted-foreground/20 max-w-[100px] truncate block text-center">
+        <Badge variant="outline" className="max-w-[130px] truncate border-primary/15 bg-primary/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary">
           {specialty || "General"}
         </Badge>
       );
@@ -188,22 +194,28 @@ export const columns: ColumnDef<ReferralRow>[] = [
         || (Array.isArray(original.diagnoses) ? original.diagnoses[0]?.code_info.description : undefined)
         || "No Diagnosis";
 
+      const patientName = `${patient?.first_name || "Unknown"} ${patient?.last_name || "Patient"}`;
       const content = (
-        <span className="max-w-[250px] lg:max-w-[400px] truncate font-medium block">
-          {patient?.first_name} {patient?.last_name} — {primaryDiagnosis}
-        </span>
+        <div className="min-w-0 space-y-0.5">
+          <p className="max-w-[250px] truncate text-sm font-semibold text-foreground lg:max-w-[360px]">
+            {patientName}
+          </p>
+          <p className="max-w-[250px] truncate text-xs text-muted-foreground lg:max-w-[360px]">
+            {primaryDiagnosis}
+          </p>
+        </div>
       );
 
       if (getRowHref) {
         return (
-          <Link href={getRowHref(id)} className="flex space-x-2 hover:underline hover:text-blue-600 transition-colors">
+          <Link href={getRowHref(id)} className="flex min-w-0 hover:text-primary transition-colors">
             {content}
           </Link>
         );
       }
 
       return (
-        <div className="flex space-x-2">
+        <div className="flex min-w-0">
           {content}
         </div>
       );
@@ -233,10 +245,10 @@ export const columns: ColumnDef<ReferralRow>[] = [
     cell: ({ row }) => {
       const status = (row.getValue("status") as string || "").toLowerCase();
       return (
-        <div className="flex w-[90px] items-center">
+        <Badge variant="outline" className="w-fit gap-1.5 border-border/70 bg-background px-2.5 py-1 text-xs font-medium">
           {getStatusIcon(status)}
-          <span className="capitalize text-xs truncate">{status}</span>
-        </div>
+          <span>{humanize(status || "unknown")}</span>
+        </Badge>
       );
     },
   },
@@ -258,10 +270,10 @@ export const columns: ColumnDef<ReferralRow>[] = [
       const severityStr = (row.getValue("severity") as string) || (row.original as any).condition_at_referral;
       const severity = severityStr ? severityStr.toLowerCase() : "low";
       return (
-        <div className="flex items-center w-[80px]">
+        <Badge variant="secondary" className="w-fit gap-1.5 px-2.5 py-1 text-xs font-medium">
           {getPriorityIcon(severity)}
-          <span className="capitalize text-xs truncate">{severity}</span>
-        </div>
+          <span>{humanize(severity)}</span>
+        </Badge>
       );
     },
   },
@@ -275,7 +287,7 @@ export const columns: ColumnDef<ReferralRow>[] = [
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
+            <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary">
               <span className="sr-only">Open menu</span>
               <MoreHorizontal className="h-4 w-4" />
             </Button>

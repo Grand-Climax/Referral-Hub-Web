@@ -51,3 +51,33 @@ export interface RejectReferralRequest {
   id: string;
   rejection_reason: string;
 }
+
+export interface RedirectHospitalOption {
+  id: string;
+  name: string;
+  department_id?: string | null;
+  target_dept_id?: string | null;
+  region?: string | null;
+  city?: string | null;
+  address?: string | null;
+  [key: string]: unknown;
+}
+
+export interface RedirectOptionsResponse {
+  data?: RedirectHospitalOption[];
+  hospitals?: RedirectHospitalOption[];
+  success?: boolean;
+  message?: string;
+}
+
+export interface RedirectReferralRequest {
+  id: string;
+  target_hospital_id: string;
+  department_id: string;
+  reason: string;
+}
+
+export interface ReleaseReferralRequest {
+  id: string;
+  reason: string;
+}

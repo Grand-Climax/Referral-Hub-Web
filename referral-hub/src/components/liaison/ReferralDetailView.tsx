@@ -24,6 +24,11 @@ import {
   Stethoscope as DoctorIcon,
   Clock,
   Loader2,
+  AlertTriangle,
+  BrainCircuit,
+  Download,
+  Paperclip,
+  ShieldCheck,
 } from "lucide-react";
 import { useGetHospitalByIdQuery } from "@/features/hospitals/hospitalsApi";
 import { useGetUserByIdQuery } from "@/features/auth/authApi";
@@ -42,10 +47,38 @@ import {
   useForwardReferralMutation,
   useRejectReferralMutation,
   useReviseReferralMutation,
+  useGetReviewChecklistQuery,
+  useUpdateReviewChecklistMutation,
 } from "@/features/liaison/liaisonApi";
+import type { LiaisonReviewChecklist } from "@/types/liaison";
+import { toast } from "sonner";
 
 interface ReferralDetailViewProps {
   referral_id: string;
+}
+
+function humanize(value: string | null | undefined) {
+  if (!value) return "Not recorded";
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return "Not recorded";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not recorded";
+  return date.toLocaleString();
+}
+
+function formatBytes(bytes: number | null | undefined) {
+  if (!bytes || bytes <= 0) return "Unknown size";
+  const units = ["B", "KB", "MB", "GB"];
+  const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / 1024 ** unitIndex;
+  return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
 }
 
 export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
@@ -70,6 +103,43 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
   const [reasonAction, setReasonAction] = useState<ReasonAction>(null);
   const [reasonText, setReasonText] = useState("");
 
+  const {
+    data: serverChecklist,
+    isLoading: checklistLoading,
+  } = useGetReviewChecklistQuery(referral_id);
+  const [updateReviewChecklist, { isLoading: isSavingChecklist }] =
+    useUpdateReviewChecklistMutation();
+  const [checklistDraft, setChecklistDraft] =
+    useState<LiaisonReviewChecklist | null>(null);
+
+  useEffect(() => {
+    if (serverChecklist) {
+      setChecklistDraft(serverChecklist);
+    }
+  }, [serverChecklist]);
+
+  const handleChecklistToggle = async (
+    field: keyof LiaisonReviewChecklist,
+    checked: boolean,
+  ) => {
+    const base: LiaisonReviewChecklist = checklistDraft ??
+      serverChecklist ?? {
+        attachments_included: false,
+        clinical_history_attached: false,
+        patient_identity_verified: false,
+        vitals_included: false,
+      };
+    const next: LiaisonReviewChecklist = { ...base, [field]: checked };
+    setChecklistDraft(next);
+    try {
+      await updateReviewChecklist({ id: referral_id, body: next }).unwrap();
+    } catch (err) {
+      console.error("Failed to save checklist", err);
+      toast.error("Could not save review checklist.");
+      setChecklistDraft(base);
+    }
+  };
+
   const hasReadRef = useRef(false);
 
   useEffect(() => {
@@ -86,6 +156,9 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
   );
   const { data: hospital } = useGetHospitalByIdQuery(
     referral?.sender_hospital_id || "",
+  );
+  const { data: targetHospital } = useGetHospitalByIdQuery(
+    referral?.target_hospital_id || "",
   );
 
   if (isLoading) {
@@ -124,11 +197,39 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
   }
 
   const hospitalLabel = hospital?.name ?? referral.sender_hospital_id;
+  const targetHospitalLabel =
+    targetHospital?.name ?? referral.target_hospital_id;
   const doctorLabel = doctor
     ? `Dr. ${doctor.first_name} ${doctor.last_name}`
     : referral.referring_doctor_id;
   const effectiveStatus = statusOverride ?? referral.status;
   const canTakeAction = effectiveStatus === "UNDER_LIAISON_REVIEW";
+  const latestVitals = referral.vitals?.[0];
+  const attachments = referral.attachments ?? [];
+
+  const downloadAttachment = async (attachment: NonNullable<Referral["attachments"]>[number]) => {
+    try {
+      const response = await fetch(attachment.storage_path);
+      if (!response.ok) throw new Error("Download failed");
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = attachment.file_name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      const link = document.createElement("a");
+      link.href = attachment.storage_path;
+      link.download = attachment.file_name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }
+  };
 
   const handleApprove = async () => {
     try {
@@ -317,6 +418,70 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
         </div>
       </div>
 
+      {/* ── CASE METADATA ── */}
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="border shadow-sm">
+          <CardContent className="flex items-center gap-3 p-4">
+            <BrainCircuit className="h-5 w-5 text-primary" />
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">
+                Triage / ML
+              </p>
+              <p className="text-sm font-semibold">
+                {humanize(referral.triage_status)} · {humanize(referral.ml_status)}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Retry {referral.ml_retry_count ?? 0}, Weight {referral.waiting_hours_weight ?? 0}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border shadow-sm">
+          <CardContent className="flex items-center gap-3 p-4">
+            <Building className="h-5 w-5 text-primary" />
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">
+                Receiving Hospital
+              </p>
+              <p className="text-sm font-semibold">{targetHospitalLabel}</p>
+              <p className="text-[11px] text-muted-foreground">
+                Dept: {referral.target_dept_id}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border shadow-sm">
+          <CardContent className="flex items-center gap-3 p-4">
+            <Clock className="h-5 w-5 text-primary" />
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">
+                Last Updated
+              </p>
+              <p className="text-sm font-semibold">{formatDateTime(referral.updated_at)}</p>
+              <p className="text-[11px] text-muted-foreground">
+                Created {formatDateTime(referral.created_at)}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border shadow-sm">
+          <CardContent className="flex items-center gap-3 p-4">
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">
+                Record State
+              </p>
+              <p className="text-sm font-semibold">
+                {referral.is_archived ? "Archived" : "Active"}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Attachments: {attachments.length}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* ── STEPPER ── */}
       <div className="w-full py-6 px-4 bg-card rounded-lg border shadow-sm">
         <div className="flex items-center justify-between relative">
@@ -404,6 +569,22 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
                     {referral.patient?.phone_number}
                   </p>
                 </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                    SMS Consent
+                  </p>
+                  <p className="font-semibold text-foreground text-sm leading-snug">
+                    {referral.patient?.allow_sms ? "Allowed" : "Not allowed"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                    National ID
+                  </p>
+                  <p className="font-semibold text-foreground text-sm leading-snug">
+                    {referral.patient?.national_id || referral.patient?.national_id_enc || "N/A"}
+                  </p>
+                </div>
               </div>
 
               <div className="border-t pt-4">
@@ -413,14 +594,13 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
                     Latest Vitals
                   </p>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-7 gap-4">
                   <div className="bg-muted/30 p-3 rounded-md border text-center">
                     <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">
                       BP
                     </p>
                     <p className="font-semibold text-sm">
-                      {referral.vitals?.[0]?.systolic_bp}/
-                      {referral.vitals?.[0]?.diastolic_bp}
+                      {latestVitals?.systolic_bp}/{latestVitals?.diastolic_bp}
                     </p>
                   </div>
                   <div className="bg-muted/30 p-3 rounded-md border text-center">
@@ -428,7 +608,7 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
                       HR
                     </p>
                     <p className="font-semibold text-sm">
-                      {referral.vitals?.[0]?.heart_rate} bpm
+                      {latestVitals?.heart_rate} bpm
                     </p>
                   </div>
                   <div className="bg-muted/30 p-3 rounded-md border text-center">
@@ -436,7 +616,7 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
                       Temp
                     </p>
                     <p className="font-semibold text-sm">
-                      {referral.vitals?.[0]?.temperature}°C
+                      {latestVitals?.temperature}°C
                     </p>
                   </div>
                   <div className="bg-muted/30 p-3 rounded-md border text-center">
@@ -444,7 +624,7 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
                       Resp
                     </p>
                     <p className="font-semibold text-sm">
-                      {referral.vitals?.[0]?.respiratory_rate} /min
+                      {latestVitals?.respiratory_rate} /min
                     </p>
                   </div>
                   <div className="bg-muted/30 p-3 rounded-md border text-center">
@@ -452,7 +632,23 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
                       SpO2
                     </p>
                     <p className="font-semibold text-sm">
-                      {referral.vitals?.[0]?.sp_o2}%
+                      {latestVitals?.sp_o2}%
+                    </p>
+                  </div>
+                  <div className="bg-muted/30 p-3 rounded-md border text-center">
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">
+                      GCS
+                    </p>
+                    <p className="font-semibold text-sm">
+                      {latestVitals?.gcs_score ?? "N/A"}/15
+                    </p>
+                  </div>
+                  <div className="bg-muted/30 p-3 rounded-md border text-center">
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">
+                      Recorded
+                    </p>
+                    <p className="font-semibold text-xs">
+                      {formatDateTime(latestVitals?.recorded_at)}
                     </p>
                   </div>
                 </div>
@@ -474,12 +670,7 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
                   Primary Diagnosis
                 </p>
                 <p className="font-bold text-foreground text-sm mb-4">
-                  {referral.diagnoses?.find(
-                    (d: {
-                      is_primary?: boolean;
-                      code_info: { description: string };
-                    }) => d.is_primary,
-                  )?.code_info.description ||
+                  {referral.diagnoses?.find((d) => d.is_primary)?.code_info.description ||
                     referral.diagnoses?.[0]?.code_info.description ||
                     "N/A"}
                 </p>
@@ -492,6 +683,20 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
                     "No reason specified"}
                 </p>
               </div>
+
+              {referral.emergency_detail?.emergency_justification && (
+                <div className="rounded-md border border-destructive/20 bg-destructive/5 p-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <p className="text-sm font-bold text-destructive">
+                      Emergency Justification
+                    </p>
+                  </div>
+                  <p className="text-sm text-foreground leading-relaxed">
+                    {referral.emergency_detail.emergency_justification}
+                  </p>
+                </div>
+              )}
 
               <div>
                 <p className="text-sm font-bold text-foreground mb-2">
@@ -516,6 +721,177 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
                   </p>
                 </div>
               </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <p className="text-sm font-bold text-foreground mb-2">
+                    Physical Examination Findings
+                  </p>
+                  <div className="bg-muted/20 p-4 rounded-md border border-border/50">
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                      {referral.referral_form?.physical_examination_findings ||
+                        "No physical examination findings recorded"}
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground mb-2">
+                    Investigation Results
+                  </p>
+                  <div className="bg-muted/20 p-4 rounded-md border border-border/50">
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                      {referral.referral_form?.investigation_results ||
+                        "No investigation results recorded"}
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground mb-2">
+                    Treatment Before Referral
+                  </p>
+                  <div className="bg-muted/20 p-4 rounded-md border border-border/50">
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                      {referral.referral_form?.treatment_given_before_referral ||
+                        "No treatment recorded"}
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground mb-2">
+                    Medication On Transfer
+                  </p>
+                  <div className="bg-muted/20 p-4 rounded-md border border-border/50">
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                      {referral.referral_form?.medication_on_transfer ||
+                        "No medication recorded"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-4">
+                {[
+                  ["Category", humanize(referral.referral_form?.reason_for_referral_category)],
+                  ["Condition", humanize(referral.referral_form?.condition_at_referral)],
+                  ["Transport", humanize(referral.referral_form?.mode_of_transport)],
+                  [
+                    "Accompanying",
+                    referral.referral_form?.accompanying_person_name
+                      ? `${referral.referral_form.accompanying_person_name} (${referral.referral_form.accompanying_person_phone || "No phone"})`
+                      : "Not recorded",
+                  ],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-md border bg-muted/20 p-3">
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">
+                      {label}
+                    </p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div>
+                <p className="text-sm font-bold text-foreground mb-3">
+                  Diagnoses
+                </p>
+                <div className="space-y-3">
+                  {referral.diagnoses?.length ? (
+                    referral.diagnoses.map((diagnosis) => (
+                      <div
+                        key={diagnosis.id}
+                        className="rounded-md border bg-muted/20 p-4"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">
+                              {diagnosis.code_info?.description || diagnosis.icd_code}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {diagnosis.code_info?.category || "No category"} · ICD {diagnosis.icd_code}
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            {diagnosis.is_primary && (
+                              <Badge className="bg-primary text-primary-foreground">
+                                Primary
+                              </Badge>
+                            )}
+                            <Badge variant="outline">
+                              {humanize(diagnosis.diagnosis_certainty)}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No diagnoses recorded.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Attached Documentation */}
+          <Card className="shadow-sm border">
+            <CardHeader className="flex flex-row items-center gap-2 pb-4">
+              <Paperclip className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">Attached Documentation</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {attachments.length === 0 ? (
+                <div className="rounded-md border border-dashed bg-muted/20 p-6 text-center">
+                  <Paperclip className="mx-auto h-6 w-6 text-muted-foreground" />
+                  <p className="mt-2 text-sm font-medium text-foreground">
+                    No attachments uploaded
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Uploaded clinical documents will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {attachments.map((attachment) => (
+                    <div
+                      key={attachment.id}
+                      className="flex items-center justify-between gap-3 rounded-md border bg-background p-3"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="shrink-0 rounded-md bg-primary/10 p-2 text-primary">
+                          <Paperclip className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">
+                            {attachment.file_name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatBytes(attachment.file_size)} · {humanize(attachment.category)}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {humanize(attachment.verification)} · Uploaded {formatDateTime(attachment.uploaded_at)}
+                            {attachment.metadata?.width && attachment.metadata?.height
+                              ? ` · ${attachment.metadata.width}x${attachment.metadata.height}`
+                              : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0"
+                        onClick={() => downloadAttachment(attachment)}
+                        aria-label={`Download ${attachment.file_name}`}
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -590,7 +966,14 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="identity"
-                  defaultChecked
+                  checked={checklistDraft?.patient_identity_verified ?? false}
+                  disabled={checklistLoading || isSavingChecklist}
+                  onCheckedChange={(checked) =>
+                    handleChecklistToggle(
+                      "patient_identity_verified",
+                      checked === true,
+                    )
+                  }
                   className="scale-50 data-[state=checked]:bg-primary"
                 />
                 <label
@@ -603,7 +986,14 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="history"
-                  defaultChecked
+                  checked={checklistDraft?.clinical_history_attached ?? false}
+                  disabled={checklistLoading || isSavingChecklist}
+                  onCheckedChange={(checked) =>
+                    handleChecklistToggle(
+                      "clinical_history_attached",
+                      checked === true,
+                    )
+                  }
                   className="scale-50 data-[state=checked]:bg-primary"
                 />
                 <label
@@ -616,25 +1006,38 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="labs"
+                  checked={checklistDraft?.vitals_included ?? false}
+                  disabled={checklistLoading || isSavingChecklist}
+                  onCheckedChange={(checked) =>
+                    handleChecklistToggle("vitals_included", checked === true)
+                  }
                   className="scale-50 data-[state=checked]:bg-primary"
                 />
                 <label
                   htmlFor="labs"
                   className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
-                  Lab Results Included
+                  Vitals Included
                 </label>
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="insurance"
+                  checked={checklistDraft?.attachments_included ?? false}
+                  disabled={checklistLoading || isSavingChecklist}
+                  onCheckedChange={(checked) =>
+                    handleChecklistToggle(
+                      "attachments_included",
+                      checked === true,
+                    )
+                  }
                   className="scale-50 data-[state=checked]:bg-primary"
                 />
                 <label
                   htmlFor="insurance"
                   className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
-                  Insurance Eligibility Checked
+                  Attachments Included
                 </label>
               </div>
             </CardContent>

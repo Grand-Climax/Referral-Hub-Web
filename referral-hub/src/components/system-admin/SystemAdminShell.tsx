@@ -143,18 +143,6 @@ export function SystemAdminShell({ children }: SystemAdminShellProps) {
               <p className="text-xs text-muted-foreground">Manage users and hospitals</p>
             </div>
           </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="destructive"
-            onClick={() => {
-              void handleSignOut();
-            }}
-            disabled={isLoggingOut}
-            className="hidden sm:inline-flex"
-          >
-            Sign out
-          </Button>
         </header>
 
         <div className="p-4 sm:p-6">{children}</div>

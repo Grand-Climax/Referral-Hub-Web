@@ -16,6 +16,7 @@ export interface SystemAdminUser {
   email: string;
   first_name: string;
   middle_name?: string | null;
+  middle_name?: string | null;
   last_name: string;
   national_id?: string | null;
   role: string;
@@ -33,6 +34,7 @@ export interface SystemAdminUser {
 
 export interface CreateSystemAdminUserRequest {
   department_id: string;
+  department_id: string;
   email: string;
   first_name: string;
   middle_name: string;
@@ -41,11 +43,19 @@ export interface CreateSystemAdminUserRequest {
   national_id: string;
   password: string;
   role: string;
-  is_active?: boolean;
 }
 
-export type UpdateSystemAdminUserRequest =
-  Partial<CreateSystemAdminUserRequest>;
+export interface UpdateSystemAdminUserRequest {
+  department_id: string;
+  email: string;
+  first_name: string;
+  hospital_id: string;
+  is_active: boolean;
+  last_name: string;
+  middle_name: string;
+  national_id: string;
+  role: string;
+}
 
 export interface AssignSystemAdminRoleRequest {
   role: string;

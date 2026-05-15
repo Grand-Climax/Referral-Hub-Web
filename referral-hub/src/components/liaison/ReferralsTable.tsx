@@ -14,15 +14,6 @@ interface ReferralsTableProps {
   statusFilter?: "all" | "approved" | "rejected";
 }
 
-const STATUS_QUERY_BY_FILTER: Record<
-  NonNullable<ReferralsTableProps["statusFilter"]>,
-  string | undefined
-> = {
-  all: undefined,
-  approved: "FORWARDED",
-  rejected: "REJECTED_BY_LIAISON,REJECTED_BY_SPECIALIST",
-};
-
 export function ReferralsTable({ statusFilter = "all" }: ReferralsTableProps) {
   const [pagination, setPaginationState] = React.useState<PaginationState>({
     pageIndex: 0,
@@ -51,7 +42,7 @@ export function ReferralsTable({ statusFilter = "all" }: ReferralsTableProps) {
     () => ({
       page: pagination.pageIndex + 1,
       limit: pagination.pageSize,
-      status: STATUS_QUERY_BY_FILTER[statusFilter],
+      listType: statusFilter,
     }),
     [pagination.pageIndex, pagination.pageSize, statusFilter]
   );

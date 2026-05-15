@@ -1,7 +1,18 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
-import { Building2, Loader2, Plus, Search, UsersRound } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  Building2,
+  Eye,
+  Loader2,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  UsersRound,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +24,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -23,6 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -31,12 +51,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useGetHospitalsQuery } from "@/features/hospitals/hospitalsApi";
 import {
   useCreateHospitalMutation,
-  useGetSystemAdminUsersQuery,
-} from "@/features/systemAdmin/systemAdminApi";
-import type { CreateHospitalRequest } from "@/types/hospital";
+  useDeleteHospitalMutation,
+  useGetHospitalsQuery,
+  useUpdateHospitalMutation,
+} from "@/features/hospitals/hospitalsApi";
+import { useGetSystemAdminUsersQuery } from "@/features/systemAdmin/systemAdminApi";
+import type {
+  CreateHospitalRequest,
+  Hospital,
+  UpdateHospitalRequest,
+} from "@/types/hospital";
 
 const PAGE_SIZE = 8;
 const TIER_LEVEL_OPTIONS = ["PRIMARY", "GENERAL", "SPECIALIZED"] as const;
@@ -49,6 +75,15 @@ const defaultHospitalFormValues: CreateHospitalRequest = {
   tier_level: "SPECIALIZED",
 };
 
+const buildEditValues = (hospital: Hospital): UpdateHospitalRequest => ({
+  address: hospital.address ?? "",
+  contact_phone: hospital.contact_phone ?? "",
+  is_active: hospital.is_active,
+  name: hospital.name ?? "",
+  region: hospital.region ?? "",
+  tier_level: hospital.tier_level ?? "SPECIALIZED",
+});
+
 export function HospitalManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -56,6 +91,13 @@ export function HospitalManagement() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [hospitalForm, setHospitalForm] = useState<CreateHospitalRequest>(
     defaultHospitalFormValues,
+  );
+
+  const [editingHospital, setEditingHospital] = useState<Hospital | null>(null);
+  const [editForm, setEditForm] = useState<UpdateHospitalRequest | null>(null);
+
+  const [hospitalToDelete, setHospitalToDelete] = useState<Hospital | null>(
+    null,
   );
 
   const {
@@ -69,6 +111,18 @@ export function HospitalManagement() {
   });
   const [createHospital, { isLoading: isCreatingHospital }] =
     useCreateHospitalMutation();
+  const [updateHospital, { isLoading: isUpdatingHospital }] =
+    useUpdateHospitalMutation();
+  const [deleteHospital, { isLoading: isDeletingHospital }] =
+    useDeleteHospitalMutation();
+
+  useEffect(() => {
+    if (editingHospital) {
+      setEditForm(buildEditValues(editingHospital));
+    } else {
+      setEditForm(null);
+    }
+  }, [editingHospital]);
 
   const updateHospitalField = (
     field: keyof CreateHospitalRequest,
@@ -78,6 +132,20 @@ export function HospitalManagement() {
       ...current,
       [field]: value,
     }));
+  };
+
+  const updateEditField = <K extends keyof UpdateHospitalRequest>(
+    field: K,
+    value: UpdateHospitalRequest[K],
+  ) => {
+    setEditForm((current) =>
+      current
+        ? {
+            ...current,
+            [field]: value,
+          }
+        : current,
+    );
   };
 
   const resetHospitalForm = () => {
@@ -109,6 +177,45 @@ export function HospitalManagement() {
     } catch (error) {
       console.error(error);
       toast.error("Could not create hospital. Please try again.");
+    }
+  };
+
+  const handleEditHospital = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingHospital || !editForm) return;
+
+    try {
+      await updateHospital({
+        id: editingHospital.id,
+        body: {
+          address: editForm.address.trim(),
+          contact_phone: editForm.contact_phone.trim(),
+          is_active: editForm.is_active,
+          name: editForm.name.trim(),
+          region: editForm.region.trim(),
+          tier_level: editForm.tier_level,
+        },
+      }).unwrap();
+      toast.success("Hospital updated successfully.");
+      setEditingHospital(null);
+      await refetchHospitals();
+    } catch (error) {
+      console.error(error);
+      toast.error("Could not update hospital. Please try again.");
+    }
+  };
+
+  const handleDeleteHospital = async () => {
+    if (!hospitalToDelete) return;
+
+    try {
+      await deleteHospital(hospitalToDelete.id).unwrap();
+      toast.success("Hospital deleted.");
+      setHospitalToDelete(null);
+      await refetchHospitals();
+    } catch (error) {
+      console.error(error);
+      toast.error("Could not delete hospital. Please try again.");
     }
   };
 
@@ -168,8 +275,7 @@ export function HospitalManagement() {
             Hospital management
           </h1>
           <p className="text-sm text-muted-foreground">
-            Review active and inactive hospitals and monitor how many users are
-            assigned per hospital.
+            Create, update, and manage hospitals plus their linked departments.
           </p>
         </div>
         <Button
@@ -290,6 +396,171 @@ export function HospitalManagement() {
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={editingHospital !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingHospital(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit hospital</DialogTitle>
+            <DialogDescription>
+              Update hospital information and activation status.
+            </DialogDescription>
+          </DialogHeader>
+          {editForm ? (
+            <form className="space-y-4" onSubmit={handleEditHospital}>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_hospital_name">Hospital name</Label>
+                  <Input
+                    id="edit_hospital_name"
+                    value={editForm.name}
+                    onChange={(event) =>
+                      updateEditField("name", event.target.value)
+                    }
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_hospital_region">Region</Label>
+                  <Input
+                    id="edit_hospital_region"
+                    value={editForm.region}
+                    onChange={(event) =>
+                      updateEditField("region", event.target.value)
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_hospital_phone">Contact phone</Label>
+                  <Input
+                    id="edit_hospital_phone"
+                    value={editForm.contact_phone}
+                    onChange={(event) =>
+                      updateEditField("contact_phone", event.target.value)
+                    }
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_hospital_tier">Tier level</Label>
+                  <Select
+                    value={editForm.tier_level}
+                    onValueChange={(value) =>
+                      updateEditField("tier_level", value)
+                    }
+                  >
+                    <SelectTrigger id="edit_hospital_tier" className="w-full">
+                      <SelectValue placeholder="Select tier level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIER_LEVEL_OPTIONS.map((tierLevel) => (
+                        <SelectItem key={tierLevel} value={tierLevel}>
+                          {tierLevel}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit_hospital_address">Address</Label>
+                <Input
+                  id="edit_hospital_address"
+                  value={editForm.address}
+                  onChange={(event) =>
+                    updateEditField("address", event.target.value)
+                  }
+                  required
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-md border border-border/60 px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium">Active</p>
+                  <p className="text-xs text-muted-foreground">
+                    Inactive hospitals will be hidden from selection menus.
+                  </p>
+                </div>
+                <Switch
+                  checked={editForm.is_active}
+                  onCheckedChange={(checked) =>
+                    updateEditField("is_active", checked)
+                  }
+                />
+              </div>
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditingHospital(null)}
+                  disabled={isUpdatingHospital}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isUpdatingHospital}>
+                  {isUpdatingHospital ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
+                  Save changes
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={hospitalToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setHospitalToDelete(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete hospital</DialogTitle>
+            <DialogDescription>
+              This will permanently remove{" "}
+              <span className="font-medium text-foreground">
+                {hospitalToDelete?.name}
+              </span>{" "}
+              and all of its associations. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setHospitalToDelete(null)}
+              disabled={isDeletingHospital}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                void handleDeleteHospital();
+              }}
+              disabled={isDeletingHospital}
+            >
+              {isDeletingHospital ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Delete hospital
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -379,13 +650,16 @@ export function HospitalManagement() {
                 <TableHead className="px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                   Status
                 </TableHead>
+                <TableHead className="px-6 py-4 text-right text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                  Actions
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {hospitalsLoading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={5}
+                    colSpan={6}
                     className="px-6 py-10 text-center text-sm text-muted-foreground"
                   >
                     Loading hospitals...
@@ -394,7 +668,7 @@ export function HospitalManagement() {
               ) : paginatedHospitals.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={5}
+                    colSpan={6}
                     className="px-6 py-10 text-center text-sm text-muted-foreground"
                   >
                     No hospitals found for the selected filters.
@@ -405,9 +679,12 @@ export function HospitalManagement() {
                   <TableRow key={hospital.id}>
                     <TableCell className="px-6 py-4">
                       <div className="space-y-1">
-                        <p className="font-medium text-foreground">
+                        <Link
+                          href={`/systemAdmin/hospitals/${hospital.id}`}
+                          className="font-medium text-foreground hover:underline"
+                        >
                           {hospital.name}
-                        </p>
+                        </Link>
                         <p className="text-xs text-muted-foreground">
                           ID: {hospital.id}
                         </p>
@@ -433,6 +710,47 @@ export function HospitalManagement() {
                       >
                         {hospital.is_active ? "Active" : "Inactive"}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="px-6 py-4 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Open actions</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem asChild>
+                            <Link
+                              href={`/systemAdmin/hospitals/${hospital.id}`}
+                              className="flex items-center gap-2"
+                            >
+                              <Eye className="h-4 w-4" />
+                              View details
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setEditingHospital(hospital)}
+                          >
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => setHospitalToDelete(hospital)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))

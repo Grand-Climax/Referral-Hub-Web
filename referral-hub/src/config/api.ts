@@ -19,6 +19,12 @@ export const USER_ROUTES = {
 export const HOSPITAL_ROUTES = {
   CREATE: "/api/v1/hospitals",
   GET_BY_ID: (id: string) => `/api/v1/hospitals/${id}`,
+  UPDATE: (id: string) => `/api/v1/hospitals/${id}`,
+  DELETE: (id: string) => `/api/v1/hospitals/${id}`,
+  LIST_DEPARTMENTS: (id: string) => `/api/v1/hospitals/${id}/departments`,
+  LINK_DEPARTMENT: (id: string) => `/api/v1/hospitals/${id}/departments`,
+  UNLINK_DEPARTMENT: (id: string, deptId: string) =>
+    `/api/v1/hospitals/${id}/departments/${deptId}`,
 } as const;
 
 export const REFERRAL_ROUTES = {
@@ -49,11 +55,16 @@ export const REFERENCE_ROUTES = {
 
 export const LIAISON_ROUTES = {
   LIST: "/api/v1/liaison/referrals/",
+  APPROVED: "/api/v1/liaison/referrals/approved",
+  REJECTED: "/api/v1/liaison/referrals/rejected",
+  DASHBOARD_STATS: "/api/v1/liaison/referrals/dashboard/stats",
   GET_BY_ID: (id: string) => `/api/v1/liaison/referrals/${id}`,
   FORWARD: (id: string) => `/api/v1/liaison/referrals/${id}/forward`,
   READ: (id: string) => `/api/v1/liaison/referrals/${id}/read`,
   REJECT: (id: string) => `/api/v1/liaison/referrals/${id}/reject`,
   REVISE: (id: string) => `/api/v1/liaison/referrals/${id}/revise`,
+  REVIEW_CHECKLIST: (id: string) =>
+    `/api/v1/liaison/referrals/${id}/review-checklist`,
 } as const;
 
 export const SPECIALIST_ROUTES = {
@@ -63,6 +74,8 @@ export const SPECIALIST_ROUTES = {
   REJECT: (id: string) => `/api/v1/specialist/referrals/${id}/reject`,
   READ: (id: string) => `/api/v1/specialist/referrals/${id}/read`,
   RELEASE: (id: string) => `/api/v1/specialist/referrals/${id}/release`,
+  REDIRECT: (id: string) => `/api/v1/specialist/referrals/${id}/redirect`,
+  REDIRECT_OPTIONS: (id: string) => `/api/v1/specialist/referrals/${id}/redirect-options`,
 } as const;
 
 export const SYSTEM_ADMIN_ROUTES = {

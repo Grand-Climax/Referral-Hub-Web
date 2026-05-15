@@ -20,7 +20,23 @@ export interface CreateHospitalRequest {
   tier_level: string;
 }
 
+export interface UpdateHospitalRequest {
+  address: string;
+  contact_phone: string;
+  is_active: boolean;
+  name: string;
+  region: string;
+  tier_level: string;
+}
+
 export interface Department {
   id: string;
   name: string;
 }
+
+export interface HospitalDepartmentLink {
+  department_id: string;
+  daily_limit: number;
+}
+
+export type LinkHospitalDepartmentRequest = HospitalDepartmentLink;

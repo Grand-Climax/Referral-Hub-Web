@@ -13,13 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import {
   useGetDepartmentsQuery,
   useGetHospitalsQuery,
 } from "@/features/hospitals/hospitalsApi";
 import type {
-  AssignSystemAdminRoleRequest,
   CreateSystemAdminUserRequest,
   SystemAdminUser,
   UpdateSystemAdminUserRequest,
@@ -34,6 +32,7 @@ export interface SystemAdminUserFormValues {
   email: string;
   first_name: string;
   middle_name: string;
+  middle_name: string;
   last_name: string;
   national_id: string;
   hospital_id: string;
@@ -47,10 +46,12 @@ const defaultValues: SystemAdminUserFormValues = {
   email: "",
   first_name: "",
   middle_name: "",
+  middle_name: "",
   last_name: "",
   national_id: "",
   hospital_id: "",
   department_id: "",
+  role: "HOSPITAL_ADMIN",
   role: "HOSPITAL_ADMIN",
   password: "",
   is_active: true,
@@ -63,11 +64,6 @@ interface SystemAdminUserFormProps {
     id: string,
     payload: UpdateSystemAdminUserRequest,
   ) => Promise<void>;
-  onAssignRole: (
-    id: string,
-    payload: AssignSystemAdminRoleRequest,
-  ) => Promise<void>;
-  onModerateImage: (id: string) => Promise<void>;
   submitting: boolean;
 }
 
@@ -75,8 +71,6 @@ export function SystemAdminUserForm({
   selectedUser,
   onSubmitCreate,
   onSubmitUpdate,
-  onAssignRole,
-  onModerateImage,
   submitting,
 }: SystemAdminUserFormProps) {
   const [formValues, setFormValues] =
@@ -93,6 +87,7 @@ export function SystemAdminUserForm({
       setFormValues({
         email: selectedUser.email,
         first_name: selectedUser.first_name,
+        middle_name: selectedUser.middle_name ?? "",
         middle_name: selectedUser.middle_name ?? "",
         last_name: selectedUser.last_name,
         national_id: selectedUser.national_id ?? "",
@@ -121,7 +116,7 @@ export function SystemAdminUserForm({
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const payload: CreateSystemAdminUserRequest = {
+    const profilePayload: UpdateSystemAdminUserRequest = {
       department_id: formValues.department_id,
       email: formValues.email.trim(),
       first_name: formValues.first_name.trim(),
@@ -129,33 +124,26 @@ export function SystemAdminUserForm({
       hospital_id: formValues.hospital_id,
       last_name: formValues.last_name.trim(),
       national_id: formValues.national_id.trim(),
-      password: formValues.password,
       role: formValues.role,
       is_active: formValues.is_active,
     };
 
     if (selectedUser) {
-      await onSubmitUpdate(selectedUser.id, payload);
+      await onSubmitUpdate(selectedUser.id, profilePayload);
       return;
     }
 
-    await onSubmitCreate(payload);
-  };
-
-  const handleAssignRole = async () => {
-    if (!selectedUser) {
-      return;
-    }
-
-    await onAssignRole(selectedUser.id, { role: formValues.role });
-  };
-
-  const handleModerateImage = async () => {
-    if (!selectedUser) {
-      return;
-    }
-
-    await onModerateImage(selectedUser.id);
+    await onSubmitCreate({
+      department_id: profilePayload.department_id,
+      email: profilePayload.email,
+      first_name: profilePayload.first_name,
+      hospital_id: profilePayload.hospital_id,
+      last_name: profilePayload.last_name,
+      middle_name: profilePayload.middle_name,
+      national_id: profilePayload.national_id,
+      password: formValues.password,
+      role: profilePayload.role,
+    });
   };
 
   return (
@@ -168,7 +156,7 @@ export function SystemAdminUserForm({
             </CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
               {selectedUser
-                ? "Edit account details, reassign roles, and moderate the selected profile."
+                ? "Edit account profile and access details."
                 : "Add a new user account and grant the right access level from day one."}
             </p>
           </div>
@@ -191,8 +179,24 @@ export function SystemAdminUserForm({
                 }
                 placeholder="John"
                 required
+                required
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="middle_name">Middle name</Label>
+              <Input
+                id="middle_name"
+                value={formValues.middle_name}
+                onChange={(event) =>
+                  updateField("middle_name", event.target.value)
+                }
+                placeholder="Kebede"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="middle_name">Middle name</Label>
               <Input
@@ -218,6 +222,7 @@ export function SystemAdminUserForm({
                 }
                 placeholder="Doe"
                 required
+                required
               />
             </div>
             <div className="space-y-2">
@@ -229,8 +234,12 @@ export function SystemAdminUserForm({
                 onChange={(event) => updateField("email", event.target.value)}
                 placeholder="user@hospital.org"
                 required
+                required
               />
             </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -246,19 +255,21 @@ export function SystemAdminUserForm({
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={formValues.password}
-                onChange={(event) =>
-                  updateField("password", event.target.value)
-                }
-                placeholder="password123"
-                required
-              />
-            </div>
+            {!selectedUser && (
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formValues.password}
+                  onChange={(event) =>
+                    updateField("password", event.target.value)
+                  }
+                  placeholder="password123"
+                  required
+                />
+              </div>
+            )}
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -343,32 +354,25 @@ export function SystemAdminUserForm({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="notes">Account notes</Label>
-            <Textarea
-              id="notes"
-              value={`Status: ${formValues.is_active ? "Active" : "Inactive"}`}
-              readOnly
-              className="min-h-20 resize-none bg-muted/40"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="is_active">Account status</Label>
-            <Select
-              value={formValues.is_active ? "active" : "inactive"}
-              onValueChange={(value) =>
-                updateField("is_active", value === "active")
-              }
-            >
-              <SelectTrigger id="is_active" className="w-full">
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {selectedUser && (
+            <div className="space-y-2">
+              <Label htmlFor="is_active">Account status</Label>
+              <Select
+                value={formValues.is_active ? "active" : "inactive"}
+                onValueChange={(value) =>
+                  updateField("is_active", value === "active")
+                }
+              >
+                <SelectTrigger id="is_active" className="w-full">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <Button type="submit" className="gap-2" disabled={submitting}>
@@ -380,22 +384,6 @@ export function SystemAdminUserForm({
                 <UserPlus className="h-4 w-4" />
               )}
               {selectedUser ? "Save changes" : "Create user"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleAssignRole}
-              disabled={!selectedUser || submitting}
-            >
-              Assign role now
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleModerateImage}
-              disabled={!selectedUser || submitting}
-            >
-              Moderate profile image
             </Button>
           </div>
         </form>

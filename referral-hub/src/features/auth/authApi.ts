@@ -11,7 +11,6 @@ interface LoginCredentials {
     password: string
 }
 
-
 interface AuthResponse {
     access_token: string
     refresh_token: string
@@ -19,6 +18,7 @@ interface AuthResponse {
         id: string
         role: string
         hospitalId: string
+        departmentId?: string
     }
 }
 
@@ -41,6 +41,7 @@ export const authApi = createApi({
                         id: decoded.sub,
                         role: decoded.role,
                         hospitalId: decoded.hosp_id,
+                        departmentId: decoded.dept_id,
                     }
                 }
             },
@@ -68,6 +69,7 @@ export const authApi = createApi({
                             user: {
                                 role: decoded.role,
                                 hospitalId: decoded.hosp_id,
+                                departmentId: decoded.dept_id,
                             }
                         })
                     )

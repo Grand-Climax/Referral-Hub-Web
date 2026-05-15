@@ -32,6 +32,7 @@ export interface SystemAdminUserFormValues {
   email: string;
   first_name: string;
   middle_name: string;
+  middle_name: string;
   last_name: string;
   national_id: string;
   hospital_id: string;
@@ -45,10 +46,12 @@ const defaultValues: SystemAdminUserFormValues = {
   email: "",
   first_name: "",
   middle_name: "",
+  middle_name: "",
   last_name: "",
   national_id: "",
   hospital_id: "",
   department_id: "",
+  role: "HOSPITAL_ADMIN",
   role: "HOSPITAL_ADMIN",
   password: "",
   is_active: true,
@@ -84,6 +87,7 @@ export function SystemAdminUserForm({
       setFormValues({
         email: selectedUser.email,
         first_name: selectedUser.first_name,
+        middle_name: selectedUser.middle_name ?? "",
         middle_name: selectedUser.middle_name ?? "",
         last_name: selectedUser.last_name,
         national_id: selectedUser.national_id ?? "",
@@ -175,8 +179,24 @@ export function SystemAdminUserForm({
                 }
                 placeholder="John"
                 required
+                required
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="middle_name">Middle name</Label>
+              <Input
+                id="middle_name"
+                value={formValues.middle_name}
+                onChange={(event) =>
+                  updateField("middle_name", event.target.value)
+                }
+                placeholder="Kebede"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="middle_name">Middle name</Label>
               <Input
@@ -202,6 +222,7 @@ export function SystemAdminUserForm({
                 }
                 placeholder="Doe"
                 required
+                required
               />
             </div>
             <div className="space-y-2">
@@ -213,8 +234,12 @@ export function SystemAdminUserForm({
                 onChange={(event) => updateField("email", event.target.value)}
                 placeholder="user@hospital.org"
                 required
+                required
               />
             </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">

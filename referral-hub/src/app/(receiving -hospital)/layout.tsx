@@ -1,7 +1,7 @@
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import type { Metadata } from "next";
-import { ReceivingHospitalSidebar } from "@/components/layout-2/ReceivingHospitalSidebar";
-import { ReceivingHospitalHeader } from "@/components/layout-2/ReceivingHospitalHeader";
+import { DashboardSidebar } from "@/components/layout/DashboardSidebar";
+import Header from "@/components/layout/Header";
 
 export const metadata: Metadata = {
   title: "Dashboard - Referral Hub",
@@ -15,9 +15,9 @@ export default function DashboardLayout({
 }) {
   return (
     <SidebarProvider>
-      <ReceivingHospitalSidebar />
+      <DashboardSidebar />
       <SidebarInset className="w-[calc(100%-var(--sidebar-width))]">
-        <ReceivingHospitalHeader />
+        <Header />
         <div className="p-6 bg-muted/20 min-h-[calc(100vh-4rem)]">{children}</div>
       </SidebarInset>
     </SidebarProvider>

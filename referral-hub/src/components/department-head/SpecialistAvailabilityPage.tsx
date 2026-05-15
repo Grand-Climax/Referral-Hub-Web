@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Users,
@@ -10,102 +10,21 @@ import {
   Clock,
   Circle,
   Search,
+  AlertCircle,
+  Calendar,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
+import { cleanupOldSchedule, getSpecialistAvailabilityForDate } from '@/redux/slices/specialistAvailabilitySlice';
+import { format, addDays, formatDistanceToNow } from 'date-fns';
 
-// ─── Mock Data ─────────────────────────────────────────────────────────────────
+// ─── Types ─────────────────────────────────────────────────────────────────────
 
-interface Specialist {
-  id: string;
-  name: string;
-  specialty: string;
-  department: string;
-  load: number;
-  maxLoad: number;
-  status: 'available' | 'busy' | 'off-duty';
-  shiftEnd: string;
-  avatarFallback: string;
-  currentPatients: string[];
-}
-
-const SPECIALISTS: Specialist[] = [
-  {
-    id: 's1',
-    name: 'Dr. Sarah Smith',
-    specialty: 'Interventional Cardiologist',
-    department: 'Cardiology',
-    load: 3,
-    maxLoad: 5,
-    status: 'available',
-    shiftEnd: '20:00',
-    avatarFallback: 'SS',
-    currentPatients: ['REF-9021', 'REF-9044', 'REF-8901'],
-  },
-  {
-    id: 's2',
-    name: 'Dr. Alan Chen',
-    specialty: 'Neurologist',
-    department: 'Neurology',
-    load: 5,
-    maxLoad: 5,
-    status: 'busy',
-    shiftEnd: '18:00',
-    avatarFallback: 'AC',
-    currentPatients: ['REF-8978', 'REF-8902', 'REF-8880', 'REF-8771', 'REF-8660'],
-  },
-  {
-    id: 's3',
-    name: 'Dr. Mia Torres',
-    specialty: 'Pulmonologist',
-    department: 'Pulmonology',
-    load: 2,
-    maxLoad: 5,
-    status: 'available',
-    shiftEnd: '22:00',
-    avatarFallback: 'MT',
-    currentPatients: ['REF-9100', 'REF-9088'],
-  },
-  {
-    id: 's4',
-    name: 'Dr. James Osei',
-    specialty: 'General Surgeon',
-    department: 'Surgery',
-    load: 4,
-    maxLoad: 5,
-    status: 'available',
-    shiftEnd: '20:00',
-    avatarFallback: 'JO',
-    currentPatients: ['REF-8991', 'REF-8983', 'REF-8955', 'REF-8920'],
-  },
-  {
-    id: 's5',
-    name: 'Dr. Priya Nair',
-    specialty: 'Nephrologist',
-    department: 'Nephrology',
-    load: 0,
-    maxLoad: 5,
-    status: 'off-duty',
-    shiftEnd: '08:00',
-    avatarFallback: 'PN',
-    currentPatients: [],
-  },
-  {
-    id: 's6',
-    name: 'Dr. Lucas Ferreira',
-    specialty: 'Gastroenterologist',
-    department: 'Gastroenterology',
-    load: 1,
-    maxLoad: 5,
-    status: 'available',
-    shiftEnd: '19:00',
-    avatarFallback: 'LF',
-    currentPatients: ['REF-9072'],
-  },
-];
+type SpecialistStatus = 'available' | 'busy' | 'off-duty';
 
 const STATUS_CONFIG = {
   available: {
-    label: 'Available',
+    label: 'On Duty',
     dot: 'bg-emerald-500',
     text: 'text-emerald-700 dark:text-emerald-400',
     badge: 'bg-emerald-100 dark:bg-emerald-900/30',
@@ -127,7 +46,7 @@ const STATUS_CONFIG = {
   },
 };
 
-function LoadBar({ load, maxLoad, status }: { load: number; maxLoad: number; status: Specialist['status'] }) {
+function LoadBar({ load, maxLoad, status }: { load: number; maxLoad: number; status: SpecialistStatus }) {
   const pct = maxLoad > 0 ? (load / maxLoad) * 100 : 0;
   const color =
     status === 'off-duty' ? 'bg-slate-300 dark:bg-slate-600'
@@ -151,22 +70,59 @@ function LoadBar({ load, maxLoad, status }: { load: number; maxLoad: number; sta
   );
 }
 
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
+
 export default function SpecialistAvailabilityPage() {
+  const dispatch = useAppDispatch();
+  
+  // Default to today's view
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const [selectedDate, setSelectedDate] = useState(today);
+  
+  // Get specialists for the selected date
+  const specialists = useAppSelector((state) => 
+    getSpecialistAvailabilityForDate(state, selectedDate)
+  );
+  
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'available' | 'busy' | 'off-duty'>('all');
 
-  const available = SPECIALISTS.filter((s) => s.status === 'available').length;
-  const busy = SPECIALISTS.filter((s) => s.status === 'busy').length;
-  const offDuty = SPECIALISTS.filter((s) => s.status === 'off-duty').length;
+  // Clean up old schedule entries on mount
+  useEffect(() => {
+    dispatch(cleanupOldSchedule());
+  }, [dispatch]);
 
-  const filtered = SPECIALISTS.filter((s) => {
+  // Calculate status for each specialist
+  const specialistsWithStatus = specialists.map((s) => {
+    let status: SpecialistStatus;
+    if (!s.available) {
+      status = 'off-duty';
+    } else if (s.currentLoad >= s.maxLoad) {
+      status = 'busy';
+    } else {
+      status = 'available';
+    }
+    return { ...s, status };
+  });
+
+  const available = specialistsWithStatus.filter((s) => s.status === 'available').length;
+  const busy = specialistsWithStatus.filter((s) => s.status === 'busy').length;
+  const offDuty = specialistsWithStatus.filter((s) => s.status === 'off-duty').length;
+
+  const filtered = specialistsWithStatus.filter((s) => {
     const matchesStatus = filter === 'all' || s.status === filter;
     const query = search.toLowerCase();
     const matchesSearch =
       !query ||
       s.name.toLowerCase().includes(query) ||
-      s.specialty.toLowerCase().includes(query) ||
-      s.department.toLowerCase().includes(query);
+      s.specialty.toLowerCase().includes(query);
     return matchesStatus && matchesSearch;
   });
 
@@ -178,12 +134,48 @@ export default function SpecialistAvailabilityPage() {
         <p className="text-sm text-muted-foreground mt-0.5">
           Real-time view of on-duty specialists and their current patient load.
         </p>
+        
+        {/* Date Selector */}
+        <div className="flex items-center gap-2 mt-4">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <select
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="h-9 rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value={today}>Today - {format(new Date(), 'MMM dd')}</option>
+            <option value={format(addDays(new Date(), 1), 'yyyy-MM-dd')}>
+              Tomorrow - {format(addDays(new Date(), 1), 'MMM dd')}
+            </option>
+            <option value={format(addDays(new Date(), 2), 'yyyy-MM-dd')}>
+              {format(addDays(new Date(), 2), 'EEE, MMM dd')}
+            </option>
+            <option value={format(addDays(new Date(), 3), 'yyyy-MM-dd')}>
+              {format(addDays(new Date(), 3), 'EEE, MMM dd')}
+            </option>
+            <option value={format(addDays(new Date(), 4), 'yyyy-MM-dd')}>
+              {format(addDays(new Date(), 4), 'EEE, MMM dd')}
+            </option>
+            <option value={format(addDays(new Date(), 5), 'yyyy-MM-dd')}>
+              {format(addDays(new Date(), 5), 'EEE, MMM dd')}
+            </option>
+            <option value={format(addDays(new Date(), 6), 'yyyy-MM-dd')}>
+              {format(addDays(new Date(), 6), 'EEE, MMM dd')}
+            </option>
+            <option value={format(addDays(new Date(), 7), 'yyyy-MM-dd')}>
+              {format(addDays(new Date(), 7), 'EEE, MMM dd')}
+            </option>
+          </select>
+          <span className="text-xs text-muted-foreground">
+            Viewing schedule for {format(new Date(selectedDate), 'EEEE, MMMM dd, yyyy')}
+          </span>
+        </div>
       </div>
 
       {/* Summary row */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         {[
-          { label: 'Available', count: available, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', dot: 'bg-emerald-500' },
+          { label: 'On Duty', count: available, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', dot: 'bg-emerald-500' },
           { label: 'At Capacity', count: busy, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20', dot: 'bg-amber-500' },
           { label: 'Off Duty', count: offDuty, color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-50 dark:bg-slate-800/30', dot: 'bg-slate-400' },
         ].map((s) => (
@@ -210,7 +202,7 @@ export default function SpecialistAvailabilityPage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search specialist, department..."
+            placeholder="Search specialist, specialty..."
             className="pl-9 h-10 bg-background text-sm"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -226,7 +218,7 @@ export default function SpecialistAvailabilityPage() {
                 : 'border border-border bg-background text-muted-foreground hover:bg-muted'
                 }`}
             >
-              {f === 'all' ? 'All' : f === 'off-duty' ? 'Off Duty' : f === 'busy' ? 'At Capacity' : 'Available'}
+              {f === 'all' ? 'All' : f === 'off-duty' ? 'Off Duty' : f === 'busy' ? 'At Capacity' : 'On Duty'}
             </button>
           ))}
         </div>
@@ -248,7 +240,7 @@ export default function SpecialistAvailabilityPage() {
                   <Avatar className="h-11 w-11 border border-border shrink-0">
                     <AvatarImage src="/user.png" alt={spec.name} />
                     <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
-                      {spec.avatarFallback}
+                      {getInitials(spec.name)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
@@ -262,36 +254,34 @@ export default function SpecialistAvailabilityPage() {
                 </div>
 
                 {/* Load Bar */}
-                <LoadBar load={spec.load} maxLoad={spec.maxLoad} status={spec.status} />
+                <LoadBar load={spec.currentLoad} maxLoad={spec.maxLoad} status={spec.status} />
 
-                {/* Meta */}
-                <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
-                  <span className="font-medium">{spec.department}</span>
-                  {spec.status !== 'off-duty' && (
-                    <span>Shift ends {spec.shiftEnd}</span>
-                  )}
-                </div>
+                {/* Contact Info */}
+                {spec.email && (
+                  <div className="mt-3 text-[11px] text-muted-foreground">
+                    <p className="truncate">{spec.email}</p>
+                    {spec.phone && <p className="mt-0.5">{spec.phone}</p>}
+                  </div>
+                )}
 
-                {/* Active Cases */}
-                {spec.currentPatients.length > 0 && (
+                {/* Off Duty Reason */}
+                {spec.status === 'off-duty' && spec.offDutyReason && (
                   <div className="mt-3 pt-3 border-t border-border">
-                    <p className="text-[11px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">
-                      Active Cases
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {spec.currentPatients.slice(0, 3).map((ref) => (
-                        <span
-                          key={ref}
-                          className="inline-block rounded-md bg-muted px-2 py-0.5 text-[11px] font-mono font-medium text-muted-foreground"
-                        >
-                          {ref}
-                        </span>
-                      ))}
-                      {spec.currentPatients.length > 3 && (
-                        <span className="inline-block rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                          +{spec.currentPatients.length - 3} more
-                        </span>
-                      )}
+                    <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 p-2.5">
+                      <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-semibold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
+                          Off Duty Reason
+                        </p>
+                        <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">
+                          {spec.offDutyReason}
+                        </p>
+                        {spec.offDutySince && (
+                          <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-1">
+                            Since {formatDistanceToNow(new Date(spec.offDutySince), { addSuffix: true })}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}

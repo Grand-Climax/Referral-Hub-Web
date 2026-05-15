@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -88,6 +89,10 @@ export function HospitalManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [hospitalForm, setHospitalForm] = useState<CreateHospitalRequest>(
+    defaultHospitalFormValues,
+  );
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [hospitalForm, setHospitalForm] = useState<CreateHospitalRequest>(

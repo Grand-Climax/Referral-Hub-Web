@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -14,54 +14,23 @@ import {
   FileText,
   Users,
   Clock,
-  Zap,
   Circle,
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
 } from 'lucide-react';
+import { useGetTriageQueueQuery } from '@/features/department-head/departmentHeadApi';
+import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
+import { setFutureAvailability, cleanupOldSchedule, getSpecialistAvailabilityForDate } from '@/redux/slices/specialistAvailabilitySlice';
+import { OffDutyDialog } from './OffDutyDialog';
+import { format, addDays } from 'date-fns';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type UrgencyLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 
-interface TriagePatient {
-  id: string;
-  name: string;
-  age: number;
-  sex: string;
-  urgency: UrgencyLevel;
-  mlScore: number;
-  facility: string;
-  eta: string;
-}
-
-interface DutySpecialist {
-  id: string;
-  name: string;
-  specialty: string;
-  load: string;
-  available: boolean;
-  avatarFallback: string;
-}
-
-// ─── Mock Data ─────────────────────────────────────────────────────────────────
-
-const TRIAGE_QUEUE: TriagePatient[] = [
-  { id: 'REF-9021', name: 'Jameson, R.', age: 64, sex: 'Male', urgency: 'CRITICAL', mlScore: 9.4, facility: 'Central Metro ER', eta: '04m' },
-  { id: 'REF-9044', name: 'Lin, Mei', age: 52, sex: 'Female', urgency: 'HIGH', mlScore: 7.8, facility: 'Westside Clinic', eta: '12m' },
-  { id: 'REF-8998', name: 'Harrison, P.', age: 79, sex: 'Male', urgency: 'MEDIUM', mlScore: 5.2, facility: 'Riverside Gen', eta: 'Arrived' },
-  { id: 'REF-9102', name: "O'Neill, Sarah", age: 33, sex: 'Female', urgency: 'LOW', mlScore: 2.1, facility: "St. Mary's ER", eta: '24m' },
-];
-
-const DUTY_SPECIALISTS: DutySpecialist[] = [
-  { id: 's1', name: 'Dr. Sarah Smith', specialty: 'Cardiologist', load: '3/5 patients', available: true, avatarFallback: 'SS' },
-  { id: 's2', name: 'Dr. Alan Chen', specialty: 'Neurologist', load: '5/5 patients', available: false, avatarFallback: 'AC' },
-  { id: 's3', name: 'Dr. Mia Torres', specialty: 'Pulmonologist', load: '2/5 patients', available: true, avatarFallback: 'MT' },
-];
-
-const ACTIVE_COUNT = 12;
-const HIGH_SEV_COUNT = 4;
-const SPECIALISTS_ON_DUTY = 6;
-const AVG_WAIT = 14;
-const PAGE_SIZE = 4;
+const PAGE_SIZE = 10;
 
 // ─── Urgency helpers ───────────────────────────────────────────────────────────
 
@@ -72,17 +41,27 @@ const URGENCY_STYLES: Record<UrgencyLevel, { badge: string; bar: string }> = {
   LOW: { badge: 'bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-300', bar: 'bg-slate-400' },
 };
 
-function UrgencyBadge({ level }: { level: UrgencyLevel }) {
+function UrgencyBadge({ level }: { level?: UrgencyLevel | string }) {
+  // Safety check: default to LOW if level is undefined or invalid
+  const safeLevel: UrgencyLevel = 
+    level && typeof level === 'string' && level in URGENCY_STYLES 
+      ? (level as UrgencyLevel)
+      : 'LOW';
+  
+  const styles = URGENCY_STYLES[safeLevel];
+  
   return (
-    <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wide uppercase ${URGENCY_STYLES[level].badge}`}>
-      {level}
+    <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wide uppercase ${styles.badge}`}>
+      {safeLevel}
     </span>
   );
 }
 
-function MlScoreBar({ score }: { score: number }) {
-  const pct = (score / 10) * 100;
-  const level: UrgencyLevel = score >= 8 ? 'CRITICAL' : score >= 6 ? 'HIGH' : score >= 4 ? 'MEDIUM' : 'LOW';
+function MlScoreBar({ score }: { score?: number }) {
+  // Safety check: default to 0 if score is undefined or invalid
+  const safeScore = typeof score === 'number' && !isNaN(score) ? score : 0;
+  const pct = (safeScore / 10) * 100;
+  const level: UrgencyLevel = safeScore >= 8 ? 'CRITICAL' : safeScore >= 6 ? 'HIGH' : safeScore >= 4 ? 'MEDIUM' : 'LOW';
   return (
     <div className="flex items-center gap-2">
       <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
@@ -91,14 +70,14 @@ function MlScoreBar({ score }: { score: number }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-sm font-bold tabular-nums text-foreground">{score.toFixed(1)}</span>
+      <span className="text-sm font-bold tabular-nums text-foreground">{safeScore.toFixed(1)}</span>
     </div>
   );
 }
 
 // ─── Stat Cards ────────────────────────────────────────────────────────────────
 
-function ActiveReferralsCard() {
+function ActiveReferralsCard({ count, avgWait }: { count: number; avgWait: number }) {
   return (
     <Card className="border bg-card shadow-sm">
       <CardContent className="p-5">
@@ -109,7 +88,7 @@ function ActiveReferralsCard() {
           </div>
         </div>
         <div className="mt-3 flex items-baseline gap-3">
-          <span className="text-4xl font-extrabold tabular-nums text-foreground">{ACTIVE_COUNT}</span>
+          <span className="text-4xl font-extrabold tabular-nums text-foreground">{count}</span>
           <span className="text-sm font-semibold text-primary">Waiting Review</span>
         </div>
         <div className="mt-3 h-0.5 w-full rounded-full bg-primary/20">
@@ -117,14 +96,14 @@ function ActiveReferralsCard() {
         </div>
         <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
           <Clock className="h-3 w-3" />
-          Average wait time: {AVG_WAIT} mins
+          Average wait time: {avgWait} mins
         </p>
       </CardContent>
     </Card>
   );
 }
 
-function HighSeverityCard() {
+function HighSeverityCard({ count }: { count: number }) {
   return (
     <Card className="border bg-card shadow-sm">
       <CardContent className="p-5">
@@ -136,7 +115,7 @@ function HighSeverityCard() {
         </div>
         <div className="mt-3 flex items-baseline gap-3">
           <span className="text-4xl font-extrabold tabular-nums text-rose-600 dark:text-rose-400">
-            {String(HIGH_SEV_COUNT).padStart(2, '0')}
+            {String(count).padStart(2, '0')}
           </span>
           <span className="text-sm font-semibold text-rose-600 dark:text-rose-400">Critical Triage</span>
         </div>
@@ -151,7 +130,7 @@ function HighSeverityCard() {
   );
 }
 
-function SpecialistsCard() {
+function SpecialistsCard({ totalSpecialists, availableCount }: { totalSpecialists: number; availableCount: number }) {
   return (
     <Card className="border bg-card shadow-sm">
       <CardContent className="p-5">
@@ -163,7 +142,7 @@ function SpecialistsCard() {
         </div>
         <div className="mt-3 flex items-baseline gap-3">
           <span className="text-4xl font-extrabold tabular-nums text-foreground">
-            {String(SPECIALISTS_ON_DUTY).padStart(2, '0')}
+            {String(totalSpecialists).padStart(2, '0')}
           </span>
           <span className="text-sm font-semibold text-muted-foreground">On Duty</span>
         </div>
@@ -174,12 +153,12 @@ function SpecialistsCard() {
             </Avatar>
           ))}
           <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] font-semibold text-muted-foreground ring-1 ring-border">
-            +3
+            +{Math.max(0, totalSpecialists - 3)}
           </div>
         </div>
         <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
           <Circle className="h-2 w-2 fill-emerald-500 text-emerald-500" />
-          Adequate Coverage
+          {availableCount} Available
         </p>
       </CardContent>
     </Card>
@@ -189,29 +168,113 @@ function SpecialistsCard() {
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export default function DeptHeadDashboard() {
-  const [specialists, setSpecialists] = useState(DUTY_SPECIALISTS);
+  const dispatch = useAppDispatch();
+  
+  // Get tomorrow's date (can only modify future dates)
+  const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
+  const [selectedDate, setSelectedDate] = useState(tomorrow);
+  
+  // Get specialists for the selected date
+  const specialists = useAppSelector((state) => 
+    getSpecialistAvailabilityForDate(state, selectedDate)
+  );
+  
   const [currentPage, setCurrentPage] = useState(0);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [showAllSpecialists, setShowAllSpecialists] = useState(false);
+  const [offDutyDialog, setOffDutyDialog] = useState<{ 
+    open: boolean; 
+    specialistId: string; 
+    specialistName: string;
+    date: string;
+  }>({
+    open: false,
+    specialistId: '',
+    specialistName: '',
+    date: tomorrow,
+  });
 
-  const totalPages = Math.ceil(TRIAGE_QUEUE.length / PAGE_SIZE);
-  const displayed = TRIAGE_QUEUE.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+  // Clean up old schedule entries on mount
+  useEffect(() => {
+    dispatch(cleanupOldSchedule());
+  }, [dispatch]);
 
-  const criticalCase = TRIAGE_QUEUE.find((p) => p.urgency === 'CRITICAL');
+  // Fetch triage queue from API
+  // Endpoint: /api/v1/department-head/triage-queue
+  const { data: triageQueue = [], isLoading, error } = useGetTriageQueueQuery({
+    limit: 100, // Get more records for pagination
+    offset: 0,
+  });
 
-  const toggleSpecialist = (id: string) => {
-    setSpecialists((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, available: !s.available } : s))
+  // Calculate stats from real data
+  const activeCount = triageQueue.length;
+  const highSevCount = triageQueue.filter(
+    (p) => p.urgency_level === 'CRITICAL' || p.urgency_level === 'HIGH'
+  ).length;
+  const avgWait = 14; // TODO: Calculate from real data when available
+
+  // Specialist stats
+  const totalSpecialists = specialists.length;
+  const availableSpecialists = specialists.filter((s) => s.available);
+  const availableCount = availableSpecialists.length;
+
+  // Show first 3 specialists by default, or all if expanded
+  const displayedSpecialists = showAllSpecialists ? specialists : specialists.slice(0, 3);
+
+  const totalPages = Math.ceil(triageQueue.length / PAGE_SIZE);
+  const displayed = triageQueue.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+
+  const criticalCase = triageQueue.find((p) => p.urgency_level === 'CRITICAL');
+
+  const handleToggleSpecialist = (id: string, currentlyAvailable: boolean, name: string) => {
+    if (currentlyAvailable) {
+      // Turning off - show dialog for reason
+      setOffDutyDialog({ 
+        open: true, 
+        specialistId: id, 
+        specialistName: name,
+        date: selectedDate,
+      });
+    } else {
+      // Turning on - no reason needed
+      dispatch(setFutureAvailability({ 
+        specialistId: id, 
+        date: selectedDate,
+        available: true 
+      }));
+    }
+  };
+
+  const handleConfirmOffDuty = (reason: string) => {
+    dispatch(
+      setFutureAvailability({
+        specialistId: offDutyDialog.specialistId,
+        date: offDutyDialog.date,
+        available: false,
+        reason,
+      })
     );
   };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const isToday = selectedDate === format(new Date(), 'yyyy-MM-dd');
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
 
       {/* Stat Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-        <ActiveReferralsCard />
-        <HighSeverityCard />
-        <SpecialistsCard />
+        <ActiveReferralsCard count={activeCount} avgWait={avgWait} />
+        <HighSeverityCard count={highSevCount} />
+        <SpecialistsCard totalSpecialists={totalSpecialists} availableCount={availableCount} />
       </div>
 
       {/* Two-column layout: Triage Queue + Right Panel */}
@@ -238,76 +301,107 @@ export default function DeptHeadDashboard() {
           </CardHeader>
 
           <CardContent className="p-0">
-            {/* Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/30">
-                    <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">ID</th>
-                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Patient</th>
-                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Urgency</th>
-                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">ML Score</th>
-                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Facility</th>
-                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">ETA</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {displayed.map((patient) => (
-                    <tr
-                      key={patient.id}
-                      className={`transition-colors hover:bg-muted/40 ${patient.urgency === 'CRITICAL' ? 'bg-rose-50/40 dark:bg-rose-950/20' : ''
-                        }`}
-                    >
-                      <td className="px-6 py-4 text-xs font-mono font-medium text-muted-foreground whitespace-nowrap">
-                        {patient.id}
-                      </td>
-                      <td className="px-4 py-4">
-                        <p className="font-semibold text-foreground leading-tight">{patient.name}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {patient.age}y • {patient.sex}
-                        </p>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <UrgencyBadge level={patient.urgency} />
-                      </td>
-                      <td className="px-4 py-4">
-                        <MlScoreBar score={patient.mlScore} />
-                      </td>
-                      <td className="px-4 py-4 text-sm text-foreground whitespace-nowrap">
-                        {patient.facility}
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className={`text-sm font-bold tabular-nums ${patient.eta === 'Arrived' ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground'
-                          }`}>
-                          {patient.eta}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            <div className="flex items-center justify-between border-t border-border px-6 py-3 text-xs text-muted-foreground">
-              <span>Showing {displayed.length} of {TRIAGE_QUEUE.length} active queue items</span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                  disabled={currentPage === 0}
-                  className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
-                  disabled={currentPage >= totalPages - 1}
-                  className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
+            {/* Loading State */}
+            {isLoading && (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="ml-3 text-sm text-muted-foreground">Loading triage queue...</span>
               </div>
-            </div>
+            )}
+
+            {/* Error State */}
+            {error && (
+              <div className="flex flex-col items-center justify-center py-12 px-6">
+                <AlertTriangle className="h-8 w-8 text-amber-500" />
+                <span className="mt-3 text-sm font-medium text-foreground">Triage Queue Unavailable</span>
+                <p className="mt-1 text-xs text-muted-foreground text-center max-w-md">
+                  Failed to load triage queue. Please try again later or contact support if the issue persists.
+                </p>
+              </div>
+            )}
+
+            {/* Empty State */}
+            {!isLoading && !error && triageQueue.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12">
+                <FileText className="h-12 w-12 text-muted-foreground/50" />
+                <p className="mt-3 text-sm font-medium text-foreground">No patients in triage queue</p>
+                <p className="text-xs text-muted-foreground mt-1">New referrals will appear here</p>
+              </div>
+            )}
+
+            {/* Table */}
+            {!isLoading && !error && triageQueue.length > 0 && (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/30">
+                        <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">ID</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Patient</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Urgency</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">ML Score</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Facility</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {displayed.map((patient) => (
+                        <tr
+                          key={patient.id}
+                          className={`transition-colors hover:bg-muted/40 ${patient.urgency_level === 'CRITICAL' ? 'bg-rose-50/40 dark:bg-rose-950/20' : ''
+                            }`}
+                        >
+                          <td className="px-6 py-4 text-xs font-mono font-medium text-muted-foreground whitespace-nowrap">
+                            {patient.id}
+                          </td>
+                          <td className="px-4 py-4">
+                            <p className="font-semibold text-foreground leading-tight">{patient.patient_name}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {patient.patient_age}y • {patient.patient_sex}
+                            </p>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <UrgencyBadge level={patient.urgency_level} />
+                          </td>
+                          <td className="px-4 py-4">
+                            <MlScoreBar score={patient.severity_score} />
+                          </td>
+                          <td className="px-4 py-4 text-sm text-foreground whitespace-nowrap">
+                            {patient.referring_facility}
+                          </td>
+                          <td className="px-4 py-4">
+                            <span className="text-sm font-medium text-foreground">
+                              {patient.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                <div className="flex items-center justify-between border-t border-border px-6 py-3 text-xs text-muted-foreground">
+                  <span>Showing {displayed.length} of {triageQueue.length} active queue items</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                      disabled={currentPage === 0}
+                      className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                      disabled={currentPage >= totalPages - 1}
+                      className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -322,15 +416,19 @@ export default function DeptHeadDashboard() {
             <CardContent className="px-5 pb-5">
               <Button
                 className="w-full gap-2 bg-primary hover:bg-primary/90 text-primary-foreground h-11 text-sm font-semibold shadow-sm"
-                onClick={() => criticalCase && alert(`Reviewing ${criticalCase.id} – ${criticalCase.name}`)}
+                onClick={() => criticalCase && alert(`Reviewing ${criticalCase.id} – ${criticalCase.patient_name}`)}
+                disabled={!criticalCase}
               >
                 Review Next Critical Case
                 <ArrowRight className="h-4 w-4" />
               </Button>
-              {criticalCase && (
+              {criticalCase ? (
                 <p className="mt-2.5 text-center text-xs text-muted-foreground">
-                  Next: <span className="font-semibold text-foreground">{criticalCase.name}</span>{' '}
-                  — ETA {criticalCase.eta}
+                  Next: <span className="font-semibold text-foreground">{criticalCase.patient_name}</span>
+                </p>
+              ) : (
+                <p className="mt-2.5 text-center text-xs text-muted-foreground">
+                  No critical cases in queue
                 </p>
               )}
             </CardContent>
@@ -339,7 +437,7 @@ export default function DeptHeadDashboard() {
           {/* Duty Specialists */}
           <Card className="border bg-card shadow-sm">
             <CardHeader className="pb-3 pt-4 px-5">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-2">
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Duty Specialists</p>
                 <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
                   <span className="relative flex h-2 w-2">
@@ -349,34 +447,100 @@ export default function DeptHeadDashboard() {
                   Live
                 </span>
               </div>
+              
+              {/* Date Selector */}
+              <div className="flex items-center gap-2 mt-2">
+                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                <select
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="flex-1 h-8 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value={tomorrow}>Tomorrow - {format(addDays(new Date(), 1), 'MMM dd')}</option>
+                  <option value={format(addDays(new Date(), 2), 'yyyy-MM-dd')}>
+                    {format(addDays(new Date(), 2), 'EEE, MMM dd')}
+                  </option>
+                  <option value={format(addDays(new Date(), 3), 'yyyy-MM-dd')}>
+                    {format(addDays(new Date(), 3), 'EEE, MMM dd')}
+                  </option>
+                  <option value={format(addDays(new Date(), 4), 'yyyy-MM-dd')}>
+                    {format(addDays(new Date(), 4), 'EEE, MMM dd')}
+                  </option>
+                  <option value={format(addDays(new Date(), 5), 'yyyy-MM-dd')}>
+                    {format(addDays(new Date(), 5), 'EEE, MMM dd')}
+                  </option>
+                  <option value={format(addDays(new Date(), 6), 'yyyy-MM-dd')}>
+                    {format(addDays(new Date(), 6), 'EEE, MMM dd')}
+                  </option>
+                  <option value={format(addDays(new Date(), 7), 'yyyy-MM-dd')}>
+                    {format(addDays(new Date(), 7), 'EEE, MMM dd')}
+                  </option>
+                </select>
+              </div>
+              
+              {isToday && (
+                <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-2 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  Cannot modify today's schedule
+                </p>
+              )}
             </CardHeader>
             <CardContent className="px-5 pb-5 space-y-3">
-              {specialists.map((spec) => (
+              {displayedSpecialists.map((spec) => (
                 <div key={spec.id} className="flex items-center gap-3">
                   <Avatar className="h-9 w-9 border border-border shrink-0">
                     <AvatarImage src="/user.png" alt={spec.name} />
                     <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">
-                      {spec.avatarFallback}
+                      {getInitials(spec.name)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate">{spec.name}</p>
-                    <p className="text-xs text-muted-foreground">Load: {spec.load}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Load: {spec.currentLoad}/{spec.maxLoad}
+                    </p>
                   </div>
-                  {/* Toggle */}
+                  {/* Toggle - disabled for today */}
                   <button
-                    onClick={() => toggleSpecialist(spec.id)}
+                    onClick={() => !isToday && handleToggleSpecialist(spec.id, spec.available, spec.name)}
                     aria-label={`Toggle ${spec.name} availability`}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${spec.available ? 'bg-primary' : 'bg-muted-foreground/30'
-                      }`}
+                    disabled={isToday}
+                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                      isToday 
+                        ? 'cursor-not-allowed opacity-50 bg-muted-foreground/20' 
+                        : `cursor-pointer ${spec.available ? 'bg-primary' : 'bg-muted-foreground/30'}`
+                    }`}
                   >
                     <span
-                      className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform ${spec.available ? 'translate-x-4' : 'translate-x-0'
-                        }`}
+                      className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform ${
+                        spec.available ? 'translate-x-4' : 'translate-x-0'
+                      }`}
                     />
                   </button>
                 </div>
               ))}
+              
+              {/* Show More/Less Button */}
+              {specialists.length > 3 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full mt-2 text-xs"
+                  onClick={() => setShowAllSpecialists(!showAllSpecialists)}
+                >
+                  {showAllSpecialists ? (
+                    <>
+                      <ChevronUp className="h-3 w-3 mr-1" />
+                      Show Less
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-3 w-3 mr-1" />
+                      Show More ({specialists.length - 3} more)
+                    </>
+                  )}
+                </Button>
+              )}
             </CardContent>
           </Card>
 
@@ -403,14 +567,14 @@ export default function DeptHeadDashboard() {
           <div className="grid grid-cols-2 gap-3">
             <Card className="border bg-card shadow-sm">
               <CardContent className="p-4 text-center">
-                <p className="text-2xl font-extrabold tabular-nums text-primary">{HIGH_SEV_COUNT}</p>
+                <p className="text-2xl font-extrabold tabular-nums text-primary">{highSevCount}</p>
                 <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">Critical Today</p>
               </CardContent>
             </Card>
             <Card className="border bg-card shadow-sm">
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-extrabold tabular-nums text-amber-500">
-                  {specialists.filter((s) => s.available).length}/{specialists.length}
+                  {availableCount}/{totalSpecialists}
                 </p>
                 <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">Available</p>
               </CardContent>
@@ -419,6 +583,15 @@ export default function DeptHeadDashboard() {
 
         </div>
       </div>
+
+      {/* Off Duty Dialog */}
+      <OffDutyDialog
+        open={offDutyDialog.open}
+        onOpenChange={(open) => setOffDutyDialog({ ...offDutyDialog, open })}
+        specialistName={offDutyDialog.specialistName}
+        date={selectedDate}
+        onConfirm={handleConfirmOffDuty}
+      />
     </div>
   );
 }

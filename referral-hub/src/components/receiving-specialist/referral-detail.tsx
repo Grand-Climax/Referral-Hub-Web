@@ -37,14 +37,21 @@ import {
   useRejectReferralMutation,
   useMarkReferralReadMutation,
   useReleaseReferralMutation,
+  useGetRedirectOptionsQuery,
+  useRedirectReferralMutation,
 } from "@/features/specialist/specialistApi";
 import { useGetUserByIdQuery } from "@/features/auth/authApi";
 import { ReferralDetailSkeleton } from "@/components/skeletons/ReferralDetailSkeleton";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 const ReferralDetail = ({ referralId }: { referralId: string }) => {
+  const router = useRouter();
   const [rejectionReason, setRejectionReason] = useState("");
+  const [redirectHospitalId, setRedirectHospitalId] = useState("");
+  const [redirectReason, setRedirectReason] = useState("");
+  const [releaseReason, setReleaseReason] = useState("");
   const {
     data: referral,
     isLoading,
@@ -58,6 +65,14 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
     useMarkReferralReadMutation();
   const [releaseReferral, { isLoading: isReleasing }] =
     useReleaseReferralMutation();
+  const [redirectReferral, { isLoading: isRedirecting }] =
+    useRedirectReferralMutation();
+  const {
+    data: redirectOptions = [],
+    isFetching: isFetchingRedirectOptions,
+  } = useGetRedirectOptionsQuery(referralId, {
+    skip: !referralId,
+  });
   const { data: doctor } = useGetUserByIdQuery(
     referral?.referring_doctor_id || "",
     {
@@ -97,11 +112,58 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
   }, [referral?.status, referralId, isMarkingRead]);
 
   const handleRelease = async () => {
+    if (!releaseReason.trim()) {
+      toast.error("Please provide a reason for releasing this referral.");
+      return;
+    }
+
     try {
-      await releaseReferral(referralId).unwrap();
+      await releaseReferral({
+        id: referralId,
+        reason: releaseReason.trim(),
+      }).unwrap();
       toast.success("Referral released (unassigned).");
+      router.push("/receiving-specialist/referrals");
     } catch (error) {
       toast.error("Failed to release referral.");
+    }
+  };
+
+  const handleRedirect = async () => {
+    if (!redirectHospitalId) {
+      toast.error("Please select a hospital to redirect this referral.");
+      return;
+    }
+
+    if (!redirectReason.trim()) {
+      toast.error("Please provide a reason for redirecting this referral.");
+      return;
+    }
+
+    const selectedHospital = redirectOptions.find(
+      (hospital) => hospital.id === redirectHospitalId,
+    );
+    const departmentId =
+      selectedHospital?.department_id ||
+      selectedHospital?.target_dept_id ||
+      referral?.target_dept_id;
+
+    if (!departmentId) {
+      toast.error("No department is available for the selected redirect hospital.");
+      return;
+    }
+
+    try {
+      await redirectReferral({
+        id: referralId,
+        target_hospital_id: redirectHospitalId,
+        department_id: departmentId,
+        reason: redirectReason.trim(),
+      }).unwrap();
+      toast.success("Referral redirected successfully.");
+      router.push("/receiving-specialist/referrals");
+    } catch (error) {
+      toast.error("Failed to redirect referral.");
     }
   };
 
@@ -504,28 +566,49 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
                 <>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                      Assign Department
+                      Redirect To Hospital
                     </label>
                     <Select
-                      defaultValue={referral.target_dept_id.toLowerCase()}
+                      value={redirectHospitalId}
+                      onValueChange={setRedirectHospitalId}
+                      disabled={isFetchingRedirectOptions || isRedirecting}
                     >
                       <SelectTrigger className="bg-background">
-                        <SelectValue placeholder="Select Department" />
+                        <SelectValue
+                          placeholder={
+                            isFetchingRedirectOptions
+                              ? "Loading hospitals..."
+                              : "Select hospital"
+                          }
+                        />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem
-                          value={referral.target_dept_id.toLowerCase()}
-                        >
-                          {referral.target_dept_id} (Recommended)
-                        </SelectItem>
-                        <SelectItem value="general-surgery">
-                          General Surgery
-                        </SelectItem>
-                        <SelectItem value="internal-medicine">
-                          Internal Medicine
-                        </SelectItem>
+                        {redirectOptions.length === 0 ? (
+                          <div className="px-3 py-2 text-sm text-muted-foreground">
+                            No redirect hospitals available
+                          </div>
+                        ) : (
+                          redirectOptions.map((hospital) => (
+                            <SelectItem key={hospital.id} value={hospital.id}>
+                              {hospital.name}
+                              {hospital.region ? ` - ${hospital.region}` : ""}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      Redirect Reason
+                    </label>
+                    <Textarea
+                      placeholder="Explain why this referral should be redirected..."
+                      className="resize-none h-20 bg-background"
+                      value={redirectReason}
+                      onChange={(e) => setRedirectReason(e.target.value)}
+                    />
                   </div>
 
                   <Button
@@ -539,6 +622,20 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
                       <CheckCircle2 className="h-5 w-5" />
                     )}
                     Accept Referral
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                    onClick={handleRedirect}
+                    disabled={isRedirecting || !redirectHospitalId || !redirectReason.trim()}
+                  >
+                    {isRedirecting ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                    ) : (
+                      <Share2 className="h-4 w-4" />
+                    )}
+                    Redirect Referral
                   </Button>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -559,7 +656,7 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
                       variant="outline"
                       className="gap-2"
                       onClick={handleRelease}
-                      disabled={isReleasing}
+                      disabled={isReleasing || !releaseReason.trim()}
                     >
                       {isReleasing ? (
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
@@ -572,7 +669,19 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
 
                   <div className="space-y-2 pt-2 border-t border-border">
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                      Reason for Rejection / Release
+                      Release Reason
+                    </label>
+                    <Textarea
+                      placeholder="Explain why you are releasing this referral..."
+                      className="resize-none h-20 bg-background"
+                      value={releaseReason}
+                      onChange={(e) => setReleaseReason(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t border-border">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      Reason for Rejection
                     </label>
                     <Textarea
                       placeholder="Provide clinical justification..."

@@ -12,50 +12,75 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  AlertTriangle,
   ChevronRight,
   Bell,
   MessageCircle,
+  Loader2,
 } from "lucide-react";
+import { useGetLiaisonDashboardStatsQuery } from "@/features/liaison/liaisonApi";
+import type {
+  LiaisonDashboardStatItem,
+  LiaisonDashboardStats,
+} from "@/types/liaison";
 
-const statCards = [
+type StatTone = "default" | "warning" | "success" | "destructive";
+
+const STAT_CARD_DEFINITIONS: Array<{
+  key: keyof LiaisonDashboardStats;
+  label: string;
+  icon: typeof FileText;
+  accent: string;
+  tone: StatTone;
+}> = [
   {
+    key: "total_referrals",
     label: "Total Referrals",
-    value: 128,
-    delta: "+12%",
     icon: FileText,
-    accent:
-      "bg-blue-50 text-blue-600 dark:bg-blue-500/20 dark:text-blue-200",
-    pill: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-200",
+    accent: "bg-blue-50 text-blue-600 dark:bg-blue-500/20 dark:text-blue-200",
+    tone: "default",
   },
   {
+    key: "pending_review",
     label: "Pending Review",
-    value: 14,
-    delta: "-5%",
     icon: Clock,
-    accent:
-      "bg-amber-50 text-amber-600 dark:bg-amber-500/20 dark:text-amber-200",
-    pill: "bg-rose-50 text-rose-600 dark:bg-rose-500/20 dark:text-rose-200",
+    accent: "bg-amber-50 text-amber-600 dark:bg-amber-500/20 dark:text-amber-200",
+    tone: "warning",
   },
   {
+    key: "approved_today",
     label: "Approved Today",
-    value: 32,
-    delta: "+8%",
     icon: CheckCircle2,
     accent:
       "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-200",
-    pill: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-200",
+    tone: "success",
   },
   {
+    key: "rejected",
     label: "Rejected",
-    value: 5,
-    delta: "-2%",
     icon: XCircle,
-    accent:
-      "bg-rose-50 text-rose-600 dark:bg-rose-500/20 dark:text-rose-200",
-    pill: "bg-rose-50 text-rose-600 dark:bg-rose-500/20 dark:text-rose-200",
+    accent: "bg-rose-50 text-rose-600 dark:bg-rose-500/20 dark:text-rose-200",
+    tone: "destructive",
   },
 ];
+
+const EMPTY_STAT: LiaisonDashboardStatItem = { count: 0, change: 0 };
+
+const formatDelta = (change: number) => {
+  if (!Number.isFinite(change) || change === 0) return "0%";
+  const sign = change > 0 ? "+" : "";
+  return `${sign}${change}%`;
+};
+
+const getDeltaPillClasses = (change: number, tone: StatTone) => {
+  if (!Number.isFinite(change) || change === 0) {
+    return "bg-muted text-muted-foreground";
+  }
+  // For "rejected", an increase is negative; for the others, an increase is positive.
+  const isImprovement = tone === "destructive" ? change < 0 : change > 0;
+  return isImprovement
+    ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-200"
+    : "bg-rose-50 text-rose-600 dark:bg-rose-500/20 dark:text-rose-200";
+};
 
 const activityItems = [
   {
@@ -93,12 +118,20 @@ const activityItems = [
 ];
 
 const LiaisonDashboard = () => {
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    isError: statsError,
+  } = useGetLiaisonDashboardStatsQuery();
+
   return (
     <div className="space-y-8">
       {/* Top stats row */}
       <div className="grid gap-4 md:grid-cols-4">
-        {statCards.map((card) => {
+        {STAT_CARD_DEFINITIONS.map((card) => {
           const Icon = card.icon;
+          const item = stats?.[card.key] ?? EMPTY_STAT;
+          const pillClasses = getDeltaPillClasses(item.change, card.tone);
           return (
             <Card key={card.label} className="border bg-card shadow-sm">
               <CardContent className="flex items-center gap-4 p-4">
@@ -113,14 +146,22 @@ const LiaisonDashboard = () => {
                       {card.label}
                     </span>
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${card.pill}`}
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${pillClasses}`}
                     >
-                      {card.delta}
+                      {formatDelta(item.change)}
                     </span>
                   </div>
-                  <p className="text-xl font-semibold text-foreground">
-                    {card.value}
-                  </p>
+                  {statsLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : statsError ? (
+                    <p className="text-xs text-destructive">
+                      Failed to load
+                    </p>
+                  ) : (
+                    <p className="text-xl font-semibold text-foreground">
+                      {item.count}
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>

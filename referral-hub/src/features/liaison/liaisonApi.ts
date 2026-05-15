@@ -2,13 +2,18 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import { baseQueryWithReauth } from "@/lib/baseQuery";
 import { LIAISON_ROUTES } from "@/config/api";
 import { Referral } from "@/types/referral";
+import type {
+  LiaisonDashboardStats,
+  LiaisonDashboardStatsResponse,
+  LiaisonReviewChecklist,
+} from "@/types/liaison";
 
 import { ReferralListPaginatedResponse } from "@/types/referral-list";
 
 export const liaisonApi = createApi({
   reducerPath: "liaisonApi",
   baseQuery: baseQueryWithReauth,
-  tagTypes: ["Referral"],
+  tagTypes: ["Referral", "ReviewChecklist", "LiaisonDashboardStats"],
   endpoints: (builder) => ({
     getReferrals: builder.query<
       ReferralListPaginatedResponse,
@@ -17,18 +22,25 @@ export const liaisonApi = createApi({
         limit?: number;
         page_size?: number;
         status?: string;
+        listType?: "all" | "approved" | "rejected";
       } | void
     >({
       query: (params) => {
         const pageNum = params?.page ?? 1;
         const pageSize = params?.limit ?? params?.page_size ?? 10;
+        const url =
+          params?.listType === "approved"
+            ? LIAISON_ROUTES.APPROVED
+            : params?.listType === "rejected"
+              ? LIAISON_ROUTES.REJECTED
+              : LIAISON_ROUTES.LIST;
 
         return {
-          url: LIAISON_ROUTES.LIST,
+          url,
           params: {
             page: pageNum,
             limit: pageSize,
-            ...(params?.status ? { status: params.status } : {}),
+            ...(params?.status && !params?.listType ? { status: params.status } : {}),
           },
         };
       },
@@ -96,6 +108,70 @@ export const liaisonApi = createApi({
         "Referral",
       ],
     }),
+    getLiaisonDashboardStats: builder.query<LiaisonDashboardStats, void>({
+      query: () => ({
+        url: LIAISON_ROUTES.DASHBOARD_STATS,
+        method: "GET",
+      }),
+      transformResponse: (
+        response: LiaisonDashboardStatsResponse | LiaisonDashboardStats,
+      ): LiaisonDashboardStats => {
+        if (response && typeof response === "object" && "data" in response) {
+          return response.data;
+        }
+        return response as LiaisonDashboardStats;
+      },
+      providesTags: [{ type: "LiaisonDashboardStats", id: "STATS" }],
+    }),
+    getReviewChecklist: builder.query<LiaisonReviewChecklist, string>({
+      query: (id) => ({
+        url: LIAISON_ROUTES.REVIEW_CHECKLIST(id),
+        method: "GET",
+      }),
+      transformResponse: (
+        response:
+          | LiaisonReviewChecklist
+          | { data: LiaisonReviewChecklist }
+          | undefined,
+      ): LiaisonReviewChecklist => {
+        if (response && typeof response === "object" && "data" in response) {
+          return response.data;
+        }
+        return (response as LiaisonReviewChecklist) ?? {
+          attachments_included: false,
+          clinical_history_attached: false,
+          patient_identity_verified: false,
+          vitals_included: false,
+        };
+      },
+      providesTags: (_result, _err, id) => [{ type: "ReviewChecklist", id }],
+    }),
+    updateReviewChecklist: builder.mutation<
+      LiaisonReviewChecklist,
+      { id: string; body: LiaisonReviewChecklist }
+    >({
+      query: ({ id, body }) => ({
+        url: LIAISON_ROUTES.REVIEW_CHECKLIST(id),
+        method: "PUT",
+        body,
+      }),
+      transformResponse: (
+        response:
+          | LiaisonReviewChecklist
+          | { data: LiaisonReviewChecklist }
+          | undefined,
+        _meta,
+        arg,
+      ): LiaisonReviewChecklist => {
+        if (response && typeof response === "object" && "data" in response) {
+          return response.data;
+        }
+        return (response as LiaisonReviewChecklist) ?? arg.body;
+      },
+      invalidatesTags: (_result, _err, arg) => [
+        { type: "ReviewChecklist", id: arg.id },
+      ],
+    }),
   }),
 });
 
@@ -106,4 +182,7 @@ export const {
   useReadReferralMutation,
   useRejectReferralMutation,
   useReviseReferralMutation,
+  useGetLiaisonDashboardStatsQuery,
+  useGetReviewChecklistQuery,
+  useUpdateReviewChecklistMutation,
 } = liaisonApi;

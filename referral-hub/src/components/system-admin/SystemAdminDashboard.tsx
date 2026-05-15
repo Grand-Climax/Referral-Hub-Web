@@ -381,8 +381,6 @@ export function SystemAdminDashboard() {
             selectedUser={selectedUser}
             onSubmitCreate={handleCreate}
             onSubmitUpdate={handleUpdate}
-            onAssignRole={handleAssignRole}
-            onModerateImage={handleModerateImage}
             submitting={busy}
           />
 

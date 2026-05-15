@@ -3,8 +3,19 @@ import { baseQueryWithReauth } from '@/lib/baseQuery'
 import { SPECIALIST_ROUTES } from '@/config/api'
 import {
   SpecialistReferralListResponse,
-  SpecialistReferralDetailResponse
+  SpecialistReferralDetailResponse,
+  RedirectHospitalOption,
+  RedirectOptionsResponse,
+  RedirectReferralRequest,
+  ReleaseReferralRequest,
 } from '@/types/specialist'
+
+function unwrapRedirectOptions(raw: RedirectOptionsResponse | RedirectHospitalOption[]): RedirectHospitalOption[] {
+  if (Array.isArray(raw)) return raw;
+  if (Array.isArray(raw.data)) return raw.data;
+  if (Array.isArray(raw.hospitals)) return raw.hospitals;
+  return [];
+}
 
 export const specialistApi = createApi({
   reducerPath: 'specialistApi',
@@ -46,12 +57,26 @@ export const specialistApi = createApi({
       invalidatesTags: (result, error, id) => [{ type: 'SpecialistReferral', id }, 'SpecialistReferral'],
     }),
 
-    releaseReferral: builder.mutation<void, string>({
-      query: (id) => ({
+    releaseReferral: builder.mutation<void, ReleaseReferralRequest>({
+      query: ({ id, reason }) => ({
         url: `${SPECIALIST_ROUTES.RELEASE(id)}`,
         method: 'POST',
+        body: { reason },
       }),
-      invalidatesTags: (result, error, id) => [{ type: 'SpecialistReferral', id }, 'SpecialistReferral'],
+      invalidatesTags: (result, error, { id }) => [{ type: 'SpecialistReferral', id }, 'SpecialistReferral'],
+    }),
+    getRedirectOptions: builder.query<RedirectHospitalOption[], string>({
+      query: (id) => `${SPECIALIST_ROUTES.REDIRECT_OPTIONS(id)}`,
+      transformResponse: (raw: RedirectOptionsResponse | RedirectHospitalOption[]) => unwrapRedirectOptions(raw),
+      providesTags: (result, error, id) => [{ type: 'SpecialistReferral', id }],
+    }),
+    redirectReferral: builder.mutation<void, RedirectReferralRequest>({
+      query: ({ id, target_hospital_id, department_id, reason }) => ({
+        url: `${SPECIALIST_ROUTES.REDIRECT(id)}`,
+        method: 'POST',
+        body: { target_hospital_id, department_id, reason },
+      }),
+      invalidatesTags: (result, error, { id }) => [{ type: 'SpecialistReferral', id }, 'SpecialistReferral'],
     }),
   }),
 })
@@ -62,5 +87,7 @@ export const {
   useAcceptReferralMutation,
   useRejectReferralMutation,
   useMarkReferralReadMutation,
-  useReleaseReferralMutation
+  useReleaseReferralMutation,
+  useGetRedirectOptionsQuery,
+  useRedirectReferralMutation,
 } = specialistApi

@@ -17,6 +17,13 @@ interface DataTableViewOptionsProps<TData> {
   table: Table<TData>;
 }
 
+function formatColumnLabel(columnId: string) {
+  return columnId
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 export function DataTableViewOptions<TData>({
   table,
 }: DataTableViewOptionsProps<TData>) {
@@ -32,25 +39,24 @@ export function DataTableViewOptions<TData>({
           View
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[150px]">
+      <DropdownMenuContent align="end" className="w-52">
         <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {table
           .getAllColumns()
-          .filter(
-            (column) =>
-              typeof column.accessorFn !== "undefined" && column.getCanHide()
-          )
+          .filter((column) => column.getCanHide())
           .map((column) => {
             return (
               <DropdownMenuCheckboxItem
                 key={column.id}
-                className="capitalize"
+                className="cursor-pointer"
                 checked={column.getIsVisible()}
-                onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                onSelect={(e) => e.preventDefault()}
+                onSelect={(event) => {
+                  event.preventDefault();
+                  column.toggleVisibility(!column.getIsVisible());
+                }}
               >
-                {column.id}
+                {formatColumnLabel(column.id)}
               </DropdownMenuCheckboxItem>
             );
           })}

@@ -126,16 +126,16 @@ export function ReferralLists({
 
       <DataTableToolbar table={table} />
 
-      <div className="rounded-md border bg-card">
+      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-muted/40">
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => {
                   return (
                     <TableHead
                       key={header.id}
-                      className="text-xs font-semibold uppercase tracking-wider py-3 px-4"
+                      className="h-12 px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground"
                     >
                       {header.isPlaceholder
                         ? null
@@ -167,10 +167,13 @@ export function ReferralLists({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className="hover:bg-muted/50 transition-colors border-border/50"
+                  className="group relative border-border/60 transition-colors hover:bg-primary/5 data-[state=selected]:bg-primary/10"
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="py-3 px-4">
+                    <TableCell
+                      key={cell.id}
+                      className="px-4 py-4 align-middle first:border-l-4 first:border-l-transparent group-hover:first:border-l-primary group-data-[state=selected]:first:border-l-primary"
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext(),

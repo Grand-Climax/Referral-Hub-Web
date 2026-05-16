@@ -148,6 +148,7 @@ export const MOH_ROUTES = {
   REFERRAL_TRENDS: "/api/v1/moh/referral-trends",
   SEVERITY_DISTRIBUTION: "/api/v1/moh/severity-distribution",
   EXPORT_REPORT: "/api/v1/moh/reports/export",
+} as const;
 
 export const ADMIN_NETWORK_ROUTES = {
   LIST: "/api/v1/admin/network-routes",

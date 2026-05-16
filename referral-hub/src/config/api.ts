@@ -41,7 +41,10 @@ export const PATIENT_ROUTES = {
 
 export const DEPARTMENT_ROUTES = {
   LIST: "/api/v1/departments",
+  CREATE: "/api/v1/departments",
   GET_BY_ID: (id: string) => `/api/v1/departments/${id}`,
+  UPDATE: (id: string) => `/api/v1/departments/${id}`,
+  DELETE: (id: string) => `/api/v1/departments/${id}`,
 } as const;
 
 export const REFERENCE_ROUTES = {

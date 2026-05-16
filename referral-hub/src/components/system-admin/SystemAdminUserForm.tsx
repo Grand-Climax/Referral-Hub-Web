@@ -62,6 +62,7 @@ interface SystemAdminUserFormProps {
     payload: UpdateSystemAdminUserRequest,
   ) => Promise<void>;
   submitting: boolean;
+  defaultHospitalId?: string;
 }
 
 export function SystemAdminUserForm({
@@ -69,9 +70,12 @@ export function SystemAdminUserForm({
   onSubmitCreate,
   onSubmitUpdate,
   submitting,
+  defaultHospitalId,
 }: SystemAdminUserFormProps) {
-  const [formValues, setFormValues] =
-    useState<SystemAdminUserFormValues>(defaultValues);
+  const [formValues, setFormValues] = useState<SystemAdminUserFormValues>({
+    ...defaultValues,
+    hospital_id: defaultHospitalId ?? defaultValues.hospital_id,
+  });
   const { data: hospitals = [], isLoading: isHospitalsLoading } =
     useGetHospitalsQuery();
   const { data: departments = [], isLoading: isDepartmentsLoading } =
@@ -96,8 +100,11 @@ export function SystemAdminUserForm({
       return;
     }
 
-    setFormValues(defaultValues);
-  }, [selectedUser]);
+    setFormValues({
+      ...defaultValues,
+      hospital_id: defaultHospitalId ?? defaultValues.hospital_id,
+    });
+  }, [selectedUser, defaultHospitalId]);
 
   const updateField = (
     field: keyof SystemAdminUserFormValues,

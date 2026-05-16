@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, LogOut, ShieldCheck, Users } from "lucide-react";
+import {
+  Building2,
+  Layers,
+  LogOut,
+  Network,
+  ShieldCheck,
+  Users,
+  UsersRound,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,10 +25,14 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { ThemeToggle } from "@/components/theme-toggler";
 import { useGetCurrentUserQuery, useLogoutMutation } from "@/features/auth/authApi";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +40,20 @@ interface SystemAdminShellProps {
   children: React.ReactNode;
 }
 
-const navItems = [
+type NavChild = {
+  label: string;
+  href: string;
+  icon: typeof Users;
+};
+
+type NavItem = {
+  label: string;
+  href: string;
+  icon: typeof Users;
+  children?: readonly NavChild[];
+};
+
+const navItems: readonly NavItem[] = [
   {
     label: "User Management",
     href: "/systemAdmin/users",
@@ -38,6 +63,23 @@ const navItems = [
     label: "Hospital Management",
     href: "/systemAdmin/hospitals",
     icon: Building2,
+    children: [
+      {
+        label: "Hospital Staff",
+        href: "/systemAdmin/hospitals/staff",
+        icon: UsersRound,
+      },
+      {
+        label: "Network Routes",
+        href: "/systemAdmin/hospitals/network-routes",
+        icon: Network,
+      },
+    ],
+  },
+  {
+    label: "Department Management",
+    href: "/systemAdmin/departments",
+    icon: Layers,
   },
 ] as const;
 
@@ -82,16 +124,20 @@ export function SystemAdminShell({ children }: SystemAdminShellProps) {
               <SidebarMenu>
                 {navItems.map((item) => {
                   const Icon = item.icon;
-                  const isActive = pathname === item.href;
+                  const isExactActive = pathname === item.href;
+                  const hasActiveChild = item.children?.some(
+                    (child) => pathname === child.href,
+                  );
+                  const isParentActive = isExactActive && !hasActiveChild;
 
                   return (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton
                         asChild
-                        isActive={isActive}
+                        isActive={isParentActive}
                         tooltip={item.label}
                         className={cn(
-                          isActive
+                          isParentActive
                             ? "bg-primary/10 text-primary"
                             : "text-sidebar-foreground",
                         )}
@@ -103,6 +149,34 @@ export function SystemAdminShell({ children }: SystemAdminShellProps) {
                           </span>
                         </Link>
                       </SidebarMenuButton>
+
+                      {item.children?.length ? (
+                        <SidebarMenuSub>
+                          {item.children.map((child) => {
+                            const ChildIcon = child.icon;
+                            const isChildActive = pathname === child.href;
+
+                            return (
+                              <SidebarMenuSubItem key={child.href}>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  isActive={isChildActive}
+                                  className={cn(
+                                    isChildActive
+                                      ? "bg-primary/10 text-primary"
+                                      : "text-sidebar-foreground",
+                                  )}
+                                >
+                                  <Link href={child.href}>
+                                    <ChildIcon className="h-3.5 w-3.5" />
+                                    <span>{child.label}</span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            );
+                          })}
+                        </SidebarMenuSub>
+                      ) : null}
                     </SidebarMenuItem>
                   );
                 })}
@@ -140,8 +214,11 @@ export function SystemAdminShell({ children }: SystemAdminShellProps) {
             <SidebarTrigger />
             <div>
               <p className="text-sm font-semibold text-foreground">System Admin</p>
-              <p className="text-xs text-muted-foreground">Manage users and hospitals</p>
+              <p className="text-xs text-muted-foreground">Manage users, hospitals, and departments</p>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
           </div>
         </header>
 

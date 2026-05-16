@@ -41,7 +41,10 @@ export const PATIENT_ROUTES = {
 
 export const DEPARTMENT_ROUTES = {
   LIST: "/api/v1/departments",
+  CREATE: "/api/v1/departments",
   GET_BY_ID: (id: string) => `/api/v1/departments/${id}`,
+  UPDATE: (id: string) => `/api/v1/departments/${id}`,
+  DELETE: (id: string) => `/api/v1/departments/${id}`,
 } as const;
 
 export const REFERENCE_ROUTES = {
@@ -145,4 +148,9 @@ export const MOH_ROUTES = {
   REFERRAL_TRENDS: "/api/v1/moh/referral-trends",
   SEVERITY_DISTRIBUTION: "/api/v1/moh/severity-distribution",
   EXPORT_REPORT: "/api/v1/moh/reports/export",
+
+export const ADMIN_NETWORK_ROUTES = {
+  LIST: "/api/v1/admin/network-routes",
+  CREATE: "/api/v1/admin/network-routes",
+  DELETE: (id: string) => `/api/v1/admin/network-routes/${id}`,
 } as const;

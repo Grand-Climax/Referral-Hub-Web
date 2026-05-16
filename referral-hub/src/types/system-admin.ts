@@ -16,7 +16,6 @@ export interface SystemAdminUser {
   email: string;
   first_name: string;
   middle_name?: string | null;
-  middle_name?: string | null;
   last_name: string;
   national_id?: string | null;
   role: string;
@@ -33,7 +32,6 @@ export interface SystemAdminUser {
 }
 
 export interface CreateSystemAdminUserRequest {
-  department_id: string;
   department_id: string;
   email: string;
   first_name: string;

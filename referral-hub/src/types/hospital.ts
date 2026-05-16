@@ -32,6 +32,19 @@ export interface UpdateHospitalRequest {
 export interface Department {
   id: string;
   name: string;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CreateDepartmentRequest {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateDepartmentRequest {
+  name: string;
+  description?: string;
 }
 
 export interface HospitalDepartmentLink {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Users } from "lucide-react";
+import { Building2, Layers, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -15,6 +15,11 @@ const NAV_ITEMS = [
     href: "/systemAdmin/hospitals",
     label: "Hospital Management",
     icon: Building2,
+  },
+  {
+    href: "/systemAdmin/departments",
+    label: "Department Management",
+    icon: Layers,
   },
 ] as const;
 

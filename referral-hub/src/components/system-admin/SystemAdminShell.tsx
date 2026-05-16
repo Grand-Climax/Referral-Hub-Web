@@ -6,6 +6,7 @@ import {
   Building2,
   Layers,
   LogOut,
+  Network,
   ShieldCheck,
   Users,
   UsersRound,
@@ -31,6 +32,7 @@ import {
   SidebarRail,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { ThemeToggle } from "@/components/theme-toggler";
 import { useGetCurrentUserQuery, useLogoutMutation } from "@/features/auth/authApi";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +68,11 @@ const navItems: readonly NavItem[] = [
         label: "Hospital Staff",
         href: "/systemAdmin/hospitals/staff",
         icon: UsersRound,
+      },
+      {
+        label: "Network Routes",
+        href: "/systemAdmin/hospitals/network-routes",
+        icon: Network,
       },
     ],
   },
@@ -209,6 +216,9 @@ export function SystemAdminShell({ children }: SystemAdminShellProps) {
               <p className="text-sm font-semibold text-foreground">System Admin</p>
               <p className="text-xs text-muted-foreground">Manage users, hospitals, and departments</p>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
           </div>
         </header>
 

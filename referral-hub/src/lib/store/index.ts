@@ -16,6 +16,7 @@ import { receptionistApi } from "@/features/receptionist/receptionistApi";
 import { hospitalAdminApi } from "@/features/hospitalAdmin/hospitalAdminApi";
 import { departmentHeadApi } from "@/features/department-head/departmentHeadApi";
 import { usersApi } from "@/features/users/usersApi";
+import { networkRoutesApi } from "@/features/networkRoutes/networkRoutesApi";
 
 export const makeStore = () => {
   return configureStore({
@@ -37,6 +38,7 @@ export const makeStore = () => {
       [hospitalAdminApi.reducerPath]: hospitalAdminApi.reducer,
       [departmentHeadApi.reducerPath]: departmentHeadApi.reducer,
       [usersApi.reducerPath]: usersApi.reducer,
+      [networkRoutesApi.reducerPath]: networkRoutesApi.reducer,
     },
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware().concat(
@@ -55,6 +57,7 @@ export const makeStore = () => {
         hospitalAdminApi.middleware,
         departmentHeadApi.middleware,
         usersApi.middleware,
+        networkRoutesApi.middleware,
       ),
   });
 };

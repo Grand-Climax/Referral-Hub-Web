@@ -1,6 +1,5 @@
 import { ShieldUser, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggler";
 
 interface SystemAdminHeaderProps {
   onReset: () => void;
@@ -26,7 +25,6 @@ export function SystemAdminHeader({ onReset }: SystemAdminHeaderProps) {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <ThemeToggle />
         <Button variant="outline" onClick={onReset} className="gap-2">
           <Users className="h-4 w-4" />
           Reset Form

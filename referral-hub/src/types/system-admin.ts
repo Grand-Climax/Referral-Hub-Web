@@ -32,7 +32,7 @@ export interface SystemAdminUser {
 }
 
 export interface CreateSystemAdminUserRequest {
-  department_id: string;
+  department_id?: string;
   email: string;
   first_name: string;
   middle_name: string;
@@ -44,7 +44,7 @@ export interface CreateSystemAdminUserRequest {
 }
 
 export interface UpdateSystemAdminUserRequest {
-  department_id: string;
+  department_id?: string;
   email: string;
   first_name: string;
   hospital_id: string;
@@ -103,6 +103,21 @@ export const SYSTEM_ADMIN_ROLE_LABELS: Record<string, string> = {
 
 export function normalizeSystemAdminRole(role?: string | null) {
   return (role ?? "").trim().toUpperCase();
+}
+
+export const SYSTEM_ADMIN_ROLES_WITHOUT_DEPARTMENT: ReadonlySet<string> =
+  new Set([
+    "HOSPITAL_ADMIN",
+    "LIAISON_OFFICER",
+    "RECEPTIONIST",
+    "SYSTEM_SUPER_ADMIN",
+    "MOH_ANALYST",
+  ]);
+
+export function systemAdminRoleRequiresDepartment(role?: string | null) {
+  return !SYSTEM_ADMIN_ROLES_WITHOUT_DEPARTMENT.has(
+    normalizeSystemAdminRole(role),
+  );
 }
 
 export function normalizeSystemAdminUsers(

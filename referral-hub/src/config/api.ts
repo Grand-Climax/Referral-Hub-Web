@@ -90,13 +90,12 @@ export const SYSTEM_ADMIN_ROUTES = {
 } as const;
 
 export const RECEPTIONIST_ROUTES = {
-  LIST: "/api/v1/receptionist",
-  SCHEDULE: "/api/v1/receptionist/schedule",
-  WALK_IN: "/api/v1/receptionist/walk-in",
-  GET_BY_ID: (id: string) => `/api/v1/receptionist/${id}`,
-  ARRIVE: (id: string) => `/api/v1/receptionist/${id}/arrive`,
-  ASSIGN_DOCTOR: (id: string) => `/api/v1/receptionist/${id}/assign-doctor`,
-  MISS: (id: string) => `/api/v1/receptionist/${id}/miss`,
+  LIST: "/api/v1/receptionist/referrals",
+  SCHEDULE: "/api/v1/receptionist/referrals/schedule",
+  GET_BY_ID: (id: string) => `/api/v1/receptionist/referrals/${id}`,
+  ARRIVE: (id: string) => `/api/v1/receptionist/referrals/${id}/arrive`,
+  ASSIGN_DOCTOR: (id: string) => `/api/v1/receptionist/referrals/${id}/assign-doctor`,
+  MISS: (id: string) => `/api/v1/receptionist/referrals/${id}/miss`,
 } as const;
 
 export const HOSPITAL_ADMIN_ROUTES = {

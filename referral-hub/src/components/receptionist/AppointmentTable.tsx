@@ -54,7 +54,8 @@ export function AppointmentTable() {
     }
   };
 
-  const appointments = schedule || [];
+  // Safely handle schedule data - ensure it's always an array
+  const appointments = Array.isArray(schedule) ? schedule : [];
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">

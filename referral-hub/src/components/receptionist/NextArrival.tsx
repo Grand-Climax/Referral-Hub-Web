@@ -36,7 +36,9 @@ export function NextArrival() {
     );
   }
 
-  const nextArrival = schedule && schedule.length > 0 ? schedule[0] : null;
+  // Safely handle schedule data - ensure it's always an array
+  const scheduleArray = Array.isArray(schedule) ? schedule : [];
+  const nextArrival = scheduleArray.length > 0 ? scheduleArray[0] : null;
   const isCheckedIn = nextArrival && checkedInId === nextArrival.id;
   
   return (

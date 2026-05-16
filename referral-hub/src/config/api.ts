@@ -140,3 +140,9 @@ export const DEPARTMENT_HEAD_ROUTES = {
   // Triage Queue endpoint (department head specific)
   TRIAGE_QUEUE: "/api/v1/department-head/triage-queue",
 } as const;
+
+export const ADMIN_NETWORK_ROUTES = {
+  LIST: "/api/v1/admin/network-routes",
+  CREATE: "/api/v1/admin/network-routes",
+  DELETE: (id: string) => `/api/v1/admin/network-routes/${id}`,
+} as const;

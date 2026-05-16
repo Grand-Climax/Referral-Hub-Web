@@ -9,19 +9,11 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell,
-  Legend,
 } from "recharts";
 import {
   Calendar,
-  Download,
   ChevronRight,
-  ChevronDown,
-  Info,
   AlertTriangle,
-  TrendingUp,
   BrainCircuit,
   Activity,
   Zap,
@@ -36,32 +28,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
 import {
   useGetReferralTrendsQuery,
   useGetDashboardSummaryQuery,
 } from "@/features/analytics/mohAnalyticsApi";
 import type { MohQueryParams } from "@/types/moh-analytics";
 
-// --- Mock Data ---
-
-const longitudinalData = Array.from({ length: 24 }).map((_, i) => ({
-  name: `Month ${i + 1}`,
-  actual: 3000 + Math.random() * 2000 + (i > 18 ? 1500 : 0),
-  baseline: 3200 + Math.random() * 500,
-}));
-
-const seasonalityMatrix = [
-  { year: "2023", data: [2, 4, 8, 12, 18, 24, 30, 26, 18, 10, 5, 2] },
-  { year: "2022", data: [1, 3, 7, 10, 16, 22, 28, 24, 16, 8, 4, 1] },
-];
-
 const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-
-const growthIndexData = Array.from({ length: 12 }).map((_, i) => ({
-  month: months[i],
-  index: 1 + Math.random() * 0.5,
-}));
 
 // --- Sub-components (Local) ---
 
@@ -109,41 +82,66 @@ const AlertsList = ({ summaryData }: { summaryData?: any }) => (
   </div>
 );
 
-const HeatmapGrid = () => (
-  <div className="space-y-4">
-    <div className="grid grid-cols-13 gap-1">
-      <div className="col-span-1" />
-      {months.map(m => (
-        <div key={m} className="text-[9px] font-bold text-slate-400 text-center">{m}</div>
+const HeatmapGrid = ({ seasonalityMatrix }: { seasonalityMatrix: { year: string; data: number[] }[] }) => {
+  if (seasonalityMatrix.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-32 text-xs text-slate-400">
+        Insufficient data for seasonality analysis
+      </div>
+    );
+  }
+
+  const maxValue = Math.max(...seasonalityMatrix.flatMap(row => row.data));
+  
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-13 gap-1">
+        <div className="col-span-1" />
+        {months.map(m => (
+          <div key={m} className="text-[9px] font-bold text-slate-400 text-center">{m}</div>
+        ))}
+      </div>
+      {seasonalityMatrix.map((row, idx) => (
+        <div key={idx} className="grid grid-cols-13 gap-1 h-8 items-center">
+          <div className="text-[10px] font-bold text-slate-500">{row.year}</div>
+          {row.data.map((val, i) => {
+            const intensity = maxValue > 0 ? (val / maxValue) * 100 : 0;
+            let color = "bg-blue-100";
+            if (intensity > 25) color = "bg-blue-300";
+            if (intensity > 50) color = "bg-blue-600";
+            if (intensity > 75) color = "bg-blue-900";
+            
+            return (
+              <div 
+                key={i} 
+                className={cn(
+                  "h-full rounded-sm transition-all hover:ring-2 hover:ring-primary/20 cursor-help relative group", 
+                  color
+                )}
+                title={`${months[i]} ${row.year}: ${val} referrals`}
+              >
+                <div className="absolute hidden group-hover:block bg-slate-900 text-white text-[9px] px-2 py-1 rounded shadow-lg -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap z-50">
+                  {val} referrals
+                </div>
+              </div>
+            );
+          })}
+        </div>
       ))}
+      <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-50">
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-3 rounded-sm bg-blue-100" />
+          <span className="text-[10px] font-bold text-slate-400">Low</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-3 rounded-sm bg-blue-900" />
+          <span className="text-[10px] font-bold text-slate-400">Peak</span>
+        </div>
+        <p className="text-[10px] text-slate-400 italic ml-auto">Referral volume patterns based on historical data</p>
+      </div>
     </div>
-    {seasonalityMatrix.map((row, idx) => (
-      <div key={idx} className="grid grid-cols-13 gap-1 h-8 items-center">
-        <div className="text-[10px] font-bold text-slate-500">{row.year}</div>
-        {row.data.map((val, i) => {
-          let color = "bg-blue-100";
-          if (val > 10) color = "bg-blue-300";
-          if (val > 20) color = "bg-blue-600";
-          if (val > 25) color = "bg-blue-900";
-          return (
-            <div key={i} className={cn("h-full rounded-sm transition-all hover:ring-2 hover:ring-primary/20 cursor-help", color)} />
-          );
-        })}
-      </div>
-    ))}
-    <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-50">
-      <div className="flex items-center gap-2">
-        <div className="h-3 w-3 rounded-sm bg-blue-100" />
-        <span className="text-[10px] font-bold text-slate-400">Low</span>
-      </div>
-      <div className="flex items-center gap-2">
-        <div className="h-3 w-3 rounded-sm bg-blue-900" />
-        <span className="text-[10px] font-bold text-slate-400">Peak</span>
-      </div>
-      <p className="text-[10px] text-slate-400 italic ml-auto">Critical: Historical data indicates malaria peaks correlate with precipitation levels above 150mm.</p>
-    </div>
-  </div>
-);
+  );
+};
 
 // --- Main Component ---
 
@@ -173,6 +171,74 @@ export function TrendsAnalysis() {
   const totalReferrals = summaryData?.total_referrals || 0;
   const peakVolume = Math.max(...(trendsData?.data?.map(d => d.total_referrals) || [0]));
   const avgTurnaround = summaryData?.average_turnaround_hours || 0;
+
+  // Calculate seasonality from real trends data
+  const calculateSeasonality = () => {
+    if (!trendsData?.data || trendsData.data.length === 0) return [];
+    
+    // Group by month across years
+    const monthlyData: { [key: string]: number[] } = {};
+    
+    trendsData.data.forEach(item => {
+      const date = new Date(item.period);
+      const month = date.getMonth();
+      const year = date.getFullYear();
+      
+      if (!monthlyData[year]) {
+        monthlyData[year] = new Array(12).fill(0);
+      }
+      monthlyData[year][month] = item.total_referrals;
+    });
+    
+    return Object.entries(monthlyData)
+      .map(([year, data]) => ({ year, data }))
+      .sort((a, b) => parseInt(b.year) - parseInt(a.year))
+      .slice(0, 2);
+  };
+
+  const seasonalityMatrix = calculateSeasonality();
+
+  // Calculate growth index from trends
+  const calculateGrowthIndex = () => {
+    if (!trendsData?.data || trendsData.data.length < 2) return [];
+    
+    const data = trendsData.data;
+    return data.slice(-12).map((item, idx) => {
+      const prevValue = idx > 0 ? data[data.length - 12 + idx - 1].total_referrals : item.total_referrals;
+      const growthRate = prevValue > 0 ? item.total_referrals / prevValue : 1;
+      
+      return {
+        month: item.period.substring(0, 3).toUpperCase(),
+        index: growthRate,
+      };
+    });
+  };
+
+  const growthIndexData = calculateGrowthIndex();
+  const avgGrowthIndex = growthIndexData.length > 0 
+    ? growthIndexData.reduce((sum, d) => sum + d.index, 0) / growthIndexData.length 
+    : 1;
+
+  // Calculate predictive forecast based on trend
+  const calculateForecast = () => {
+    if (!trendsData?.data || trendsData.data.length < 3) {
+      return { projected: totalReferrals, growthRate: 0, confidence: 0 };
+    }
+    
+    const recentData = trendsData.data.slice(-3);
+    const avgRecent = recentData.reduce((sum, d) => sum + d.total_referrals, 0) / recentData.length;
+    const trend = recentData[2].total_referrals - recentData[0].total_referrals;
+    const growthRate = recentData[0].total_referrals > 0 
+      ? ((recentData[2].total_referrals - recentData[0].total_referrals) / recentData[0].total_referrals) * 100 
+      : 0;
+    
+    const projected = Math.round(avgRecent + (trend / 2));
+    const confidence = Math.min(95, 70 + (recentData.length * 5));
+    
+    return { projected, growthRate: growthRate / 2, confidence };
+  };
+
+  const forecast = calculateForecast();
 
   return (
     <div className="min-h-screen bg-slate-50/30 p-8 space-y-8 select-none">
@@ -345,7 +411,7 @@ export function TrendsAnalysis() {
                     </SelectContent>
                 </Select>
             </div>
-            <HeatmapGrid />
+            <HeatmapGrid seasonalityMatrix={seasonalityMatrix} />
           </div>
         </div>
 
@@ -370,25 +436,39 @@ export function TrendsAnalysis() {
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Projected Next Period</p>
                 <div className="flex items-end gap-3">
                     <span className="text-4xl font-black tracking-tighter">
-                      {Math.round(totalReferrals * 1.024).toLocaleString()}
+                      {forecast.projected.toLocaleString()}
                     </span>
-                    <span className="text-sm font-bold text-blue-400 pb-1.5">+2.4%</span>
+                    <span className={cn(
+                      "text-sm font-bold pb-1.5",
+                      forecast.growthRate > 0 ? "text-blue-400" : "text-red-400"
+                    )}>
+                      {forecast.growthRate > 0 ? '+' : ''}{forecast.growthRate.toFixed(1)}%
+                    </span>
                 </div>
               </div>
               
               <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                Model suggests a moderate increase based on historical trends and seasonal patterns.
+                {forecast.growthRate > 5 
+                  ? "Model suggests a significant increase based on recent trends." 
+                  : forecast.growthRate < -5 
+                  ? "Model indicates a declining trend in referral volume."
+                  : "Model suggests stable referral volume based on historical patterns."}
               </p>
 
               <div className="space-y-4 pt-4 border-t border-slate-800">
                 <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold text-slate-500 uppercase">Confidence Interval</span>
-                    <span className="text-[10px] font-black">95.2%</span>
+                    <span className="text-[10px] font-black">{forecast.confidence.toFixed(1)}%</span>
                 </div>
-                <Progress value={95.2} className="h-1.5 bg-slate-800" />
+                <Progress value={forecast.confidence} className="h-1.5 bg-slate-800" />
                 <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold text-slate-500 uppercase">Anomaly Detection</span>
-                    <span className="text-[10px] font-black text-green-400 uppercase">Nominal</span>
+                    <span className={cn(
+                      "text-[10px] font-black uppercase",
+                      Math.abs(forecast.growthRate) > 20 ? "text-red-400" : "text-green-400"
+                    )}>
+                      {Math.abs(forecast.growthRate) > 20 ? "Alert" : "Nominal"}
+                    </span>
                 </div>
               </div>
             </div>
@@ -419,31 +499,50 @@ export function TrendsAnalysis() {
 
             <div className="h-[140px] w-full bg-slate-50 rounded-xl overflow-hidden mb-6 relative group">
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent z-10" />
-                <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={growthIndexData}>
-                        <Area type="monotone" dataKey="index" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.1} />
-                    </AreaChart>
-                </ResponsiveContainer>
+                {growthIndexData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={growthIndexData}>
+                          <Area type="monotone" dataKey="index" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.1} />
+                      </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-xs text-slate-400">
+                    Insufficient data
+                  </div>
+                )}
                 <div className="absolute bottom-4 left-6 z-20">
-                    <p className="text-2xl font-black text-slate-900 tracking-tighter">1.2x <span className="text-[10px] text-green-500 font-black">+8% YoY</span></p>
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Aggregate Index</p>
+                    <p className="text-2xl font-black text-slate-900 tracking-tighter">
+                      {avgGrowthIndex.toFixed(2)}x{' '}
+                      <span className={cn(
+                        "text-[10px] font-black",
+                        avgGrowthIndex > 1 ? "text-green-500" : "text-red-500"
+                      )}>
+                        {avgGrowthIndex > 1 ? '+' : ''}{((avgGrowthIndex - 1) * 100).toFixed(0)}% Avg
+                      </span>
+                    </p>
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Growth Index</p>
                 </div>
             </div>
 
             <div className="space-y-6">
                 <div className="space-y-2">
                     <div className="flex items-center justify-between group cursor-help">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight group-hover:text-primary transition-colors">Infrastructure Readiness</span>
-                        <span className="text-[10px] font-black">0.92</span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight group-hover:text-primary transition-colors">Acceptance Rate</span>
+                        <span className="text-[10px] font-black">{((summaryData?.acceptance_rate_percentage || 0) / 100).toFixed(2)}</span>
                     </div>
-                    <Progress value={92} className="h-1.5 bg-slate-100" />
+                    <Progress value={summaryData?.acceptance_rate_percentage || 0} className="h-1.5 bg-slate-100" />
                 </div>
                 <div className="space-y-2">
                     <div className="flex items-center justify-between group cursor-help">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight group-hover:text-primary transition-colors">Personnel Allocation</span>
-                        <span className="text-[10px] font-black text-blue-500">1.14</span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight group-hover:text-primary transition-colors">Growth Momentum</span>
+                        <span className={cn(
+                          "text-[10px] font-black",
+                          avgGrowthIndex > 1 ? "text-blue-500" : "text-orange-500"
+                        )}>
+                          {avgGrowthIndex.toFixed(2)}
+                        </span>
                     </div>
-                    <Progress value={114 > 100 ? 100 : 114} className="h-1.5 bg-blue-100" />
+                    <Progress value={Math.min(100, avgGrowthIndex * 100)} className="h-1.5 bg-blue-100" />
                 </div>
             </div>
           </div>

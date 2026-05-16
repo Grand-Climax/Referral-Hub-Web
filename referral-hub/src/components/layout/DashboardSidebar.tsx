@@ -119,11 +119,6 @@ const NAV_BY_ROLE = {
   moh_analyst: [
     { title: "Dashboard", url: "/analytics", icon: LayoutDashboard },
     {
-      title: "Outbreak Map",
-      url: "/analytics/outbreak-map",
-      icon: BarChart3,
-    },
-    {
       title: "Regional Analytics",
       url: "/analytics/regional",
       icon: Users,

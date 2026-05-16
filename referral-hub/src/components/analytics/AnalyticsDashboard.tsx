@@ -292,46 +292,114 @@ export function ReferralTrends({ queryParams }: { queryParams: MohQueryParams })
 }
 
 export function DiseaseHeatmap({ queryParams }: { queryParams: MohQueryParams }) {
-  const { data: hotspotsData } = useGetDiseaseHotspotsQuery(queryParams);
+  const { data: hotspotsData, isLoading } = useGetDiseaseHotspotsQuery(queryParams);
 
-  const topHotspot = hotspotsData?.data?.[0];
-  return (
-    <div className="bg-card rounded-xl border border-border/40 shadow-sm h-full flex flex-col overflow-hidden">
-      <div className="p-6 flex items-center justify-between">
-        <h2 className="text-sm font-bold text-foreground">Disease Hotspot Heatmap</h2>
-        <div className="flex items-center gap-2">
-            <div className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-            </div>
-            <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">Live Update</span>
+  const topHotspots = hotspotsData?.data?.slice(0, 5) || [];
+  const maxReferrals = Math.max(...topHotspots.map(h => h.referral_count), 1);
+
+  if (isLoading) {
+    return (
+      <div className="bg-card rounded-xl border border-border/40 shadow-sm h-full flex flex-col overflow-hidden animate-pulse">
+        <div className="p-6">
+          <div className="h-6 bg-slate-200 rounded w-48"></div>
         </div>
-      </div>
-      <div className="relative flex-1 min-h-[220px] mx-6 mb-6 rounded-xl overflow-hidden bg-slate-100/50">
-        <div className="absolute inset-0 grayscale opacity-20 bg-[url('https://images.unsplash.com/photo-1589519160732-57fc498494f8?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full">
-          {hotspotsData?.data?.slice(0, 3).map((hotspot, idx) => (
-            <div 
-              key={idx}
-              className="absolute w-12 h-12 bg-red-400/20 rounded-full blur-xl animate-pulse" 
-              style={{
-                top: `${30 + idx * 15}%`,
-                left: `${20 + idx * 30}%`,
-                animationDelay: `${idx}s`
-              }}
-            />
+        <div className="px-6 pb-6 space-y-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="space-y-2">
+              <div className="h-4 bg-slate-200 rounded w-full"></div>
+              <div className="h-2 bg-slate-100 rounded"></div>
+            </div>
           ))}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-px bg-border/20 border-t border-border/20">
-        <div className="p-4 bg-card">
-          <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest mb-1">Primary Concern</p>
-          <p className="text-sm font-bold text-foreground">{topHotspot?.department_name || "N/A"}</p>
+    );
+  }
+
+  return (
+    <div className="bg-card rounded-xl border border-border/40 shadow-sm h-full flex flex-col overflow-hidden">
+      <div className="p-6 pb-4 flex items-center justify-between border-b border-border/20">
+        <div>
+          <h2 className="text-sm font-bold text-foreground">Top Disease Hotspots</h2>
+          <p className="text-[10px] text-muted-foreground/60 font-medium mt-0.5">Regions with highest referral concentration</p>
         </div>
-        <div className="p-4 bg-card">
-          <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest mb-1">Referral Count</p>
-          <p className="text-sm font-bold text-red-500">{topHotspot?.referral_count || 0}</p>
+        <div className="flex items-center gap-2">
+          <div className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+          </div>
+          <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">Active</span>
         </div>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto">
+        {topHotspots.length > 0 ? (
+          <div className="p-6 space-y-5">
+            {topHotspots.map((hotspot, idx) => {
+              const intensity = (hotspot.referral_count / maxReferrals) * 100;
+              const severityColor = hotspot.average_severity_score > 7 
+                ? "bg-red-500" 
+                : hotspot.average_severity_score > 4 
+                ? "bg-orange-500" 
+                : "bg-yellow-500";
+              
+              return (
+                <div key={idx} className="space-y-2.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={cn(
+                          "flex h-5 w-5 shrink-0 items-center justify-center rounded text-[9px] font-black",
+                          idx === 0 && "bg-red-100 text-red-600",
+                          idx === 1 && "bg-orange-100 text-orange-600",
+                          idx === 2 && "bg-yellow-100 text-yellow-600",
+                          idx > 2 && "bg-slate-100 text-slate-600"
+                        )}>
+                          {idx + 1}
+                        </span>
+                        <h3 className="text-xs font-bold text-slate-800 truncate">{hotspot.region}</h3>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground/70 font-medium pl-7">
+                        {hotspot.department_name}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-black text-slate-900">{hotspot.referral_count}</p>
+                      <p className="text-[9px] text-muted-foreground/60 font-bold uppercase">Cases</p>
+                    </div>
+                  </div>
+                  
+                  <div className="pl-7 space-y-1.5">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-muted-foreground/60 font-medium">Intensity</span>
+                      <span className="font-bold text-slate-700">{intensity.toFixed(0)}%</span>
+                    </div>
+                    <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                      <div 
+                        className={cn("h-full transition-all duration-500", severityColor)}
+                        style={{ width: `${intensity}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <div className={cn("h-1.5 w-1.5 rounded-full", severityColor)} />
+                      <span className="text-[9px] font-bold text-muted-foreground/60">
+                        Avg Severity: {hotspot.average_severity_score.toFixed(1)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-full p-6">
+            <div className="text-center space-y-2">
+              <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto">
+                <Activity className="h-6 w-6 text-slate-400" />
+              </div>
+              <p className="text-xs text-muted-foreground">No hotspot data available</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

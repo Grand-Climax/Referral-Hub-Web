@@ -1,8 +1,20 @@
 "use client";
 
-import { DiseaseHeatmap, CriticalAlerts } from "@/components/analytics/AnalyticsDashboard";
+import { useState } from "react";
+import { DiseaseHeatmap } from "@/components/analytics/AnalyticsDashboard";
+import type { MohQueryParams } from "@/types/moh-analytics";
 
 export default function OutbreakMapPage() {
+  const getDateRange = () => {
+    const to = new Date().toISOString().split('T')[0];
+    const from = new Date();
+    from.setDate(from.getDate() - 30);
+    return { from: from.toISOString().split('T')[0], to };
+  };
+
+  const { from, to } = getDateRange();
+  const queryParams: MohQueryParams = { from, to };
+
   return (
     <div className="p-8 space-y-8">
       <div>
@@ -10,12 +22,9 @@ export default function OutbreakMapPage() {
         <p className="text-muted-foreground">Real-time disease hotspot tracking and critical outbreak alerts.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-8 h-[600px]">
-          <DiseaseHeatmap />
-        </div>
-        <div className="lg:col-span-4 space-y-8">
-          <CriticalAlerts />
+      <div className="grid grid-cols-1 gap-8">
+        <div className="h-[600px]">
+          <DiseaseHeatmap queryParams={queryParams} />
         </div>
       </div>
     </div>

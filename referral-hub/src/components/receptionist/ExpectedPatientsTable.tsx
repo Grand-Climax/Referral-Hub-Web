@@ -15,14 +15,12 @@ import { Filter, ChevronLeft, ChevronRight, MoreHorizontal, Loader2, MoreVertica
 import { useGetReferralsQuery, useMarkPatientArrivalMutation, useMarkMissedMutation } from "@/features/receptionist/receptionistApi";
 import { useState } from "react";
 import { toast } from "sonner";
-import { WalkInModal } from "./WalkInModal";
 import { AssignDoctorModal } from "./AssignDoctorModal";
 import { ReferralDetailsModal } from "./ReferralDetailsModal";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export function ExpectedPatientsTable() {
   const [page, setPage] = useState(1);
-  const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
@@ -31,12 +29,17 @@ export function ExpectedPatientsTable() {
   const [markArrival, { isLoading: isMarking }] = useMarkPatientArrivalMutation();
   const [markMissed] = useMarkMissedMutation();
 
+  // Debug: Log the response to see the actual structure
+  console.log('Receptionist API Response:', data);
+  console.log('Is Loading:', isLoading);
+  console.log('Error:', error);
+
   const handleCheckIn = async (id: string) => {
     try {
       await markArrival(id).unwrap();
       toast.success("Patient arrival marked successfully");
-    } catch (err) {
-      toast.error("Failed to mark patient arrival");
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to mark patient arrival");
     }
   };
 
@@ -44,44 +47,38 @@ export function ExpectedPatientsTable() {
     try {
       await markMissed(id).unwrap();
       toast.success("Patient marked as missed");
-    } catch (err) {
-      toast.error("Failed to mark patient as missed");
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to mark patient as missed");
     }
   };
 
   const patients = data?.data || [];
   const totalPages = data?.total ? Math.ceil(data.total / (data.limit || 10)) : 1;
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-      <div className="p-8 border-b border-slate-50 flex items-center justify-between">
+    <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+      <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">Expected Patients</h2>
-          <p className="text-sm text-slate-500 font-medium font-inter">Scheduled arrivals for the next 48 hours</p>
+          <h2 className="text-lg font-semibold text-slate-900">Expected Patients</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Scheduled arrivals for the next 48 hours</p>
         </div>
         
-        <div className="flex gap-4">
-          <Button variant="outline" className="text-slate-600 border-slate-200 font-bold text-xs h-10">
-            <Filter className="mr-2 h-4 w-4" />
-            Filter
-          </Button>
-          <Button 
-            onClick={() => setIsWalkInModalOpen(true)}
-            className="bg-primary hover:bg-primary/90 text-white font-bold text-xs h-10 px-6 uppercase tracking-wider shadow-sm"
-          >
-            REGISTER WALK-IN
+        <div className="flex gap-3">
+          <Button variant="outline" size="sm" className="text-slate-600 border-slate-300 text-xs h-9">
+            <Filter className="mr-1.5 h-3.5 w-3.5" />
+            All Statuses
           </Button>
         </div>
       </div>
 
       <Table>
-        <TableHeader className="bg-slate-50/30">
-          <TableRow className="border-none">
-            <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6 px-8">Patient Name</TableHead>
-            <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6">Referral ID</TableHead>
-            <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6">Arrival Window</TableHead>
-            <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6">Source Facility</TableHead>
-            <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6 text-center">Urgency</TableHead>
-            <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6 text-right px-8">Actions</TableHead>
+        <TableHeader className="bg-slate-50">
+          <TableRow className="border-b border-slate-200">
+            <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wide py-3 px-6">Patient</TableHead>
+            <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wide py-3">Department</TableHead>
+            <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wide py-3">Arrival</TableHead>
+            <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wide py-3">Source</TableHead>
+            <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wide py-3 text-center">Urgency</TableHead>
+            <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wide py-3 text-right px-6">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -109,93 +106,98 @@ export function ExpectedPatientsTable() {
           ) : (
             patients.map((patient) => {
               const initials = `${patient.patient_first_name?.[0] || ""}${patient.patient_last_name?.[0] || ""}`;
-              const fullName = `${patient.patient_last_name || ""}, ${patient.patient_first_name || ""}`.toUpperCase();
+              const fullName = `${patient.patient_first_name || ""} ${patient.patient_last_name || ""}`;
               
-              let urgencyColor = "bg-blue-50 text-blue-500";
-              if (patient.urgency === "HIGH" || patient.urgency === "EMERGENCY") urgencyColor = "bg-red-50 text-red-500";
-              if (patient.urgency === "URGENT") urgencyColor = "bg-orange-50 text-orange-500";
+              let urgencyColor = "bg-blue-50 text-blue-600 border-blue-200";
+              if (patient.urgency === "HIGH" || patient.urgency === "EMERGENCY") urgencyColor = "bg-red-50 text-red-600 border-red-200";
+              if (patient.urgency === "URGENT") urgencyColor = "bg-orange-50 text-orange-600 border-orange-200";
               
               return (
-                <TableRow key={patient.id} className="border-slate-50 hover:bg-slate-50/50 transition-colors group">
-                  <TableCell className="py-6 px-8">
-                    <div className="flex items-center gap-4">
-                      <Avatar className="h-10 w-10 rounded-lg bg-slate-100">
-                        <AvatarFallback className="text-[10px] font-bold text-slate-500 bg-slate-100 rounded-lg">{initials}</AvatarFallback>
+                <TableRow key={patient.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                  <TableCell className="py-4 px-6">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9 rounded-full bg-slate-200">
+                        <AvatarFallback className="text-xs font-semibold text-slate-600 bg-slate-200">{initials}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-bold text-slate-900 text-sm">{fullName}</p>
-                        <p className="text-[10px] font-medium text-slate-400">DOB: {patient.dob || "N/A"}</p>
+                        <p className="font-medium text-slate-900 text-sm">{fullName}</p>
+                        <p className="text-xs text-slate-500">{patient.referral_id || patient.id}</p>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <p className="text-[10px] font-bold text-slate-400 tracking-wider font-mono">{patient.referral_id || patient.id}</p>
+                    <p className="text-sm text-slate-700">{patient.department_name || "N/A"}</p>
                   </TableCell>
                   <TableCell>
                     <div>
-                      <p className="text-sm font-bold text-slate-900">{patient.arrival_time || "Scheduled"}</p>
-                      <p className={`text-[10px] font-medium text-slate-400`}>{patient.eta || "Unknown ETA"}</p>
+                      <p className="text-sm font-medium text-slate-900">{patient.scheduled_time || patient.eta || "Pending"}</p>
+                      <p className="text-xs text-slate-500">{patient.scheduled_date || "Not scheduled"}</p>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <p className="text-xs font-medium text-slate-500">{patient.source_facility || "Unknown Facility"}</p>
+                    <p className="text-sm text-slate-700">{patient.source_facility || "Unknown"}</p>
                   </TableCell>
                   <TableCell className="text-center">
-                    <span className={`px-2 py-1 rounded text-[10px] font-bold tracking-tight ${urgencyColor}`}>
+                    <Badge variant="outline" className={`text-xs font-medium border ${urgencyColor}`}>
                       {patient.urgency || "ROUTINE"}
-                    </span>
+                    </Badge>
                   </TableCell>
-                  <TableCell className="text-right px-8 flex justify-end items-center gap-2">
-                    {patient.status === "ARRIVED" ? (
-                      <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest">
-                        ARRIVED
-                      </span>
-                    ) : patient.status === "MISSED" ? (
-                      <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">
-                        MISSED
-                      </span>
-                    ) : (
-                      <button 
-                        onClick={() => handleCheckIn(patient.id)}
-                        disabled={isMarking}
-                        className="text-[10px] font-bold text-primary hover:text-primary/80 uppercase tracking-widest transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        CHECK-IN
-                      </button>
-                    )}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-900">
-                          <MoreVertical className="h-4 w-4" />
+                  <TableCell className="text-right px-6">
+                    <div className="flex justify-end items-center gap-2">
+                      {patient.arrival_status === "ARRIVED" ? (
+                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-xs">
+                          Arrived
+                        </Badge>
+                      ) : patient.arrival_status === "MISSED" ? (
+                        <Badge className="bg-red-100 text-red-700 hover:bg-red-100 text-xs">
+                          Missed
+                        </Badge>
+                      ) : (
+                        <Button 
+                          onClick={() => handleCheckIn(patient.id)}
+                          disabled={isMarking}
+                          size="sm"
+                          className="h-8 text-xs"
+                        >
+                          Check In
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem 
-                          onClick={() => {
-                            setSelectedPatientId(patient.id);
-                            setIsDetailsModalOpen(true);
-                          }}
-                        >
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => {
-                            setSelectedPatientId(patient.id);
-                            setIsAssignModalOpen(true);
-                          }}
-                        >
-                          Assign Doctor
-                        </DropdownMenuItem>
-                        {patient.status !== "ARRIVED" && patient.status !== "MISSED" && (
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-900">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
                           <DropdownMenuItem 
-                            onClick={() => handleMarkMissed(patient.id)}
-                            className="text-red-600"
+                            onClick={() => {
+                              setSelectedPatientId(patient.id);
+                              setIsDetailsModalOpen(true);
+                            }}
                           >
-                            Mark as Missed
+                            View Details
                           </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          {patient.arrival_status === "ARRIVED" && (
+                            <DropdownMenuItem 
+                              onClick={() => {
+                                setSelectedPatientId(patient.id);
+                                setIsAssignModalOpen(true);
+                              }}
+                            >
+                              Assign Doctor
+                            </DropdownMenuItem>
+                          )}
+                          {patient.arrival_status === "PENDING" && (
+                            <DropdownMenuItem 
+                              onClick={() => handleMarkMissed(patient.id)}
+                              className="text-red-600"
+                            >
+                              Mark as Missed
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </TableCell>
                 </TableRow>
               );
@@ -204,31 +206,35 @@ export function ExpectedPatientsTable() {
         </TableBody>
       </Table>
 
-      <div className="p-4 border-t border-slate-50 flex items-center justify-between bg-white px-8 text-slate-400">
-        <p className="text-[10px] font-medium">Page {page} of {totalPages || 1} • Synchronized just now</p>
-        <div className="flex gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-8 w-8 text-slate-900"
-            disabled={page === 1}
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-8 w-8 text-slate-900"
-            disabled={page >= totalPages}
-            onClick={() => setPage(p => p + 1)}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+      <div className="px-6 py-3 border-t border-slate-200 flex items-center justify-between bg-slate-50">
+        <p className="text-xs text-slate-500">
+          Showing {patients.length > 0 ? ((page - 1) * 10) + 1 : 0} - {Math.min(page * 10, data?.total || 0)} of {data?.total || 0} patients
+        </p>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500">Page {page} of {totalPages}</span>
+          <div className="flex gap-1">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="h-8 w-8"
+              disabled={page === 1}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="h-8 w-8"
+              disabled={page >= totalPages}
+              onClick={() => setPage(p => p + 1)}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
-      <WalkInModal open={isWalkInModalOpen} onOpenChange={setIsWalkInModalOpen} />
       <AssignDoctorModal 
         open={isAssignModalOpen} 
         onOpenChange={setIsAssignModalOpen} 

@@ -80,7 +80,12 @@ const NAV_BY_ROLE = {
     {
       title: "Scheduled Patients",
       url: "/receptionist/scheduled-patients",
-      icon: FileText,
+      icon: CalendarCheck,
+    },
+    {
+      title: "Patient Check-In",
+      url: "/receptionist",
+      icon: ListChecks,
     },
     { title: "Profile", url: "/receptionist/profile", icon: User },
   ],

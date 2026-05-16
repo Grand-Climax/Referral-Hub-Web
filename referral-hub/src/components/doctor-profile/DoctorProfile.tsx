@@ -35,17 +35,32 @@ export function DoctorProfile() {
   }
 
   const fullName = user?.first_name && user?.last_name 
-    ? `Dr. ${user.first_name} ${user.last_name}` 
-    : "Dr. Sarah Jenkins";
+    ? user.role === "RECEPTIONIST" 
+      ? `${user.first_name} ${user.last_name}`
+      : `Dr. ${user.first_name} ${user.last_name}` 
+    : "User";
   
   const fallback = user?.first_name && user?.last_name 
     ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() 
-    : "SJ";
+    : "U";
 
-  const email = user?.email || "sarah.jenkins@hospital.com";
+  const email = user?.email || "user@hospital.com";
   const nationalId = user?.national_id || "—";
-  const specialty = (user as any)?.specialization || (user as any)?.specialty || "Internal Medicine";
+  
+  // Role-specific display
+  const roleDisplay = user?.role === "RECEPTIONIST" 
+    ? "Receptionist" 
+    : (user as any)?.specialization || (user as any)?.specialty || "Healthcare Professional";
+  
+  const specialty = user?.role === "RECEPTIONIST" 
+    ? "Patient Services & Administration"
+    : (user as any)?.specialization || (user as any)?.specialty || "Internal Medicine";
+  
   const hospitalName = hospitalLoading ? "Loading..." : hospital?.name || "—";
+
+  const verifiedBadgeText = user?.role === "RECEPTIONIST" 
+    ? "Verified Staff" 
+    : "Verified Specialist";
 
   return (
     <div className="space-y-6">
@@ -73,7 +88,7 @@ export function DoctorProfile() {
                     {fullName}
                   </h2>
                   <Badge variant="secondary" className="text-[11px]">
-                    Verified Specialist
+                    {verifiedBadgeText}
                   </Badge>
                 </div>
                 <p className="text-sm font-medium text-primary">

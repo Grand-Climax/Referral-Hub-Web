@@ -116,6 +116,29 @@ const NAV_BY_ROLE = {
       icon: Users,
     },
   ],
+  moh_analyst: [
+    { title: "Dashboard", url: "/analytics", icon: LayoutDashboard },
+    {
+      title: "Outbreak Map",
+      url: "/analytics/outbreak-map",
+      icon: BarChart3,
+    },
+    {
+      title: "Regional Analytics",
+      url: "/analytics/regional",
+      icon: Users,
+    },
+    {
+      title: "Trends Analysis",
+      url: "/analytics/trends",
+      icon: BarChart3,
+    },
+    {
+      title: "Reports",
+      url: "/analytics/reports",
+      icon: FileText,
+    },
+  ],
 };
 
 type RoleKey = keyof typeof NAV_BY_ROLE;
@@ -125,6 +148,7 @@ const ROLE_MAP: Record<string, RoleKey> = {
   HOSPITAL_ADMIN: "hospital_admin",
   LIAISON_OFFICER: "liaison_officer",
   DEPT_HEAD: "dept_head",
+  MOH_ANALYST: "moh_analyst",
 };
 
 const PROFILE_PATH_BY_ROLE: Record<RoleKey, string> = {
@@ -132,6 +156,7 @@ const PROFILE_PATH_BY_ROLE: Record<RoleKey, string> = {
   hospital_admin: "/hospital-admin/profile",
   liaison_officer: "/liaison-officer/profile",
   dept_head: "/department-head/profile",
+  moh_analyst: "/analytics/profile",
 };
 
 export function DashboardSidebar() {

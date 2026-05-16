@@ -137,3 +137,12 @@ export const DEPARTMENT_HEAD_ROUTES = {
   // Triage Queue endpoint (department head specific)
   TRIAGE_QUEUE: "/api/v1/department-head/triage-queue",
 } as const;
+
+export const MOH_ROUTES = {
+  DASHBOARD_SUMMARY: "/api/v1/moh/dashboard/summary",
+  DISEASE_HOTSPOTS: "/api/v1/moh/disease-hotspots",
+  HOSPITAL_LOAD: "/api/v1/moh/hospital-load",
+  REFERRAL_TRENDS: "/api/v1/moh/referral-trends",
+  SEVERITY_DISTRIBUTION: "/api/v1/moh/severity-distribution",
+  EXPORT_REPORT: "/api/v1/moh/reports/export",
+} as const;

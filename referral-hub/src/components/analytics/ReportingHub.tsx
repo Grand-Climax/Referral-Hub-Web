@@ -39,6 +39,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useLazyExportReportQuery } from "@/features/analytics/mohAnalyticsApi";
+import { toast } from "sonner";
 
 // --- Sub-components (Local) ---
 
@@ -88,6 +90,55 @@ const MetricItem = ({ label }: { label: string }) => (
 export function ReportingHub() {
   const [emailDelivery, setEmailDelivery] = useState(true);
   const [sftpUpload, setSftpUpload] = useState(false);
+  const [exportFormat, setExportFormat] = useState("pdf");
+  const [timeRange, setTimeRange] = useState("30days");
+  
+  const [triggerExport, { isLoading: isExporting }] = useLazyExportReportQuery();
+
+  const handleExportReport = async () => {
+    try {
+      const getDateRange = () => {
+        const to = new Date().toISOString().split('T')[0];
+        const from = new Date();
+        
+        switch (timeRange) {
+          case '7days':
+            from.setDate(from.getDate() - 7);
+            break;
+          case '30days':
+            from.setDate(from.getDate() - 30);
+            break;
+          case '90days':
+            from.setDate(from.getDate() - 90);
+            break;
+          default:
+            from.setDate(from.getDate() - 30);
+        }
+        
+        return { from: from.toISOString().split('T')[0], to };
+      };
+
+      const { from, to } = getDateRange();
+      const result = await triggerExport({ from, to }).unwrap();
+      
+      // Convert to downloadable format
+      const dataStr = JSON.stringify(result, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `moh-analytics-report-${to}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success("Report exported successfully!");
+    } catch (error) {
+      toast.error("Failed to export report");
+      console.error("Export error:", error);
+    }
+  };
 
   const automatedReports = [
     { title: "Weekly Epidemiological Bulletin", schedule: "Mon, 08:00 AM", icon: RefreshCw, color: "bg-blue-50 text-blue-500" },
@@ -122,9 +173,13 @@ export function ReportingHub() {
             <History className="h-4 w-4 mr-2 text-slate-400" />
             Audit Logs
           </Button>
-          <Button className="rounded-xl shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-white font-bold h-11 px-6">
-            <Plus className="h-4 w-4 mr-2" />
-            New Request
+          <Button 
+            className="rounded-xl shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-white font-bold h-11 px-6"
+            onClick={handleExportReport}
+            disabled={isExporting}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            {isExporting ? "Exporting..." : "Export Report"}
           </Button>
         </div>
       </div>

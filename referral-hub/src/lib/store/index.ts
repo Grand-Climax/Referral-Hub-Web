@@ -16,8 +16,8 @@ import { receptionistApi } from "@/features/receptionist/receptionistApi";
 import { hospitalAdminApi } from "@/features/hospitalAdmin/hospitalAdminApi";
 import { departmentHeadApi } from "@/features/department-head/departmentHeadApi";
 import { usersApi } from "@/features/users/usersApi";
-import { mohAnalyticsApi } from "@/features/analytics/mohAnalyticsApi";
 import { networkRoutesApi } from "@/features/networkRoutes/networkRoutesApi";
+import { mohAnalyticsApi } from "@/features/analytics/mohAnalyticsApi";
 
 
 export const makeStore = () => {

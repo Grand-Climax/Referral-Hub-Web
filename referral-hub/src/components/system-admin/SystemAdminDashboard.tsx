@@ -364,7 +364,7 @@ export function SystemAdminDashboard() {
       </div>
 
       <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
-        <DialogContent className="max-h-200 overflow-y-auto scrollbar-hide">
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto scrollbar-hide">
           <DialogHeader>
             <DialogTitle>
               {selectedUser ? "Update user" : "Add new user"}

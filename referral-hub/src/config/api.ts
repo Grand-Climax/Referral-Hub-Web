@@ -54,6 +54,7 @@ export const REFERENCE_ROUTES = {
     `/api/v1/reference/hospitals/${hospitalId}/departments`,
   LIAISONS: "/api/v1/reference/liaisons",
   ICD10_CODES: "/api/v1/reference/icd-codes",
+  REGIONS: "/api/v1/reference/regions",
 } as const;
 
 export const LIAISON_ROUTES = {

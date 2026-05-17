@@ -342,7 +342,7 @@ export function HospitalStaffManagement() {
       />
 
       <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
-        <DialogContent className="max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {selectedUser ? "Update staff member" : "Add new staff member"}

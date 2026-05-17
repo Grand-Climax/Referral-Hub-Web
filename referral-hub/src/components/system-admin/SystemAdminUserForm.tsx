@@ -17,6 +17,7 @@ import {
   useGetDepartmentsQuery,
   useGetHospitalsQuery,
 } from "@/features/hospitals/hospitalsApi";
+import { useGetRegionsQuery } from "@/features/reference/regionsApi";
 import type {
   CreateSystemAdminUserRequest,
   SystemAdminUser,
@@ -57,6 +58,31 @@ const defaultValues: SystemAdminUserFormValues = {
   is_active: true,
 };
 
+function buildFormValues(
+  selectedUser: SystemAdminUser | null,
+  defaultHospitalId?: string,
+): SystemAdminUserFormValues {
+  if (selectedUser) {
+    return {
+      email: selectedUser.email ?? "",
+      first_name: selectedUser.first_name ?? "",
+      middle_name: selectedUser.middle_name ?? "",
+      last_name: selectedUser.last_name ?? "",
+      national_id: selectedUser.national_id ?? "",
+      hospital_id: selectedUser.hospital_id ?? "",
+      department_id: selectedUser.department_id ?? "",
+      region: selectedUser.region ?? "",
+      role: normalizeSystemAdminRole(selectedUser.role) || defaultValues.role,
+      password: "",
+      is_active: selectedUser.is_active !== false,
+    };
+  }
+  return {
+    ...defaultValues,
+    hospital_id: defaultHospitalId ?? defaultValues.hospital_id,
+  };
+}
+
 interface SystemAdminUserFormProps {
   selectedUser: SystemAdminUser | null;
   onSubmitCreate: (payload: CreateSystemAdminUserRequest) => Promise<void>;
@@ -75,39 +101,20 @@ export function SystemAdminUserForm({
   submitting,
   defaultHospitalId,
 }: SystemAdminUserFormProps) {
-  const [formValues, setFormValues] = useState<SystemAdminUserFormValues>({
-    ...defaultValues,
-    hospital_id: defaultHospitalId ?? defaultValues.hospital_id,
-  });
+  const [formValues, setFormValues] = useState<SystemAdminUserFormValues>(() =>
+    buildFormValues(selectedUser, defaultHospitalId),
+  );
   const { data: hospitals = [], isLoading: isHospitalsLoading } =
     useGetHospitalsQuery();
   const { data: departments = [], isLoading: isDepartmentsLoading } =
     useGetDepartmentsQuery(formValues.hospital_id, {
       skip: !formValues.hospital_id,
     });
+  const { data: regions = [], isLoading: isRegionsLoading } =
+    useGetRegionsQuery();
 
   useEffect(() => {
-    if (selectedUser) {
-      setFormValues({
-        email: selectedUser.email,
-        first_name: selectedUser.first_name,
-        middle_name: selectedUser.middle_name ?? "",
-        last_name: selectedUser.last_name,
-        national_id: selectedUser.national_id ?? "",
-        hospital_id: selectedUser.hospital_id,
-        department_id: selectedUser.department_id ?? "",
-        region: selectedUser.region ?? "",
-        role: normalizeSystemAdminRole(selectedUser.role),
-        password: "",
-        is_active: selectedUser.is_active !== false,
-      });
-      return;
-    }
-
-    setFormValues({
-      ...defaultValues,
-      hospital_id: defaultHospitalId ?? defaultValues.hospital_id,
-    });
+    setFormValues(buildFormValues(selectedUser, defaultHospitalId));
   }, [selectedUser, defaultHospitalId]);
 
   const updateField = (
@@ -132,6 +139,30 @@ export function SystemAdminUserForm({
 
   const roleNeedsDepartment = systemAdminRoleRequiresDepartment(
     formValues.role,
+  );
+
+  const selectedHospitalInOptions = hospitals.some(
+    (hospital) => hospital.id === formValues.hospital_id,
+  );
+  const fallbackHospitalLabel =
+    selectedUser?.hospital?.name ??
+    selectedUser?.hospital_id ??
+    formValues.hospital_id;
+
+  const selectedDepartmentInOptions = departments.some(
+    (department) => department.id === formValues.department_id,
+  );
+  const fallbackDepartmentLabel =
+    selectedUser?.department?.name ??
+    selectedUser?.department_id ??
+    formValues.department_id;
+
+  const selectedRegionInOptions = regions.some(
+    (region) => region === formValues.region,
+  );
+
+  const isKnownRole = SYSTEM_ADMIN_ROLE_OPTIONS.some(
+    (role) => role === formValues.role,
   );
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -200,204 +231,264 @@ export function SystemAdminUserForm({
       </CardHeader>
 
       <CardContent className="space-y-6 p-6">
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="first_name">First name</Label>
-              <Input
-                id="first_name"
-                value={formValues.first_name}
-                onChange={(event) =>
-                  updateField("first_name", event.target.value)
-                }
-                placeholder="John"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="middle_name">Middle name</Label>
-              <Input
-                id="middle_name"
-                value={formValues.middle_name}
-                onChange={(event) =>
-                  updateField("middle_name", event.target.value)
-                }
-                placeholder="Kebede"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="last_name">Last name</Label>
-              <Input
-                id="last_name"
-                value={formValues.last_name}
-                onChange={(event) =>
-                  updateField("last_name", event.target.value)
-                }
-                placeholder="Doe"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formValues.email}
-                onChange={(event) => updateField("email", event.target.value)}
-                placeholder="user@hospital.org"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="national_id">National ID</Label>
-              <Input
-                id="national_id"
-                value={formValues.national_id}
-                onChange={(event) =>
-                  updateField("national_id", event.target.value)
-                }
-                placeholder="Enter national ID"
-                required
-              />
-            </div>
-            {!selectedUser && (
+        <form className="space-y-6" onSubmit={handleSubmit}>
+          {/* Identity */}
+          <section className="space-y-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Identity
+            </h3>
+            <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="first_name">First name</Label>
                 <Input
-                  id="password"
-                  type="password"
-                  value={formValues.password}
+                  id="first_name"
+                  value={formValues.first_name}
                   onChange={(event) =>
-                    updateField("password", event.target.value)
+                    updateField("first_name", event.target.value)
                   }
-                  placeholder="password123"
+                  placeholder="John"
                   required
                 />
               </div>
-            )}
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="hospital_id">Hospital</Label>
-              <Select
-                value={formValues.hospital_id}
-                onValueChange={(value) =>
-                  setFormValues((current) => ({
-                    ...current,
-                    hospital_id: value,
-                    department_id: "",
-                  }))
-                }
-                disabled={isHospitalsLoading}
-              >
-                <SelectTrigger id="hospital_id" className="w-full">
-                  <SelectValue
-                    placeholder={
-                      isHospitalsLoading
-                        ? "Loading hospitals..."
-                        : "Select hospital"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {hospitals.map((hospital) => (
-                    <SelectItem key={hospital.id} value={hospital.id}>
-                      {hospital.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {roleNeedsDepartment && (
               <div className="space-y-2">
-                <Label htmlFor="department_id">Department</Label>
+                <Label htmlFor="middle_name">Middle name</Label>
+                <Input
+                  id="middle_name"
+                  value={formValues.middle_name}
+                  onChange={(event) =>
+                    updateField("middle_name", event.target.value)
+                  }
+                  placeholder="Kebede"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="last_name">Last name</Label>
+                <Input
+                  id="last_name"
+                  value={formValues.last_name}
+                  onChange={(event) =>
+                    updateField("last_name", event.target.value)
+                  }
+                  placeholder="Doe"
+                  required
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formValues.email}
+                  onChange={(event) => updateField("email", event.target.value)}
+                  placeholder="user@hospital.org"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="national_id">National ID</Label>
+                <Input
+                  id="national_id"
+                  value={formValues.national_id}
+                  onChange={(event) =>
+                    updateField("national_id", event.target.value)
+                  }
+                  placeholder="Enter national ID"
+                  required
+                />
+              </div>
+              {!selectedUser && (
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={formValues.password}
+                    onChange={(event) =>
+                      updateField("password", event.target.value)
+                    }
+                    placeholder="At least 8 characters"
+                    required
+                  />
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Access & assignment */}
+          <section className="space-y-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Access &amp; assignment
+            </h3>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
                 <Select
-                  value={formValues.department_id}
-                  onValueChange={(value) => updateField("department_id", value)}
-                  disabled={!formValues.hospital_id || isDepartmentsLoading}
+                  value={formValues.role}
+                  onValueChange={handleRoleChange}
                 >
-                  <SelectTrigger id="department_id" className="w-full">
-                    <SelectValue
-                      placeholder={
-                        !formValues.hospital_id
-                          ? "Select hospital first"
-                          : isDepartmentsLoading
-                            ? "Loading departments..."
-                            : "Select department"
-                      }
-                    />
+                  <SelectTrigger id="role" className="w-full">
+                    <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    {departments.map((department) => (
-                      <SelectItem key={department.id} value={department.id}>
-                        {department.name}
+                    {!isKnownRole && formValues.role ? (
+                      <SelectItem value={formValues.role}>
+                        {SYSTEM_ADMIN_ROLE_LABELS[formValues.role] ??
+                          formValues.role}
+                      </SelectItem>
+                    ) : null}
+                    {SYSTEM_ADMIN_ROLE_OPTIONS.map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {SYSTEM_ADMIN_ROLE_LABELS[role]}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="region">Region</Label>
+                <Select
+                  value={formValues.region}
+                  onValueChange={(value) => updateField("region", value)}
+                  disabled={isRegionsLoading && regions.length === 0}
+                >
+                  <SelectTrigger id="region" className="w-full">
+                    <SelectValue
+                      placeholder={
+                        isRegionsLoading
+                          ? "Loading regions..."
+                          : "Select region"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {!selectedRegionInOptions && formValues.region ? (
+                      <SelectItem value={formValues.region}>
+                        {formValues.region}
+                      </SelectItem>
+                    ) : null}
+                    {regions.length === 0 && !formValues.region ? (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                        {isRegionsLoading
+                          ? "Loading regions..."
+                          : "No regions available"}
+                      </div>
+                    ) : (
+                      regions.map((region) => (
+                        <SelectItem key={region} value={region}>
+                          {region}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="hospital_id">Hospital</Label>
+                <Select
+                  value={formValues.hospital_id}
+                  onValueChange={(value) =>
+                    setFormValues((current) => ({
+                      ...current,
+                      hospital_id: value,
+                      department_id: "",
+                    }))
+                  }
+                  disabled={isHospitalsLoading && hospitals.length === 0}
+                >
+                  <SelectTrigger id="hospital_id" className="w-full">
+                    <SelectValue
+                      placeholder={
+                        isHospitalsLoading
+                          ? "Loading hospitals..."
+                          : "Select hospital"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {!selectedHospitalInOptions && formValues.hospital_id ? (
+                      <SelectItem value={formValues.hospital_id}>
+                        {fallbackHospitalLabel}
+                      </SelectItem>
+                    ) : null}
+                    {hospitals.map((hospital) => (
+                      <SelectItem key={hospital.id} value={hospital.id}>
+                        {hospital.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {roleNeedsDepartment && (
+                <div className="space-y-2">
+                  <Label htmlFor="department_id">Department</Label>
+                  <Select
+                    value={formValues.department_id}
+                    onValueChange={(value) =>
+                      updateField("department_id", value)
+                    }
+                    disabled={
+                      !formValues.hospital_id ||
+                      (isDepartmentsLoading && departments.length === 0)
+                    }
+                  >
+                    <SelectTrigger id="department_id" className="w-full">
+                      <SelectValue
+                        placeholder={
+                          !formValues.hospital_id
+                            ? "Select hospital first"
+                            : isDepartmentsLoading
+                              ? "Loading departments..."
+                              : "Select department"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {!selectedDepartmentInOptions &&
+                      formValues.department_id ? (
+                        <SelectItem value={formValues.department_id}>
+                          {fallbackDepartmentLabel}
+                        </SelectItem>
+                      ) : null}
+                      {departments.map((department) => (
+                        <SelectItem key={department.id} value={department.id}>
+                          {department.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
+            {selectedUser && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="is_active">Account status</Label>
+                  <Select
+                    value={formValues.is_active ? "active" : "inactive"}
+                    onValueChange={(value) =>
+                      updateField("is_active", value === "active")
+                    }
+                  >
+                    <SelectTrigger id="is_active" className="w-full">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             )}
-          </div>
+          </section>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <Select
-                value={formValues.role}
-                onValueChange={handleRoleChange}
-              >
-                <SelectTrigger id="role" className="w-full">
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SYSTEM_ADMIN_ROLE_OPTIONS.map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {SYSTEM_ADMIN_ROLE_LABELS[role]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="region">Region</Label>
-              <Input
-                id="region"
-                value={formValues.region}
-                onChange={(event) => updateField("region", event.target.value)}
-                placeholder="e.g. Addis Ababa"
-              />
-            </div>
-          </div>
-
-          {selectedUser && (
-            <div className="space-y-2">
-              <Label htmlFor="is_active">Account status</Label>
-              <Select
-                value={formValues.is_active ? "active" : "inactive"}
-                onValueChange={(value) =>
-                  updateField("is_active", value === "active")
-                }
-              >
-                <SelectTrigger id="is_active" className="w-full">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center gap-3 pt-2">
+          <div className="flex flex-wrap items-center justify-end gap-3 pt-2 border-t border-border/60">
             <Button type="submit" className="gap-2" disabled={submitting}>
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

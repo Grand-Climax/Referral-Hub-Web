@@ -1,4 +1,10 @@
-import { Diagnosis, ReferralForm, ReferralPatient, Vital } from "./referral";
+import {
+  Diagnosis,
+  ReferralAttachment,
+  ReferralForm,
+  ReferralPatient,
+  Vital,
+} from "./referral";
 import { ReferralListItem, ReferralListStatus } from "./referral-list";
 
 export interface SpecialistReferralListItem extends ReferralListItem {
@@ -24,9 +30,14 @@ export interface SpecialistReferralDetail {
   liaison_officer_id?: string | null;
   target_dept_id: string;
   status: ReferralListStatus;
+  triage_status?: string | null;
   waiting_hours_weight: number;
   ml_status: string;
   ml_retry_count: number;
+  patient_identity_verified?: boolean;
+  clinical_history_attached?: boolean;
+  vitals_included?: boolean;
+  attachments_included?: boolean;
   rejection_reason?: string | null;
   specialist_id?: string | null;
   created_at: string;
@@ -36,6 +47,7 @@ export interface SpecialistReferralDetail {
   referral_form: ReferralForm;
   diagnoses: Diagnosis[];
   vitals: Vital[];
+  attachments?: ReferralAttachment[];
 }
 
 export interface SpecialistReferralDetailResponse extends SpecialistReferralDetail {

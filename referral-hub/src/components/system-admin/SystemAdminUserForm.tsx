@@ -37,6 +37,7 @@ export interface SystemAdminUserFormValues {
   national_id: string;
   hospital_id: string;
   department_id: string;
+  region: string;
   role: string;
   password: string;
   is_active: boolean;
@@ -50,6 +51,7 @@ const defaultValues: SystemAdminUserFormValues = {
   national_id: "",
   hospital_id: "",
   department_id: "",
+  region: "",
   role: "HOSPITAL_ADMIN",
   password: "",
   is_active: true,
@@ -94,6 +96,7 @@ export function SystemAdminUserForm({
         national_id: selectedUser.national_id ?? "",
         hospital_id: selectedUser.hospital_id,
         department_id: selectedUser.department_id ?? "",
+        region: selectedUser.region ?? "",
         role: normalizeSystemAdminRole(selectedUser.role),
         password: "",
         is_active: selectedUser.is_active !== false,
@@ -138,6 +141,8 @@ export function SystemAdminUserForm({
       formValues.role,
     );
 
+    const trimmedRegion = formValues.region.trim();
+
     const profilePayload: UpdateSystemAdminUserRequest = {
       email: formValues.email.trim(),
       first_name: formValues.first_name.trim(),
@@ -150,6 +155,7 @@ export function SystemAdminUserForm({
       ...(includeDepartment
         ? { department_id: formValues.department_id }
         : {}),
+      ...(trimmedRegion ? { region: trimmedRegion } : {}),
     };
 
     if (selectedUser) {
@@ -169,6 +175,7 @@ export function SystemAdminUserForm({
       ...(includeDepartment
         ? { department_id: formValues.department_id }
         : {}),
+      ...(trimmedRegion ? { region: trimmedRegion } : {}),
     });
   };
 
@@ -358,6 +365,15 @@ export function SystemAdminUserForm({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="region">Region</Label>
+              <Input
+                id="region"
+                value={formValues.region}
+                onChange={(event) => updateField("region", event.target.value)}
+                placeholder="e.g. Addis Ababa"
+              />
             </div>
           </div>
 

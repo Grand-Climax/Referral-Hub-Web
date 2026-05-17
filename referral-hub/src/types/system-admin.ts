@@ -21,6 +21,7 @@ export interface SystemAdminUser {
   role: string;
   hospital_id: string;
   department_id?: string | null;
+  region?: string | null;
   is_active?: boolean;
   profile_image_url?: string | null;
   created_at?: string;
@@ -40,6 +41,7 @@ export interface CreateSystemAdminUserRequest {
   last_name: string;
   national_id: string;
   password: string;
+  region?: string;
   role: string;
 }
 
@@ -52,6 +54,7 @@ export interface UpdateSystemAdminUserRequest {
   last_name: string;
   middle_name: string;
   national_id: string;
+  region?: string;
   role: string;
 }
 

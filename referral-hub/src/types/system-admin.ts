@@ -143,3 +143,36 @@ export function normalizeSystemAdminUsers(
 
   return [] as SystemAdminUser[];
 }
+
+export interface SystemAdminUsersPage {
+  users: SystemAdminUser[];
+  total?: number;
+}
+
+export function normalizeSystemAdminUsersPage(
+  response: SystemAdminUsersResponse | SystemAdminUser[] | unknown,
+): SystemAdminUsersPage {
+  const users = normalizeSystemAdminUsers(response);
+
+  let total: number | undefined;
+  if (response && typeof response === "object" && !Array.isArray(response)) {
+    const payload = response as SystemAdminUsersResponse & {
+      total_count?: number;
+      count?: number;
+      meta?: { total?: number; total_count?: number; count?: number };
+      pagination?: { total?: number; total_count?: number; count?: number };
+    };
+    total =
+      payload.total ??
+      payload.total_count ??
+      payload.count ??
+      payload.meta?.total ??
+      payload.meta?.total_count ??
+      payload.meta?.count ??
+      payload.pagination?.total ??
+      payload.pagination?.total_count ??
+      payload.pagination?.count;
+  }
+
+  return { users, total };
+}

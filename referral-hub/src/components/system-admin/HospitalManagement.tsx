@@ -64,7 +64,7 @@ import type {
   UpdateHospitalRequest,
 } from "@/types/hospital";
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 5;
 const TIER_LEVEL_OPTIONS = ["PRIMARY", "GENERAL", "SPECIALIZED"] as const;
 
 const defaultHospitalFormValues: CreateHospitalRequest = {
@@ -105,10 +105,11 @@ export function HospitalManagement() {
     isFetching: hospitalsLoading,
     refetch: refetchHospitals,
   } = useGetHospitalsQuery();
-  const { data: users = [] } = useGetSystemAdminUsersQuery({
+  const { data: usersPage } = useGetSystemAdminUsersQuery({
     page: 1,
-    page_size: 500,
+    page_size: PAGE_SIZE,
   });
+  const users = usersPage?.users ?? [];
   const [createHospital, { isLoading: isCreatingHospital }] =
     useCreateHospitalMutation();
   const [updateHospital, { isLoading: isUpdatingHospital }] =

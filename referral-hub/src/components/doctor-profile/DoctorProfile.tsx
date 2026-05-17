@@ -1,8 +1,10 @@
- "use client";
+"use client";
 
+import { useRef, useState } from "react";
+import { toast } from "sonner";
 import { useGetCurrentUserQuery } from "@/features/auth/authApi";
 import { useGetHospitalByIdQuery } from "@/features/hospitals/hospitalsApi";
-import { Button } from "@/components/ui/button";
+import { useUpdateProfileImageMutation } from "@/features/users/usersApi";
 import {
   Card,
   CardContent,
@@ -18,19 +20,88 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { EditProfileForm } from "./edit-profile";
 import { UpdateCredentialForm } from "./update-credential";
-import { Mail, CreditCard, Building2, Shield, User2, Settings2 } from "lucide-react";
+import {
+  Mail,
+  CreditCard,
+  Building2,
+  Shield,
+  User2,
+  Camera,
+  Loader2,
+} from "lucide-react";
 import { DoctorProfileSkeleton } from "@/components/skeletons/DoctorProfileSkeleton";
 
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const ALLOWED_IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".webp"];
+
 export function DoctorProfile() {
-  const { data: user, isLoading: userLoading } = useGetCurrentUserQuery();
+  const {
+    data: user,
+    isLoading: userLoading,
+    refetch: refetchCurrentUser,
+  } = useGetCurrentUserQuery();
   const hospitalId = user?.hospital_id;
   const { data: hospital, isLoading: hospitalLoading } = useGetHospitalByIdQuery(
     hospitalId!, { skip: !hospitalId }
   );
 
-  const isLoading = userLoading;
+  const [updateProfileImage, { isLoading: isUploadingImage }] =
+    useUpdateProfileImageMutation();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  if (isLoading) {
+  const handleAvatarClick = () => {
+    if (isUploadingImage) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const fileNameLower = file.name.toLowerCase();
+    const hasAllowedExt = ALLOWED_IMAGE_EXTS.some((ext) =>
+      fileNameLower.endsWith(ext),
+    );
+    const hasAllowedType = file.type
+      ? ALLOWED_IMAGE_TYPES.includes(file.type)
+      : hasAllowedExt;
+    if (!hasAllowedType) {
+      toast.error("Image must be JPEG, PNG, or WEBP.");
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast.error("Image must be 5 MB or smaller.");
+      return;
+    }
+
+    const localUrl = URL.createObjectURL(file);
+    setPreviewUrl(localUrl);
+
+    try {
+      await updateProfileImage({ file, filename: file.name }).unwrap();
+      toast.success("Profile photo updated.");
+      await refetchCurrentUser();
+    } catch (error: unknown) {
+      const message =
+        (error as { data?: { message?: string } })?.data?.message ??
+        "Failed to update profile photo.";
+      toast.error(message);
+      setPreviewUrl(null);
+    } finally {
+      URL.revokeObjectURL(localUrl);
+      // Clear preview after the new server URL has arrived so we don't briefly
+      // flash the old image. The refetch above will update `user.profile_image_url`.
+      setPreviewUrl((current) => (current === localUrl ? null : current));
+    }
+  };
+
+  if (userLoading) {
     return <DoctorProfileSkeleton />;
   }
 
@@ -71,15 +142,33 @@ export function DoctorProfile() {
             <div className="flex flex-1 items-center gap-4 sm:gap-6">
               <div className="relative flex items-center justify-center">
                 <Avatar className="h-50 w-50 ring-4">
-                  <AvatarImage src={user?.profile_image_url || "/user.png"} alt="Dr. Sarah Jenkins" className="object-cover object-center" />
+                  <AvatarImage
+                    src={previewUrl || user?.profile_image_url || "/user.png"}
+                    alt={fullName}
+                    className="object-cover object-center"
+                  />
                   <AvatarFallback>{fallback[0]}</AvatarFallback>
                 </Avatar>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
                 <button
                   type="button"
-                  className="bg-primary text-primary-foreground absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full border-2 border-background shadow-md transition-transform hover:scale-105"
-                  aria-label="Edit profile picture"
+                  onClick={handleAvatarClick}
+                  disabled={isUploadingImage}
+                  className="bg-primary text-primary-foreground absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-full border-2 border-background shadow-md transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-70"
+                  aria-label="Change profile picture"
+                  title="Change profile picture"
                 >
-                  <Settings2 className="h-4 w-4" />
+                  {isUploadingImage ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Camera className="h-4 w-4" />
+                  )}
                 </button>
               </div>
               <div className="space-y-1">

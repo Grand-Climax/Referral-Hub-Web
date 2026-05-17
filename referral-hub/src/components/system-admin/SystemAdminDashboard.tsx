@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  AtSign,
   Loader2,
   RefreshCcw,
   Search,
@@ -52,35 +53,49 @@ import type {
 } from "@/types/system-admin";
 import { normalizeSystemAdminRole } from "@/types/system-admin";
 
+const PAGE_SIZE = 10;
+
 export function SystemAdminDashboard() {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [nameSearch, setNameSearch] = useState("");
+  const [emailSearch, setEmailSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [hospitalFilter, setHospitalFilter] = useState("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
 
   const backendQueryParams = useMemo<SystemAdminUsersQueryParams>(() => {
-    const trimmedSearch = searchTerm.trim();
-    const isEmailSearch = trimmedSearch.includes("@");
+    const name = nameSearch.trim();
+    const email = emailSearch.trim();
 
     return {
-      page: 1,
-      page_size: 20,
-      name: trimmedSearch && !isEmailSearch ? trimmedSearch : undefined,
-      email: trimmedSearch && isEmailSearch ? trimmedSearch : undefined,
+      page,
+      page_size: PAGE_SIZE,
+      name: name || undefined,
+      email: email || undefined,
       hospital_id: hospitalFilter !== "all" ? hospitalFilter : undefined,
       dept_id: departmentFilter !== "all" ? departmentFilter : undefined,
       role:
         roleFilter !== "all" ? normalizeSystemAdminRole(roleFilter) : undefined,
       is_active: statusFilter === "all" ? undefined : statusFilter === "active",
     };
-  }, [searchTerm, hospitalFilter, departmentFilter, roleFilter, statusFilter]);
+  }, [
+    page,
+    nameSearch,
+    emailSearch,
+    hospitalFilter,
+    departmentFilter,
+    roleFilter,
+    statusFilter,
+  ]);
 
   const {
-    data: users = [],
+    data: usersPage,
     isFetching,
     refetch,
   } = useGetSystemAdminUsersQuery(backendQueryParams);
+  const users = usersPage?.users ?? [];
+  const total = usersPage?.total;
   const { data: hospitals = [] } = useGetHospitalsQuery();
   const { data: departments = [] } = useGetDepartmentsQuery(hospitalFilter, {
     skip: hospitalFilter === "all",
@@ -109,6 +124,19 @@ export function SystemAdminDashboard() {
     setDepartmentFilter("all");
   }, [hospitalFilter]);
 
+  // Whenever a filter or search changes, jump back to the first page so we
+  // don't accidentally request page N of a smaller result set.
+  useEffect(() => {
+    setPage(1);
+  }, [
+    nameSearch,
+    emailSearch,
+    roleFilter,
+    hospitalFilter,
+    departmentFilter,
+    statusFilter,
+  ]);
+
   const handleReset = () => {
     setSelectedUser(null);
     setFormRevision((current) => current + 1);
@@ -127,31 +155,12 @@ export function SystemAdminDashboard() {
     setIsUserDialogOpen(true);
   };
 
-  const filteredUsers = users.filter((user) => {
-    const searchable =
-      `${user.first_name} ${user.middle_name ?? ""} ${user.last_name} ${user.email} ${user.id} ${user.hospital?.name ?? ""} ${user.department?.name ?? ""} ${user.hospital?.region ?? ""}`.toLowerCase();
-    const matchesSearch = searchable.includes(searchTerm.toLowerCase());
-    const matchesRole =
-      roleFilter === "all" ||
-      normalizeSystemAdminRole(user.role) ===
-        normalizeSystemAdminRole(roleFilter);
-    const matchesHospital =
-      hospitalFilter === "all" || user.hospital_id === hospitalFilter;
-    const matchesDepartment =
-      departmentFilter === "all" || user.department_id === departmentFilter;
-    const matchesStatus =
-      statusFilter === "all" ||
-      (statusFilter === "active" && user.is_active !== false) ||
-      (statusFilter === "inactive" && user.is_active === false);
-
-    return (
-      matchesSearch &&
-      matchesRole &&
-      matchesHospital &&
-      matchesDepartment &&
-      matchesStatus
-    );
-  });
+  // Backend already returns server-filtered users for the current page.
+  const filteredUsers = users;
+  const resultsLabel =
+    total !== undefined
+      ? `${total} result${total === 1 ? "" : "s"}`
+      : `${users.length} result${users.length === 1 ? "" : "s"}`;
 
   const busy =
     isCreating || isUpdating || isDeleting || isModerating || isAssigning;
@@ -253,12 +262,21 @@ export function SystemAdminDashboard() {
       <Card className="border-border/60 bg-background/80 shadow-sm">
         <CardContent className="flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative w-full max-w-xl">
+            <div className="relative w-full sm:max-w-xs">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search users by name, email, hospital, or ID"
+                value={nameSearch}
+                onChange={(event) => setNameSearch(event.target.value)}
+                placeholder="Search by name"
+                className="h-11 border-border/60 pl-9"
+              />
+            </div>
+            <div className="relative w-full sm:max-w-xs">
+              <AtSign className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={emailSearch}
+                onChange={(event) => setEmailSearch(event.target.value)}
+                placeholder="Filter by email"
                 className="h-11 border-border/60 pl-9"
               />
             </div>
@@ -360,6 +378,11 @@ export function SystemAdminDashboard() {
           onModerateImage={(user: string | SystemAdminUser) => {
             void handleModerateImage(typeof user === "string" ? user : user.id);
           }}
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={total}
+          isFetching={isFetching}
+          onPageChange={setPage}
         />
       </div>
 

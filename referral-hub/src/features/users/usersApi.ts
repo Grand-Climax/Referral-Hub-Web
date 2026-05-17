@@ -51,8 +51,10 @@ export const usersApi = createApi({
     }),
     updateProfileImage: builder.mutation<UserProfile, UpdateProfileImagePayload>({
       query: ({ file, filename }) => {
+        const safeFilename = filename ?? 'profile.jpg';
         const body = new FormData();
-        body.append('file', file, filename ?? 'profile.jpg');
+        // Backend handler reads `c.FormFile("image")`.
+        body.append('image', file, safeFilename);
         return {
           url: USER_ROUTES.PROFILE_IMAGE,
           method: 'PUT',

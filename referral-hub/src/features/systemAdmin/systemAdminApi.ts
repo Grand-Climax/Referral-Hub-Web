@@ -6,11 +6,12 @@ import type {
   AssignSystemAdminRoleRequest,
   CreateSystemAdminUserRequest,
   SystemAdminUser,
+  SystemAdminUsersPage,
   SystemAdminUsersQueryParams,
   SystemAdminUsersResponse,
   UpdateSystemAdminUserRequest,
 } from "@/types/system-admin";
-import { normalizeSystemAdminUsers } from "@/types/system-admin";
+import { normalizeSystemAdminUsersPage } from "@/types/system-admin";
 
 export const systemAdminApi = createApi({
   reducerPath: "systemAdminApi",
@@ -18,21 +19,30 @@ export const systemAdminApi = createApi({
   tagTypes: ["SystemAdminUser"],
   endpoints: (builder) => ({
     getSystemAdminUsers: builder.query<
-      SystemAdminUser[],
+      SystemAdminUsersPage,
       SystemAdminUsersQueryParams | void
     >({
-      query: (queryParams) => ({
-        url: SYSTEM_ADMIN_ROUTES.USERS,
-        method: "GET",
-        params: queryParams ?? undefined,
-      }),
+      query: (queryParams) => {
+        const params: Record<string, string | number | boolean> = {};
+        if (queryParams) {
+          for (const [key, value] of Object.entries(queryParams)) {
+            if (value === undefined || value === null || value === "") continue;
+            params[key] = value as string | number | boolean;
+          }
+        }
+        return {
+          url: SYSTEM_ADMIN_ROUTES.USERS,
+          method: "GET",
+          params: Object.keys(params).length > 0 ? params : undefined,
+        };
+      },
       transformResponse: (
         response: SystemAdminUsersResponse | SystemAdminUser[] | unknown,
-      ) => normalizeSystemAdminUsers(response),
+      ) => normalizeSystemAdminUsersPage(response),
       providesTags: (result) =>
-        result
+        result?.users
           ? [
-              ...result.map(({ id }) => ({
+              ...result.users.map(({ id }) => ({
                 type: "SystemAdminUser" as const,
                 id,
               })),

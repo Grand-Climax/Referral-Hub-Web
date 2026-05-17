@@ -9,6 +9,7 @@ import { patientsApi } from "@/features/patients/patientsApi";
 import { icdApi } from "@/features/reference/icdApi";
 import { liaisonsApi } from "@/features/reference/liaisonsApi";
 import { networkedHospitalsApi } from "@/features/reference/networkedHospitalsApi";
+import { regionsApi } from "@/features/reference/regionsApi";
 import { departmentApi } from "@/features/department/department";
 import { specialistApi } from "@/features/specialist/specialistApi";
 import { systemAdminApi } from "@/features/systemAdmin/systemAdminApi";
@@ -42,6 +43,7 @@ export const makeStore = () => {
       [usersApi.reducerPath]: usersApi.reducer,
       [mohAnalyticsApi.reducerPath]: mohAnalyticsApi.reducer,
       [networkRoutesApi.reducerPath]: networkRoutesApi.reducer,
+      [regionsApi.reducerPath]: regionsApi.reducer,
     },
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware().concat(
@@ -62,6 +64,7 @@ export const makeStore = () => {
         usersApi.middleware,
         mohAnalyticsApi.middleware,
         networkRoutesApi.middleware,
+        regionsApi.middleware,
       ),
   });
 };

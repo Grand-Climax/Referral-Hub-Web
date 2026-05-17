@@ -26,6 +26,7 @@ import {
   SYSTEM_ADMIN_ROLE_LABELS,
   SYSTEM_ADMIN_ROLE_OPTIONS,
   normalizeSystemAdminRole,
+  systemAdminRoleRequiresDepartment,
 } from "@/types/system-admin";
 
 export interface SystemAdminUserFormValues {
@@ -116,11 +117,28 @@ export function SystemAdminUserForm({
     }));
   };
 
+  const handleRoleChange = (value: string) => {
+    setFormValues((current) => ({
+      ...current,
+      role: value,
+      department_id: systemAdminRoleRequiresDepartment(value)
+        ? current.department_id
+        : "",
+    }));
+  };
+
+  const roleNeedsDepartment = systemAdminRoleRequiresDepartment(
+    formValues.role,
+  );
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    const includeDepartment = systemAdminRoleRequiresDepartment(
+      formValues.role,
+    );
+
     const profilePayload: UpdateSystemAdminUserRequest = {
-      department_id: formValues.department_id,
       email: formValues.email.trim(),
       first_name: formValues.first_name.trim(),
       middle_name: formValues.middle_name.trim(),
@@ -129,6 +147,9 @@ export function SystemAdminUserForm({
       national_id: formValues.national_id.trim(),
       role: formValues.role,
       is_active: formValues.is_active,
+      ...(includeDepartment
+        ? { department_id: formValues.department_id }
+        : {}),
     };
 
     if (selectedUser) {
@@ -137,7 +158,6 @@ export function SystemAdminUserForm({
     }
 
     await onSubmitCreate({
-      department_id: profilePayload.department_id,
       email: profilePayload.email,
       first_name: profilePayload.first_name,
       hospital_id: profilePayload.hospital_id,
@@ -146,6 +166,9 @@ export function SystemAdminUserForm({
       national_id: profilePayload.national_id,
       password: formValues.password,
       role: profilePayload.role,
+      ...(includeDepartment
+        ? { department_id: formValues.department_id }
+        : {}),
     });
   };
 
@@ -286,33 +309,35 @@ export function SystemAdminUserForm({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="department_id">Department</Label>
-              <Select
-                value={formValues.department_id}
-                onValueChange={(value) => updateField("department_id", value)}
-                disabled={!formValues.hospital_id || isDepartmentsLoading}
-              >
-                <SelectTrigger id="department_id" className="w-full">
-                  <SelectValue
-                    placeholder={
-                      !formValues.hospital_id
-                        ? "Select hospital first"
-                        : isDepartmentsLoading
-                          ? "Loading departments..."
-                          : "Select department"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {departments.map((department) => (
-                    <SelectItem key={department.id} value={department.id}>
-                      {department.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {roleNeedsDepartment && (
+              <div className="space-y-2">
+                <Label htmlFor="department_id">Department</Label>
+                <Select
+                  value={formValues.department_id}
+                  onValueChange={(value) => updateField("department_id", value)}
+                  disabled={!formValues.hospital_id || isDepartmentsLoading}
+                >
+                  <SelectTrigger id="department_id" className="w-full">
+                    <SelectValue
+                      placeholder={
+                        !formValues.hospital_id
+                          ? "Select hospital first"
+                          : isDepartmentsLoading
+                            ? "Loading departments..."
+                            : "Select department"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((department) => (
+                      <SelectItem key={department.id} value={department.id}>
+                        {department.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -320,7 +345,7 @@ export function SystemAdminUserForm({
               <Label htmlFor="role">Role</Label>
               <Select
                 value={formValues.role}
-                onValueChange={(value) => updateField("role", value)}
+                onValueChange={handleRoleChange}
               >
                 <SelectTrigger id="role" className="w-full">
                   <SelectValue placeholder="Select role" />

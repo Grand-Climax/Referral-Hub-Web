@@ -29,6 +29,7 @@ import {
   ClipboardList,
   CalendarCheck,
   ArrowLeftRight,
+  History,
   LogOut,
   Settings,
   Mail,
@@ -142,6 +143,28 @@ const NAV_BY_ROLE = {
       icon: FileText,
     },
   ],
+  receiving_specialist: [
+    {
+      title: "Dashboard",
+      url: "/receiving-specialist",
+      icon: LayoutDashboard,
+    },
+    {
+      title: "Incoming Referrals",
+      url: "/receiving-specialist/referrals",
+      icon: FileText,
+    },
+    {
+      title: "Triage Queue",
+      url: "/receiving-specialist/traige-queue",
+      icon: ClipboardList,
+    },
+    {
+      title: "Archive",
+      url: "/receiving-specialist/archive",
+      icon: History,
+    },
+  ],
 };
 
 type RoleKey = keyof typeof NAV_BY_ROLE;
@@ -153,6 +176,7 @@ const ROLE_MAP: Record<string, RoleKey> = {
   RECEPTIONIST: "receptionist",
   DEPT_HEAD: "dept_head",
   MOH_ANALYST: "moh_analyst",
+  RECEIVING_SPECIALIST: "receiving_specialist",
 };
 
 const PROFILE_PATH_BY_ROLE: Record<RoleKey, string> = {
@@ -162,6 +186,7 @@ const PROFILE_PATH_BY_ROLE: Record<RoleKey, string> = {
   receptionist: "/receptionist/profile",
   dept_head: "/department-head/profile",
   moh_analyst: "/analytics/profile",
+  receiving_specialist: "/receiving-specialist",
 };
 
 export function DashboardSidebar() {

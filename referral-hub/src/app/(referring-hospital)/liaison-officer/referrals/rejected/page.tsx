@@ -1,15 +1,19 @@
 import { ReferralsTable } from "@/components/liaison/ReferralsTable";
 
-export default function RejectedReferralsPage() {
+export default function LiaisonRejectedReferralsPage() {
   return (
-    <div className="container mx-auto max-w-[1400px] py-12 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Rejected Referrals</h1>
-        <p className="text-muted-foreground mt-2">
-          View referrals that have been rejected by liaison or specialist
-        </p>
+    <div className="mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Rejected Referrals
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Review cases that have been rejected or returned.
+          </p>
+        </div>
       </div>
-      <ReferralsTable listType="rejected" title="Rejected Referrals" />
+      <ReferralsTable statusFilter="rejected" />
     </div>
   );
 }

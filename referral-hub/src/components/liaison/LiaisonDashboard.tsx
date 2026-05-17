@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -8,32 +7,21 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   FileText,
   Clock,
   CheckCircle2,
   XCircle,
-  Eye,
-  ChevronLeft,
   ChevronRight,
+  Bell,
+  MessageCircle,
+  Loader2,
 } from "lucide-react";
-import { useGetLiaisonDashboardStatsQuery, useGetReferralsQuery } from "@/features/liaison/liaisonApi";
+import { useGetLiaisonDashboardStatsQuery } from "@/features/liaison/liaisonApi";
 import type {
   LiaisonDashboardStatItem,
   LiaisonDashboardStats,
 } from "@/types/liaison";
-import type { ReferralListItem } from "@/types/referral-list";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 type StatTone = "default" | "warning" | "success" | "destructive";
 
@@ -77,20 +65,6 @@ const STAT_CARD_DEFINITIONS: Array<{
 
 const EMPTY_STAT: LiaisonDashboardStatItem = { count: 0, change: 0 };
 
-const STATUS_COLORS: Record<string, string> = {
-  SUBMITTED: "bg-blue-100 text-blue-800",
-  UNDER_LIAISON_REVIEW: "bg-yellow-100 text-yellow-800",
-  FORWARDED: "bg-purple-100 text-purple-800",
-  UNDER_SPECIALIST_REVIEW: "bg-indigo-100 text-indigo-800",
-  ACCEPTED: "bg-green-100 text-green-800",
-  SCHEDULED: "bg-teal-100 text-teal-800",
-  REJECTED_BY_LIAISON: "bg-red-100 text-red-800",
-  REJECTED_BY_SPECIALIST: "bg-red-100 text-red-800",
-  REJECTED_AFTER_SEND: "bg-red-100 text-red-800",
-  NEED_REVISION: "bg-orange-100 text-orange-800",
-  COMPLETED: "bg-gray-100 text-gray-800",
-};
-
 const formatDelta = (change: number) => {
   if (!Number.isFinite(change) || change === 0) return "0%";
   const sign = change > 0 ? "+" : "";
@@ -101,85 +75,93 @@ const getDeltaPillClasses = (change: number, tone: StatTone) => {
   if (!Number.isFinite(change) || change === 0) {
     return "bg-muted text-muted-foreground";
   }
+  // For "rejected", an increase is negative; for the others, an increase is positive.
   const isImprovement = tone === "destructive" ? change < 0 : change > 0;
   return isImprovement
     ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-200"
     : "bg-rose-50 text-rose-600 dark:bg-rose-500/20 dark:text-rose-200";
 };
 
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
-const formatStatus = (status: string) => {
-  return status.replace(/_/g, " ");
-};
+const activityItems = [
+  {
+    id: "#4021",
+    status: "Approved",
+    statusColor: "bg-emerald-500",
+    title: "Referral #4021 Approved",
+    subtitle: "Patient: Johnathan Doe • Department: Cardiology",
+    timeAgo: "2 MINUTES AGO",
+  },
+  {
+    id: "#4020",
+    status: "New",
+    statusColor: "bg-blue-500",
+    title: "New Referral from Dr. Smith",
+    subtitle: "Priority: Urgent • Internal Medicine",
+    timeAgo: "15 MINUTES AGO",
+  },
+  {
+    id: "#3988",
+    status: "Rejected",
+    statusColor: "bg-rose-500",
+    title: "Referral #3988 Rejected",
+    subtitle: "Missing insurance authorization documents.",
+    timeAgo: "1 HOUR AGO",
+  },
+  {
+    id: "#3950",
+    status: "Returned",
+    statusColor: "bg-amber-500",
+    title: "Referral #3950 Returned for Info",
+    subtitle: "Awaiting lab results for Patient: Maria Garcia.",
+    timeAgo: "2 HOURS AGO",
+  },
+];
 
 const LiaisonDashboard = () => {
-  const router = useRouter();
-  const [page, setPage] = useState(1);
-  const pageSize = 10;
-
   const {
     data: stats,
     isLoading: statsLoading,
     isError: statsError,
   } = useGetLiaisonDashboardStatsQuery();
 
-  const { data: referralsData, isLoading: referralsLoading } = useGetReferralsQuery({
-    page,
-    page_size: pageSize,
-    listType: "all",
-  });
-
-  const referrals = referralsData?.data || [];
-  const totalPages = Math.ceil((referralsData?.total || 0) / pageSize);
-
-  const handleViewDetails = (id: string) => {
-    router.push(`/liaison-officer/referrals/${id}`);
-  };
-
   return (
-    <div className="container mx-auto max-w-[1400px] py-12 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Stats Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+    <div className="space-y-8">
+      {/* Top stats row */}
+      <div className="grid gap-4 md:grid-cols-4">
         {STAT_CARD_DEFINITIONS.map((card) => {
           const Icon = card.icon;
           const item = stats?.[card.key] ?? EMPTY_STAT;
           const pillClasses = getDeltaPillClasses(item.change, card.tone);
           return (
-            <Card key={card.label} className="border-2 hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">
+            <Card key={card.label} className="border bg-card shadow-sm">
+              <CardContent className="flex items-center gap-4 p-4">
+                <div
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.accent}`}
+                >
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div className="flex flex-1 flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
                       {card.label}
-                    </p>
-                    {statsLoading ? (
-                      <div className="h-8 w-20 animate-pulse rounded bg-muted" />
-                    ) : statsError ? (
-                      <p className="text-sm text-destructive">Error</p>
-                    ) : (
-                      <p className="text-3xl font-bold">{item.count}</p>
-                    )}
+                    </span>
                     <span
-                      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${pillClasses}`}
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${pillClasses}`}
                     >
                       {formatDelta(item.change)}
                     </span>
                   </div>
-                  <div
-                    className={`flex h-12 w-12 items-center justify-center rounded-xl ${card.accent}`}
-                  >
-                    <Icon className="h-6 w-6" />
-                  </div>
+                  {statsLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : statsError ? (
+                    <p className="text-xs text-destructive">
+                      Failed to load
+                    </p>
+                  ) : (
+                    <p className="text-xl font-semibold text-foreground">
+                      {item.count}
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -187,123 +169,148 @@ const LiaisonDashboard = () => {
         })}
       </div>
 
-      {/* Referrals Table */}
-      <Card className="border-2">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-xl">Pending Approvals</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              Review and approve referrals before dispatch to receiving hospitals
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Link href="/liaison-officer/referrals/approved">
-              <Button variant="outline" size="sm">
-                <CheckCircle2 className="h-4 w-4 mr-1" />
-                Approved
-              </Button>
-            </Link>
-            <Link href="/liaison-officer/referrals/rejected">
-              <Button variant="outline" size="sm">
-                <XCircle className="h-4 w-4 mr-1" />
-                Rejected
-              </Button>
-            </Link>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {referralsLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            </div>
-          ) : referrals.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground">
-              No referrals found.
-            </div>
-          ) : (
-            <>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Patient</TableHead>
-                      <TableHead>Department</TableHead>
-                      <TableHead>Diagnosis</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {referrals.map((referral: ReferralListItem) => (
-                      <TableRow key={referral.id} className="cursor-pointer hover:bg-muted/50">
-                        <TableCell className="font-medium">
-                          {referral.patient_first_name} {referral.patient_middle_name}{" "}
-                          {referral.patient_last_name}
-                        </TableCell>
-                        <TableCell>{referral.department || "N/A"}</TableCell>
-                        <TableCell className="max-w-xs truncate">
-                          {referral.diagnosis || "N/A"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="secondary"
-                            className={STATUS_COLORS[referral.status] || ""}
-                          >
-                            {formatStatus(referral.status)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {formatDate(referral.created_at)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewDetails(referral.id)}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            Review
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+        {/* Recent Activity */}
+        <Card className="border bg-card shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="text-base font-semibold">
+              Recent Activity
+            </CardTitle>
+            <button className="text-xs font-medium text-primary hover:underline">
+              View All
+            </button>
+          </CardHeader>
+          <CardContent className="border-t border-border pt-4">
+            <div className="relative pl-4">
+              <div className="absolute left-3 top-0 bottom-0 w-px bg-border/70" />
+              <div className="space-y-4">
+                {activityItems.map((item) => (
+                  <div key={item.id} className="relative flex gap-3 pl-3">
+                    <div className="mt-1 flex h-3 w-3 shrink-0 items-center justify-center">
+                      <span
+                        className={`block h-3 w-3 rounded-full ${item.statusColor}`}
+                      />
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-medium text-foreground">
+                        {item.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.subtitle}
+                      </p>
+                      <p className="text-[10px] font-medium tracking-[0.16em] text-muted-foreground/70">
+                        {item.timeAgo}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
+            </div>
+          </CardContent>
+        </Card>
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Page {page} of {totalPages} ({referralsData?.total} total)
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={page === 1}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={page === totalPages}
-                    >
-                      Next
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
+        {/* Right column: Action Required + Active Staff */}
+        <div className="space-y-4">
+          {/* Action Required */}
+          <Card className="border bg-blue-50/80 shadow-sm dark:bg-slate-900/60">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Bell className="h-4 w-4 text-blue-500 dark:text-blue-300" />
+                <CardTitle className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                  Action Required
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-0">
+              <div className="space-y-2 rounded-xl bg-white px-3 py-3 dark:bg-slate-900/80">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-500">
+                  Emergency
+                </p>
+                <p className="text-sm font-medium text-slate-900">
+                  Stat Referral #4030
+                </p>
+                <p className="text-xs text-slate-500">
+                  Needs review within 15m
+                </p>
+              </div>
+              <div className="space-y-2 rounded-xl bg-white px-3 py-3 dark:bg-slate-900/80">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-500">
+                  Clarification
+                </p>
+                <p className="text-sm font-medium text-slate-900">
+                  Dr. Peterson reply
+                </p>
+                <p className="text-xs text-slate-500">
+                  Document upload pending
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Active Staff */}
+          <Card className="border bg-card shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-sm font-semibold">
+                Active Staff
+              </CardTitle>
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-200">
+                12 ONLINE
+              </span>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-0">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200">
+                    <span className="text-xs font-semibold">JW</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Dr. James Wilson
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Chief Liaison
+                    </p>
                   </div>
                 </div>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+                <button
+                  type="button"
+                  className="flex h-7 w-7 items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-50 text-sky-700 dark:bg-sky-500/20 dark:text-sky-200">
+                    <span className="text-xs font-semibold">ER</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Nurse Elena Rodriguez
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      ER Coordinator
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="flex h-7 w-7 items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <Button
+                variant="outline"
+                className="mt-2 w-full justify-center text-xs font-medium"
+              >
+                Full Directory
+                <ChevronRight className="ml-1 h-3 w-3" />
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };

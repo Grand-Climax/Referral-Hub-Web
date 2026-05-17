@@ -60,13 +60,11 @@ export const LIAISON_ROUTES = {
   LIST: "/api/v1/liaison/referrals/",
   APPROVED: "/api/v1/liaison/referrals/approved",
   REJECTED: "/api/v1/liaison/referrals/rejected",
-  INCOMING: "/api/v1/liaison/referrals/incoming",
   DASHBOARD_STATS: "/api/v1/liaison/referrals/dashboard/stats",
   GET_BY_ID: (id: string) => `/api/v1/liaison/referrals/${id}`,
   FORWARD: (id: string) => `/api/v1/liaison/referrals/${id}/forward`,
   READ: (id: string) => `/api/v1/liaison/referrals/${id}/read`,
   REJECT: (id: string) => `/api/v1/liaison/referrals/${id}/reject`,
-  REJECT_AFTER_SEND: (id: string) => `/api/v1/liaison/referrals/${id}/reject-after-send`,
   REVISE: (id: string) => `/api/v1/liaison/referrals/${id}/revise`,
   REVIEW_CHECKLIST: (id: string) =>
     `/api/v1/liaison/referrals/${id}/review-checklist`,

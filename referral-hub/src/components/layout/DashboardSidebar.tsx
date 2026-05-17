@@ -29,6 +29,7 @@ import {
   ClipboardList,
   CalendarCheck,
   ArrowLeftRight,
+  History,
   LogOut,
   Settings,
   Mail,
@@ -103,6 +104,14 @@ const NAV_BY_ROLE = {
     },
     { title: "Reports", url: "/liaison-officer/report", icon: Users },
   ],
+  receptionist: [
+    { title: "Dashboard", url: "/receptionist", icon: LayoutDashboard },
+    {
+      title: "Scheduled Patients",
+      url: "/receptionist/scheduled-patients",
+      icon: CalendarCheck,
+    },
+  ],
   dept_head: [
     { title: "Dashboard", url: "/department-head", icon: LayoutDashboard },
     {
@@ -134,6 +143,28 @@ const NAV_BY_ROLE = {
       icon: FileText,
     },
   ],
+  receiving_specialist: [
+    {
+      title: "Dashboard",
+      url: "/receiving-specialist",
+      icon: LayoutDashboard,
+    },
+    {
+      title: "Incoming Referrals",
+      url: "/receiving-specialist/referrals",
+      icon: FileText,
+    },
+    {
+      title: "Triage Queue",
+      url: "/receiving-specialist/traige-queue",
+      icon: ClipboardList,
+    },
+    {
+      title: "Archive",
+      url: "/receiving-specialist/archive",
+      icon: History,
+    },
+  ],
 };
 
 type RoleKey = keyof typeof NAV_BY_ROLE;
@@ -142,16 +173,20 @@ const ROLE_MAP: Record<string, RoleKey> = {
   REFERRING_DOCTOR: "referring_doctor",
   HOSPITAL_ADMIN: "hospital_admin",
   LIAISON_OFFICER: "liaison_officer",
+  RECEPTIONIST: "receptionist",
   DEPT_HEAD: "dept_head",
   MOH_ANALYST: "moh_analyst",
+  RECEIVING_SPECIALIST: "receiving_specialist",
 };
 
 const PROFILE_PATH_BY_ROLE: Record<RoleKey, string> = {
   referring_doctor: "/referring-doctor/profile",
   hospital_admin: "/hospital-admin/profile",
   liaison_officer: "/liaison-officer/profile",
+  receptionist: "/receptionist/profile",
   dept_head: "/department-head/profile",
   moh_analyst: "/analytics/profile",
+  receiving_specialist: "/receiving-specialist",
 };
 
 export function DashboardSidebar() {

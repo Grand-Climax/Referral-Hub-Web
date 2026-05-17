@@ -22,7 +22,8 @@ export function middleware(req: NextRequest) {
   if (token) {
     try {
       const decoded: any = jwtDecode(token);
-      role = decoded.role;
+      // Normalize role to uppercase for comparison
+      role = decoded.role?.toUpperCase();
     } catch (e) {
       console.error("Middleware token decode failed:", e);
     }

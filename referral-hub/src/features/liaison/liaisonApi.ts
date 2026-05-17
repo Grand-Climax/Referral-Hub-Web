@@ -22,24 +22,30 @@ export const liaisonApi = createApi({
         limit?: number;
         page_size?: number;
         status?: string;
-        listType?: "all" | "approved" | "rejected";
+        listType?: "all" | "approved" | "rejected" | "incoming";
+        sort_by?: string;
+        sort_order?: string;
       } | void
     >({
       query: (params) => {
         const pageNum = params?.page ?? 1;
-        const pageSize = params?.limit ?? params?.page_size ?? 10;
+        const pageSize = params?.limit ?? params?.page_size ?? 20;
         const url =
           params?.listType === "approved"
             ? LIAISON_ROUTES.APPROVED
             : params?.listType === "rejected"
               ? LIAISON_ROUTES.REJECTED
-              : LIAISON_ROUTES.LIST;
+              : params?.listType === "incoming"
+                ? LIAISON_ROUTES.INCOMING
+                : LIAISON_ROUTES.LIST;
 
         return {
           url,
           params: {
             page: pageNum,
             limit: pageSize,
+            sort_by: params?.sort_by || "created_at",
+            sort_order: params?.sort_order || "desc",
             ...(params?.status && !params?.listType ? { status: params.status } : {}),
           },
         };
@@ -47,7 +53,7 @@ export const liaisonApi = createApi({
       transformResponse: (raw: ReferralListPaginatedResponse) => ({
         data: Array.isArray(raw.data) ? raw.data : [],
         page: Number(raw.page ?? 1),
-        page_size: Number(raw.page_size ?? raw.limit ?? 10),
+        page_size: Number(raw.page_size ?? raw.limit ?? 20),
         total: Number(raw.total ?? 0),
       }),
       providesTags: ["Referral"],
@@ -106,6 +112,22 @@ export const liaisonApi = createApi({
       invalidatesTags: (result, error, { id }) => [
         { type: "Referral", id },
         "Referral",
+        { type: "LiaisonDashboardStats", id: "STATS" },
+      ],
+    }),
+    rejectAfterSend: builder.mutation<
+      Referral,
+      { id: string; reason?: string; [key: string]: any }
+    >({
+      query: ({ id, ...body }) => ({
+        url: LIAISON_ROUTES.REJECT_AFTER_SEND(id),
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        { type: "Referral", id },
+        "Referral",
+        { type: "LiaisonDashboardStats", id: "STATS" },
       ],
     }),
     getLiaisonDashboardStats: builder.query<LiaisonDashboardStats, void>({
@@ -182,6 +204,7 @@ export const {
   useReadReferralMutation,
   useRejectReferralMutation,
   useReviseReferralMutation,
+  useRejectAfterSendMutation,
   useGetLiaisonDashboardStatsQuery,
   useGetReviewChecklistQuery,
   useUpdateReviewChecklistMutation,

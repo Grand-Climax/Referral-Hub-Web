@@ -107,6 +107,18 @@ export interface ReferralAttachment {
   uploaded_at: string;
 }
 
+export interface Hospital {
+  id: string;
+  name: string;
+  region?: string;
+  tier_level?: string;
+}
+
+export interface Department {
+  id: string;
+  name: string;
+}
+
 export interface Referral {
   id: string;
   patient_id: string;
@@ -130,6 +142,9 @@ export interface Referral {
   emergency_detail?: EmergencyDetail;
   attachments?: ReferralAttachment[];
   comments?: ReferralComment[];
+  target_department?: Department;
+  receiver_hospital?: Hospital;
+  sender_hospital?: Hospital;
 
   [key: string]: unknown;
   severity?: SeverityLevel;

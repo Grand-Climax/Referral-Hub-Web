@@ -6,7 +6,9 @@ export default function LiaisonAllReferralsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Referrals</h1>
-          <p className="text-muted-foreground mt-2">Manage all incoming and outgoing referral requests.</p>
+          <p className="text-muted-foreground mt-2">
+            Manage all incoming and outgoing referral requests.
+          </p>
         </div>
       </div>
       <ReferralsTable statusFilter="all" />

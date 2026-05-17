@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,6 +20,13 @@ import type { SystemAdminUser } from "@/types/system-admin";
 import { ImageMinus, PencilLine, Trash2 } from "lucide-react";
 import { useGetHospitalByIdQuery } from "@/features/hospitals/hospitalsApi";
 
+function getUserInitials(user: SystemAdminUser) {
+  const first = user.first_name?.[0] ?? "";
+  const last = user.last_name?.[0] ?? "";
+  const initials = `${first}${last}`.trim();
+  return initials ? initials.toUpperCase() : "?";
+}
+
 interface SystemAdminUsersTableProps {
   users: SystemAdminUser[];
   selectedUserId: string | null;
@@ -27,6 +34,11 @@ interface SystemAdminUsersTableProps {
   onEdit: (user: SystemAdminUser) => void;
   onDelete: (user: SystemAdminUser) => void;
   onModerateImage: (userId: string) => void;
+  page: number;
+  pageSize: number;
+  total?: number;
+  isFetching?: boolean;
+  onPageChange: (page: number) => void;
 }
 
 function getStatusTone(isActive?: boolean) {
@@ -51,24 +63,24 @@ export function SystemAdminUsersTable({
   onEdit,
   onDelete,
   onModerateImage,
+  page,
+  pageSize,
+  total,
+  isFetching = false,
+  onPageChange,
 }: SystemAdminUsersTableProps) {
-  const pageSize = 10;
-  const [currentPage, setCurrentPage] = useState(1);
+  const knownTotal = typeof total === "number" ? total : undefined;
+  const pageHasMore = users.length === pageSize;
+  const hasNextPage =
+    knownTotal !== undefined ? page * pageSize < knownTotal : pageHasMore;
+  const hasPrevPage = page > 1;
 
-  const totalItems = users.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const rangeStart = users.length === 0 ? 0 : (page - 1) * pageSize + 1;
+  const rangeEnd = (page - 1) * pageSize + users.length;
+  const totalPages =
+    knownTotal !== undefined ? Math.max(1, Math.ceil(knownTotal / pageSize)) : undefined;
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [users]);
-
-  const paginatedUsers = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
-    return users.slice(startIndex, startIndex + pageSize);
-  }, [users, currentPage]);
-
-  const rangeStart = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const rangeEnd = Math.min(currentPage * pageSize, totalItems);
+  const showFooter = users.length > 0 || page > 1;
 
   return (
     <Card className="border-border/60 bg-background/80 shadow-sm">
@@ -94,17 +106,19 @@ export function SystemAdminUsersTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedUsers.length === 0 ? (
+            {users.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={5}
                   className="px-6 py-10 text-center text-sm text-muted-foreground"
                 >
-                  No users match the current filters.
+                  {isFetching
+                    ? "Loading users..."
+                    : "No users match the current filters."}
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedUsers.map((user) => {
+              users.map((user) => {
                 const isSelected = selectedUserId === user.id;
                 const isBusy = loadingUserId === user.id;
 
@@ -114,18 +128,30 @@ export function SystemAdminUsersTable({
                     className={isSelected ? "bg-primary/5" : undefined}
                   >
                     <TableCell className="px-6 py-4">
-                      <div className="space-y-1">
-                        <p className="font-medium text-foreground">
-                          {[user.first_name, user.middle_name, user.last_name]
-                            .filter(Boolean)
-                            .join(" ")}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {user.email}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          ID: {user.id}
-                        </p>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10 border border-border/60">
+                          <AvatarImage
+                            src={user.profile_image_url ?? undefined}
+                            alt={`${user.first_name ?? ""} ${user.last_name ?? ""}`.trim()}
+                            className="object-cover object-center"
+                          />
+                          <AvatarFallback className="bg-muted text-[11px] font-medium text-muted-foreground">
+                            {getUserInitials(user)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="space-y-1">
+                          <p className="font-medium text-foreground">
+                            {[user.first_name, user.middle_name, user.last_name]
+                              .filter(Boolean)
+                              .join(" ")}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {user.email}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            ID: {user.id}
+                          </p>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="px-6 py-4">
@@ -191,32 +217,34 @@ export function SystemAdminUsersTable({
           </TableBody>
         </Table>
 
-        {totalItems > 0 ? (
+        {showFooter ? (
           <div className="flex flex-col gap-3 border-t border-border/60 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
-              Showing {rangeStart}-{rangeEnd} of {totalItems} users
+              {knownTotal !== undefined
+                ? `Showing ${rangeStart}-${rangeEnd} of ${knownTotal} user${knownTotal === 1 ? "" : "s"}`
+                : `Showing ${rangeStart}-${rangeEnd}`}
             </p>
             <div className="flex items-center gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                disabled={currentPage === 1}
+                onClick={() => onPageChange(Math.max(1, page - 1))}
+                disabled={!hasPrevPage || isFetching}
               >
                 Previous
               </Button>
               <span className="px-2 text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages}
+                {totalPages !== undefined
+                  ? `Page ${page} of ${totalPages}`
+                  : `Page ${page}`}
               </span>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() =>
-                  setCurrentPage((page) => Math.min(totalPages, page + 1))
-                }
-                disabled={currentPage === totalPages}
+                onClick={() => onPageChange(page + 1)}
+                disabled={!hasNextPage || isFetching}
               >
                 Next
               </Button>

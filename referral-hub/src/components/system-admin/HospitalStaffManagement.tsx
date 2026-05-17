@@ -78,22 +78,27 @@ export function HospitalStaffManagement() {
     );
   }, [hospitals, hospitalSearchTerm]);
 
+  const STAFF_PAGE_SIZE = 10;
+  const [staffPage, setStaffPage] = useState(1);
+
   const backendQueryParams = useMemo<SystemAdminUsersQueryParams>(
     () => ({
-      page: 1,
-      page_size: 100,
+      page: staffPage,
+      page_size: STAFF_PAGE_SIZE,
       hospital_id: selectedHospitalId || undefined,
     }),
-    [selectedHospitalId],
+    [selectedHospitalId, staffPage],
   );
 
   const {
-    data: users = [],
+    data: usersPage,
     isFetching: isUsersFetching,
     refetch: refetchUsers,
   } = useGetSystemAdminUsersQuery(backendQueryParams, {
     skip: !selectedHospitalId,
   });
+  const users = usersPage?.users ?? [];
+  const totalStaff = usersPage?.total;
 
   const [createUser, { isLoading: isCreating }] =
     useCreateSystemAdminUserMutation();
@@ -106,14 +111,10 @@ export function HospitalStaffManagement() {
 
   useEffect(() => {
     setSelectedUser(null);
+    setStaffPage(1);
   }, [selectedHospitalId]);
 
-  const filteredUsers = useMemo(() => {
-    if (!selectedHospitalId) return [] as SystemAdminUser[];
-    return users.filter(
-      (user) => !user.hospital_id || user.hospital_id === selectedHospitalId,
-    );
-  }, [users, selectedHospitalId]);
+  const filteredUsers = selectedHospitalId ? users : [];
 
   const openCreateDialog = () => {
     setSelectedUser(null);
@@ -325,8 +326,9 @@ export function HospitalStaffManagement() {
 
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {filteredUsers.length} staff member
-          {filteredUsers.length === 1 ? "" : "s"}
+          {totalStaff !== undefined
+            ? `${totalStaff} staff member${totalStaff === 1 ? "" : "s"}`
+            : `${filteredUsers.length} staff member${filteredUsers.length === 1 ? "" : "s"}`}
         </p>
       </div>
 
@@ -339,10 +341,15 @@ export function HospitalStaffManagement() {
         onModerateImage={(user: string | SystemAdminUser) => {
           void handleModerateImage(typeof user === "string" ? user : user.id);
         }}
+        page={staffPage}
+        pageSize={STAFF_PAGE_SIZE}
+        total={totalStaff}
+        isFetching={isUsersFetching}
+        onPageChange={setStaffPage}
       />
 
       <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
-        <DialogContent className="max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {selectedUser ? "Update staff member" : "Add new staff member"}

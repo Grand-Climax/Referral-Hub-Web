@@ -4,6 +4,7 @@ export type ReferralListStatus =
   | "PENDING"
   | "FORWARDED"
   | "UNDER_SPECIALIST_REVIEW"
+  | "REDIRECTED"
   | "ACCEPTED"
   | "REJECTED"
   | "REJECTED_BY_SP ECIALIST"

@@ -1,11 +1,10 @@
 "use client";
 
 import React from "react";
-import { MOCK_REFERRALS } from "@/data/mock";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatDistanceToNow, differenceInYears } from "date-fns";
+import { formatDistanceToNow, differenceInYears, format } from "date-fns";
 import {
   Printer,
   Share2,
@@ -19,18 +18,15 @@ import {
   XCircle,
   CornerUpRight,
   Clock,
-  Plus,
   ChevronLeft,
+  Stethoscope,
+  ClipboardList,
 } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
+import { AcceptReferralDialog } from "./accept-referral-dialog";
+import { RejectReferralDialog } from "./reject-referral-dialog";
+import { RedirectReferralDialog } from "./redirect-referral-dialog";
+import { ReleaseReferralDialog } from "./release-referral-dialog";
 import {
   useGetReferralByIdQuery,
   useAcceptReferralMutation,
@@ -46,12 +42,50 @@ import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
+function formatBytes(bytes?: number) {
+  if (!bytes || bytes <= 0) return "—";
+  const units = ["B", "KB", "MB", "GB"];
+  const i = Math.min(
+    units.length - 1,
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+  );
+  const value = bytes / Math.pow(1024, i);
+  return `${value.toFixed(value >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+function humanize(value?: string | null) {
+  if (!value) return "—";
+  return value
+    .toString()
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+async function downloadAttachment(url: string, fileName: string) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Failed to download file");
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl;
+    anchor.download = fileName || "attachment";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(objectUrl);
+  } catch (error) {
+    toast.error("Unable to download attachment.");
+  }
+}
+
 const ReferralDetail = ({ referralId }: { referralId: string }) => {
   const router = useRouter();
-  const [rejectionReason, setRejectionReason] = useState("");
-  const [redirectHospitalId, setRedirectHospitalId] = useState("");
-  const [redirectReason, setRedirectReason] = useState("");
-  const [releaseReason, setReleaseReason] = useState("");
+  const [isAcceptDialogOpen, setIsAcceptDialogOpen] = useState(false);
+  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [isRedirectDialogOpen, setIsRedirectDialogOpen] = useState(false);
+  const [isReleaseDialogOpen, setIsReleaseDialogOpen] = useState(false);
   const {
     data: referral,
     isLoading,
@@ -111,37 +145,41 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
     }
   }, [referral?.status, referralId, isMarkingRead]);
 
-  const handleRelease = async () => {
-    if (!releaseReason.trim()) {
+  const handleRelease = async (reason: string) => {
+    if (!reason) {
       toast.error("Please provide a reason for releasing this referral.");
       return;
     }
 
     try {
-      await releaseReferral({
-        id: referralId,
-        reason: releaseReason.trim(),
-      }).unwrap();
+      await releaseReferral({ id: referralId, reason }).unwrap();
       toast.success("Referral released (unassigned).");
+      setIsReleaseDialogOpen(false);
       router.push("/receiving-specialist/referrals");
     } catch (error) {
       toast.error("Failed to release referral.");
     }
   };
 
-  const handleRedirect = async () => {
-    if (!redirectHospitalId) {
+  const handleRedirect = async ({
+    hospitalId,
+    reason,
+  }: {
+    hospitalId: string;
+    reason: string;
+  }) => {
+    if (!hospitalId) {
       toast.error("Please select a hospital to redirect this referral.");
       return;
     }
 
-    if (!redirectReason.trim()) {
+    if (!reason) {
       toast.error("Please provide a reason for redirecting this referral.");
       return;
     }
 
     const selectedHospital = redirectOptions.find(
-      (hospital) => hospital.id === redirectHospitalId,
+      (hospital) => hospital.id === hospitalId,
     );
     const departmentId =
       selectedHospital?.department_id ||
@@ -149,18 +187,21 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
       referral?.target_dept_id;
 
     if (!departmentId) {
-      toast.error("No department is available for the selected redirect hospital.");
+      toast.error(
+        "No department is available for the selected redirect hospital.",
+      );
       return;
     }
 
     try {
       await redirectReferral({
         id: referralId,
-        target_hospital_id: redirectHospitalId,
+        target_hospital_id: hospitalId,
         department_id: departmentId,
-        reason: redirectReason.trim(),
+        reason,
       }).unwrap();
       toast.success("Referral redirected successfully.");
+      setIsRedirectDialogOpen(false);
       router.push("/receiving-specialist/referrals");
     } catch (error) {
       toast.error("Failed to redirect referral.");
@@ -171,22 +212,24 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
     try {
       await acceptReferral(referralId).unwrap();
       toast.success("Referral accepted successfully.");
+      setIsAcceptDialogOpen(false);
     } catch (error) {
       toast.error("Failed to accept referral.");
     }
   };
 
-  const handleReject = async () => {
-    if (!rejectionReason.trim()) {
+  const handleReject = async (reason: string) => {
+    if (!reason) {
       toast.error("Please provide a clinical justification for rejection.");
       return;
     }
     try {
       await rejectReferral({
         id: referralId,
-        rejection_reason: rejectionReason,
+        rejection_reason: reason,
       }).unwrap();
       toast.success("Referral rejected successfully.");
+      setIsRejectDialogOpen(false);
     } catch (error) {
       toast.error("Failed to reject referral.");
     }
@@ -217,6 +260,9 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
 
   const patient = referral.patient;
   const latestVitals = referral.vitals?.[0];
+  const diagnoses = referral.diagnoses ?? [];
+  const attachments = referral.attachments ?? [];
+  const referralForm = referral.referral_form;
   const patientFullName =
     [patient?.first_name, patient?.middle_name, patient?.last_name]
       .filter(Boolean)
@@ -224,23 +270,37 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
   const dob = patient?.date_of_birth ? new Date(patient.date_of_birth) : null;
   const age = dob ? differenceInYears(new Date(), dob) : null;
   const dobLabel = dob ? dob.toLocaleDateString() : "Unknown";
+  const sexLabel = patient?.sex
+    ? patient.sex.charAt(0).toUpperCase() + patient.sex.slice(1)
+    : "Unknown";
   const bpLabel = latestVitals
     ? `${latestVitals.systolic_bp}/${latestVitals.diastolic_bp}`
     : "N/A";
   const heartRate = latestVitals?.heart_rate;
   const spO2 = latestVitals?.sp_o2;
   const temperature = latestVitals?.temperature;
-  const diagnosis =
-    referral.diagnoses?.[0]?.code_info?.description ?? "Not specified";
-  const clinicalSummary =
-    referral.referral_form?.clinical_summary ?? "No summary provided.";
-  const historyText =
-    referral.referral_form?.patient_history ??
-    "No relevant medical history provided.";
+  const respiratoryRate = latestVitals?.respiratory_rate;
+  const gcsScore = latestVitals?.gcs_score;
+  const vitalsRecordedAt = latestVitals?.recorded_at
+    ? format(new Date(latestVitals.recorded_at), "PPp")
+    : null;
+  const historyText = referralForm?.patient_history?.trim() || "";
+  const examFindings = referralForm?.physical_examination_findings?.trim() || "";
+  const investigationResults = referralForm?.investigation_results?.trim() || "";
+  const statusKey = String(referral.status);
   const displayStatus =
-    referral.status === "PENDING" ? "Pending Review" : referral.status;
+    statusKey === "PENDING" ? "Pending Review" : humanize(statusKey);
+  const canRedirect = statusKey === "UNDER_SPECIALIST_REVIEW";
+  const canTakeDecision =
+    statusKey === "UNDER_SPECIALIST_REVIEW" || statusKey === "REDIRECTED";
   const severityScore =
     referral.ml_status === "SUCCESS" ? (referral.waiting_hours_weight ?? 0) : 0;
+  const createdAtLabel = referral.created_at
+    ? format(new Date(referral.created_at), "PPp")
+    : "—";
+  const updatedAtLabel = referral.updated_at
+    ? format(new Date(referral.updated_at), "PPp")
+    : null;
 
   return (
     <div className="mx-auto space-y-6 pb-12">
@@ -267,10 +327,20 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
             </Badge>
           </div>
 
-          <div className="flex items-center text-sm text-muted-foreground mt-2">
-            <Clock className="h-4 w-4 mr-1.5" />
-            Submitted {formatDistanceToNow(new Date(referral.created_at))} ago
-            by {doctorName} (Primary Care)
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground mt-2">
+            <span className="inline-flex items-center">
+              <Clock className="h-4 w-4 mr-1.5" />
+              Submitted {formatDistanceToNow(new Date(referral.created_at))} ago
+              {doctorName ? ` by ${doctorName}` : ""}
+            </span>
+            {referral.triage_status ? (
+              <Badge
+                variant="outline"
+                className="border-blue-200 bg-blue-50 text-blue-700 text-[10px] uppercase tracking-wider"
+              >
+                Triage: {humanize(referral.triage_status)}
+              </Badge>
+            ) : null}
           </div>
         </div>
 
@@ -303,8 +373,7 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
                     Age / Gender
                   </p>
                   <p className="font-medium">
-                    {age ?? "Unknown"} Years /{" "}
-                    {patient?.sex === "male" ? "Male" : "Female"}
+                    {age ?? "Unknown"} Years / {sexLabel}
                   </p>
                 </div>
                 <div>
@@ -318,14 +387,14 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
                     Phone
                   </p>
                   <p className="font-medium">
-                    {patient?.phone_number || "(555) 123-4567"}
+                    {patient?.phone_number || "—"}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                    Insurance
+                    Home Region
                   </p>
-                  <p className="font-medium">BlueCross Platinum</p>
+                  <p className="font-medium">{patient?.home_region || "—"}</p>
                 </div>
               </div>
             </CardContent>
@@ -348,10 +417,17 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
             <CardContent className="p-6 space-y-8">
               {/* Vitals */}
               <div>
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                  Latest Vitals (T-0H)
-                </h3>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="flex items-baseline justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                    Latest Vitals
+                  </h3>
+                  {vitalsRecordedAt ? (
+                    <span className="text-[11px] text-muted-foreground">
+                      Recorded {vitalsRecordedAt}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="bg-muted/40 rounded-lg p-4">
                     <p className="text-xs text-muted-foreground mb-1">BP</p>
                     <div className="flex items-baseline gap-2">
@@ -367,116 +443,253 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
                     <p className="text-xs text-muted-foreground mb-1">
                       Heart Rate
                     </p>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-xl font-bold">
-                        {heartRate ?? "N/A"} bpm
-                      </span>
-                    </div>
+                    <span className="text-xl font-bold">
+                      {heartRate ?? "—"} bpm
+                    </span>
                   </div>
                   <div className="bg-muted/40 rounded-lg p-4">
                     <p className="text-xs text-muted-foreground mb-1">SpO2</p>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-xl font-bold">
-                        {spO2 ?? "N/A"}%
-                      </span>
-                    </div>
+                    <span className="text-xl font-bold">
+                      {spO2 ?? "—"}%
+                    </span>
                   </div>
                   <div className="bg-muted/40 rounded-lg p-4">
                     <p className="text-xs text-muted-foreground mb-1">Temp</p>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-xl font-bold">
-                        {temperature ?? "N/A"} &deg;F
+                    <span className="text-xl font-bold">
+                      {temperature ?? "—"} &deg;C
+                    </span>
+                  </div>
+                  <div className="bg-muted/40 rounded-lg p-4">
+                    <p className="text-xs text-muted-foreground mb-1">
+                      Respiratory Rate
+                    </p>
+                    <span className="text-xl font-bold">
+                      {respiratoryRate ?? "—"} /min
+                    </span>
+                  </div>
+                  <div className="bg-muted/40 rounded-lg p-4">
+                    <p className="text-xs text-muted-foreground mb-1">
+                      GCS Score
+                    </p>
+                    <span className="text-xl font-bold">
+                      {gcsScore ?? "—"}
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {gcsScore != null ? " / 15" : ""}
                       </span>
-                    </div>
+                    </span>
                   </div>
                 </div>
               </div>
 
               {/* Reason for Referral */}
               <div>
-                <h3 className="text-sm font-semibold text-foreground mb-2">
-                  Reason for Referral
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {referral.referral_form?.reason_of_referral ??
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Reason for Referral
+                  </h3>
+                  {referralForm?.reason_for_referral_category ? (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] uppercase tracking-wider"
+                    >
+                      {humanize(referralForm.reason_for_referral_category)}
+                    </Badge>
+                  ) : null}
+                  {referralForm?.condition_at_referral ? (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] uppercase tracking-wider"
+                    >
+                      Condition:{" "}
+                      {humanize(referralForm.condition_at_referral)}
+                    </Badge>
+                  ) : null}
+                  {referralForm?.mode_of_transport ? (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] uppercase tracking-wider"
+                    >
+                      Transport: {humanize(referralForm.mode_of_transport)}
+                    </Badge>
+                  ) : null}
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                  {referralForm?.reason_of_referral?.trim() ||
                     "No reason provided."}
                 </p>
               </div>
 
-              {/* Relevant Medical History */}
+              {/* Clinical Summary */}
+              {referralForm?.clinical_summary?.trim() ? (
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground mb-2">
+                    Clinical Summary
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                    {referralForm.clinical_summary}
+                  </p>
+                </div>
+              ) : null}
+
+              {/* Diagnoses */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Stethoscope className="h-4 w-4 text-blue-600" />
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Diagnoses
+                  </h3>
+                </div>
+                {diagnoses.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No diagnoses recorded.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {diagnoses.map((diagnosis) => (
+                      <li
+                        key={diagnosis.id}
+                        className="flex flex-col gap-1 rounded-lg border border-border bg-background p-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-xs font-semibold text-foreground">
+                              {diagnosis.icd_code}
+                            </span>
+                            {diagnosis.is_primary ? (
+                              <Badge className="bg-blue-600 hover:bg-blue-600 text-[10px] uppercase tracking-wider">
+                                Primary
+                              </Badge>
+                            ) : null}
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] uppercase tracking-wider"
+                            >
+                              {humanize(diagnosis.diagnosis_certainty)}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-foreground">
+                            {diagnosis.code_info?.description ?? "—"}
+                          </p>
+                          {diagnosis.code_info?.category ? (
+                            <p className="text-xs text-muted-foreground">
+                              {diagnosis.code_info.category}
+                            </p>
+                          ) : null}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* Patient History */}
               <div>
                 <h3 className="text-sm font-semibold text-foreground mb-2">
                   Relevant Medical History
                 </h3>
-                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                  {historyText ? (
-                    historyText.split(". ").map((item: string, idx: number) => {
-                      if (!item) return null;
-                      return (
-                        <li key={idx}>
-                          {item.trim()}
-                          {item.endsWith(".") ? "" : "."}
-                        </li>
-                      );
-                    })
-                  ) : (
-                    <li>No relevant medical history provided.</li>
-                  )}
-                </ul>
+                {historyText ? (
+                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                    {historyText}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No relevant medical history provided.
+                  </p>
+                )}
               </div>
+
+              {/* Physical Exam */}
+              {examFindings ? (
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground mb-2">
+                    Physical Examination Findings
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                    {examFindings}
+                  </p>
+                </div>
+              ) : null}
+
+              {/* Investigation Results */}
+              {investigationResults ? (
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground mb-2">
+                    Investigation Results
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                    {investigationResults}
+                  </p>
+                </div>
+              ) : null}
 
               {/* Attached Documentation */}
               <div>
-                <h3 className="text-sm font-semibold text-foreground mb-3">
-                  Attached Documentation
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center justify-between p-3 border border-border rounded-lg bg-background">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <div className="p-2 bg-blue-50 text-blue-600 rounded-md shrink-0">
-                        <FileText className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          Abdominal_Ultrasound_Report.pdf
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          2.4 MB &bull; May 12, 2024
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="shrink-0 text-muted-foreground hover:text-foreground"
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 border border-border rounded-lg bg-background">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <div className="p-2 bg-blue-50 text-blue-600 rounded-md shrink-0">
-                        <FileText className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          Blood_Panel_Results_Complete.pdf
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          1.1 MB &bull; May 10, 2024
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="shrink-0 text-muted-foreground hover:text-foreground"
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                  </div>
+                <div className="flex items-center gap-2 mb-3">
+                  <ClipboardList className="h-4 w-4 text-blue-600" />
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Attached Documentation
+                  </h3>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] uppercase tracking-wider"
+                  >
+                    {attachments.length} file
+                    {attachments.length === 1 ? "" : "s"}
+                  </Badge>
                 </div>
+                {attachments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No attachments uploaded.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {attachments.map((attachment) => {
+                      const uploadedLabel = attachment.uploaded_at
+                        ? format(new Date(attachment.uploaded_at), "PP")
+                        : null;
+                      return (
+                        <div
+                          key={attachment.id}
+                          className="flex items-center justify-between p-3 border border-border rounded-lg bg-background"
+                        >
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="p-2 bg-blue-50 text-blue-600 rounded-md shrink-0">
+                              <FileText className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">
+                                {attachment.file_name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatBytes(attachment.file_size)}
+                                {uploadedLabel
+                                  ? ` \u2022 ${uploadedLabel}`
+                                  : ""}
+                                {attachment.category
+                                  ? ` \u2022 ${humanize(attachment.category)}`
+                                  : ""}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0 text-muted-foreground hover:text-foreground"
+                            onClick={() =>
+                              downloadAttachment(
+                                attachment.storage_path,
+                                attachment.file_name,
+                              )
+                            }
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -562,154 +775,83 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
                 </div>
               )}
 
-              {referral.status === "UNDER_SPECIALIST_REVIEW" && (
-                <>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                      Redirect To Hospital
-                    </label>
-                    <Select
-                      value={redirectHospitalId}
-                      onValueChange={setRedirectHospitalId}
-                      disabled={isFetchingRedirectOptions || isRedirecting}
-                    >
-                      <SelectTrigger className="bg-background">
-                        <SelectValue
-                          placeholder={
-                            isFetchingRedirectOptions
-                              ? "Loading hospitals..."
-                              : "Select hospital"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {redirectOptions.length === 0 ? (
-                          <div className="px-3 py-2 text-sm text-muted-foreground">
-                            No redirect hospitals available
-                          </div>
-                        ) : (
-                          redirectOptions.map((hospital) => (
-                            <SelectItem key={hospital.id} value={hospital.id}>
-                              {hospital.name}
-                              {hospital.region ? ` - ${hospital.region}` : ""}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                      Redirect Reason
-                    </label>
-                    <Textarea
-                      placeholder="Explain why this referral should be redirected..."
-                      className="resize-none h-20 bg-background"
-                      value={redirectReason}
-                      onChange={(e) => setRedirectReason(e.target.value)}
-                    />
-                  </div>
+              {canTakeDecision && (
+                <div className="space-y-3">
+                  {!canRedirect && (
+                    <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700">
+                      <Share2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        This referral was already redirected to your hospital
+                        and cannot be redirected again. You can accept, reject,
+                        or release it.
+                      </span>
+                    </div>
+                  )}
 
                   <Button
+                    type="button"
                     className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold h-11 gap-2"
-                    onClick={handleAccept}
+                    onClick={() => setIsAcceptDialogOpen(true)}
                     disabled={isAccepting}
                   >
-                    {isAccepting ? (
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    ) : (
-                      <CheckCircle2 className="h-5 w-5" />
-                    )}
+                    <CheckCircle2 className="h-5 w-5" />
                     Accept Referral
                   </Button>
 
-                  <Button
-                    variant="outline"
-                    className="w-full gap-2 border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                    onClick={handleRedirect}
-                    disabled={isRedirecting || !redirectHospitalId || !redirectReason.trim()}
-                  >
-                    {isRedirecting ? (
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-                    ) : (
+                  {canRedirect && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full gap-2 border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                      onClick={() => setIsRedirectDialogOpen(true)}
+                      disabled={isRedirecting}
+                    >
                       <Share2 className="h-4 w-4" />
-                    )}
-                    Redirect Referral
-                  </Button>
+                      Redirect Referral
+                    </Button>
+                  )}
 
                   <div className="grid grid-cols-2 gap-3">
                     <Button
+                      type="button"
                       variant="outline"
                       className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 gap-2"
-                      onClick={handleReject}
+                      onClick={() => setIsRejectDialogOpen(true)}
                       disabled={isRejecting}
                     >
-                      {isRejecting ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-rose-600 border-t-transparent" />
-                      ) : (
-                        <XCircle className="h-4 w-4" />
-                      )}
+                      <XCircle className="h-4 w-4" />
                       Reject
                     </Button>
                     <Button
+                      type="button"
                       variant="outline"
                       className="gap-2"
-                      onClick={handleRelease}
-                      disabled={isReleasing || !releaseReason.trim()}
+                      onClick={() => setIsReleaseDialogOpen(true)}
+                      disabled={isReleasing}
                     >
-                      {isReleasing ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-                      ) : (
-                        <CornerUpRight className="h-4 w-4" />
-                      )}
+                      <CornerUpRight className="h-4 w-4" />
                       Release
                     </Button>
                   </div>
-
-                  <div className="space-y-2 pt-2 border-t border-border">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                      Release Reason
-                    </label>
-                    <Textarea
-                      placeholder="Explain why you are releasing this referral..."
-                      className="resize-none h-20 bg-background"
-                      value={releaseReason}
-                      onChange={(e) => setReleaseReason(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2 pt-2 border-t border-border">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                      Reason for Rejection
-                    </label>
-                    <Textarea
-                      placeholder="Provide clinical justification..."
-                      className="resize-none h-20 bg-background"
-                      value={rejectionReason}
-                      onChange={(e) => setRejectionReason(e.target.value)}
-                    />
-                  </div>
-                </>
+                </div>
               )}
 
-              {referral.status !== "FORWARDED" &&
-                referral.status !== "UNDER_SPECIALIST_REVIEW" && (
-                  <div className="flex flex-col items-center justify-center p-8 bg-muted/20 rounded-lg border border-dashed border-border">
-                    <div className="text-sm font-medium text-muted-foreground mb-2">
-                      Current Status
-                    </div>
-                    <Badge
-                      variant="secondary"
-                      className="bg-orange-100 text-orange-700 hover:bg-orange-100 uppercase text-xs px-4 py-1"
-                    >
-                      {displayStatus}
-                    </Badge>
-                    <p className="text-[11px] text-muted-foreground mt-4 text-center">
-                      No actions available for this status.
-                    </p>
+              {!canTakeDecision && referral.status !== "FORWARDED" && (
+                <div className="flex flex-col items-center justify-center p-8 bg-muted/20 rounded-lg border border-dashed border-border">
+                  <div className="text-sm font-medium text-muted-foreground mb-2">
+                    Current Status
                   </div>
-                )}
+                  <Badge
+                    variant="secondary"
+                    className="bg-orange-100 text-orange-700 hover:bg-orange-100 uppercase text-xs px-4 py-1"
+                  >
+                    {displayStatus}
+                  </Badge>
+                  <p className="text-[11px] text-muted-foreground mt-4 text-center">
+                    No actions available for this status.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -731,7 +873,7 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
                       Referral Submitted
                     </span>
                     <span className="text-[10px] text-muted-foreground">
-                      Today, 09:12 AM
+                      {createdAtLabel}
                     </span>
                   </div>
                 </div>
@@ -745,10 +887,12 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
                 <div className="w-[calc(100%-2.5rem)] md:w-[calc(50%-1.5rem)] pl-3 md:pl-0 md:group-odd:pr-3 md:group-even:pl-3">
                   <div className="flex flex-col">
                     <span className="text-sm font-semibold text-foreground">
-                      Specialist Review
+                      {humanize(referral.status) || "Specialist Review"}
                     </span>
                     <span className="text-[10px] text-muted-foreground italic">
-                      In progress...
+                      {updatedAtLabel
+                        ? `Last update ${updatedAtLabel}`
+                        : "In progress..."}
                     </span>
                   </div>
                 </div>
@@ -774,6 +918,37 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
           </div>
         </div>
       </div>
+
+      <AcceptReferralDialog
+        open={isAcceptDialogOpen}
+        onOpenChange={setIsAcceptDialogOpen}
+        patientName={patientFullName}
+        onConfirm={handleAccept}
+        isSubmitting={isAccepting}
+      />
+
+      <RejectReferralDialog
+        open={isRejectDialogOpen}
+        onOpenChange={setIsRejectDialogOpen}
+        onConfirm={handleReject}
+        isSubmitting={isRejecting}
+      />
+
+      <RedirectReferralDialog
+        open={isRedirectDialogOpen}
+        onOpenChange={setIsRedirectDialogOpen}
+        hospitals={redirectOptions}
+        isLoadingHospitals={isFetchingRedirectOptions}
+        onConfirm={handleRedirect}
+        isSubmitting={isRedirecting}
+      />
+
+      <ReleaseReferralDialog
+        open={isReleaseDialogOpen}
+        onOpenChange={setIsReleaseDialogOpen}
+        onConfirm={handleRelease}
+        isSubmitting={isReleasing}
+      />
     </div>
   );
 };

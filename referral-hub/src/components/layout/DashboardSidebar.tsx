@@ -95,7 +95,7 @@ const NAV_BY_ROLE = {
     { title: "Dashboard", url: "/liaison-officer", icon: LayoutDashboard },
     {
       title: "Referrals",
-      url: "#",
+      url: "/liaison-officer/referrals",
       icon: ArrowLeftRight,
       items: [
         { title: "Approved", url: "/liaison-officer/referrals/approved" },
@@ -294,14 +294,15 @@ export function DashboardSidebar() {
             <SidebarMenu className="gap-1">
               {menuItems.map((item) => {
                 const Icon = item.icon;
-                // For items with sub-items, only highlight parent if on exact parent URL
-                // For items without sub-items, highlight if on that URL
-                const hasSubItems = Boolean(item.items && item.items.length > 0);
-                const isSubRouteActive = hasSubItems && item.items!.some((subItem) => pathname === subItem.url);
+                const isActive = item.items
+                  ? item.items.some((subItem) => pathname === subItem.url)
+                  : pathname === item.url;
                 const isMainRouteActive = pathname === item.url;
-                const isActive = hasSubItems ? isSubRouteActive : isMainRouteActive;
+                const isSubRouteActive = Boolean(
+                  item.items?.some((subItem) => pathname === subItem.url),
+                );
 
-                if (hasSubItems) {
+                if (item.items && item.items.length > 0) {
                   return (
                     <Collapsible
                       key={item.title}
@@ -313,14 +314,10 @@ export function DashboardSidebar() {
                         <CollapsibleTrigger asChild>
                           <SidebarMenuButton
                             tooltip={item.title}
-                            isActive={false}
-                            onClick={(e) => {
-                              if (item.url !== "#") {
-                                router.push(item.url);
-                              }
-                            }}
+                            isActive={isMainRouteActive}
+                            onClick={() => router.push(item.url)}
                             className={`group-data-[collapsible=icon]:justify-center ${
-                              isMainRouteActive && !isSubRouteActive && item.url !== "#"
+                              isMainRouteActive
                                 ? "bg-primary/10 text-primary font-semibold border-l-primary border-l-[3px] rounded-l-md"
                                 : "text-sidebar-foreground"
                             }`}
@@ -334,7 +331,7 @@ export function DashboardSidebar() {
                         </CollapsibleTrigger>
                         <CollapsibleContent>
                           <SidebarMenuSub>
-                            {item.items!.map((subItem) => {
+                            {item.items.map((subItem) => {
                               const isSubItemActive = pathname === subItem.url;
 
                               return (

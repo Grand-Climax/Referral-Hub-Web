@@ -163,3 +163,10 @@ export const ADMIN_NETWORK_ROUTES = {
 export const ADMIN_CONFIG_ROUTES = {
   CONFIG: "/api/v1/admin/config",
 } as const;
+
+export const NOTIFICATION_ROUTES = {
+  LIST: "/api/v1/me/notifications",
+  UNREAD_COUNT: "/api/v1/me/notifications/unread-count",
+  READ: (id: string) => `/api/v1/me/notifications/${id}/read`,
+  READ_ALL: "/api/v1/me/notifications/read-all",
+} as const;

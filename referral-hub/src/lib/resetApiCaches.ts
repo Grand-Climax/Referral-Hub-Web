@@ -17,6 +17,7 @@ import { departmentHeadApi } from "@/features/department-head/departmentHeadApi"
 import { usersApi } from "@/features/users/usersApi";
 import { networkRoutesApi } from "@/features/networkRoutes/networkRoutesApi";
 import { adminConfigApi } from "@/features/adminConfig/adminConfigApi";
+import { notificationsApi } from "@/features/notifications/notificationsApi";
 import { mohAnalyticsApi } from "@/features/analytics/mohAnalyticsApi";
 
 const apiSlices = [
@@ -38,6 +39,7 @@ const apiSlices = [
   usersApi,
   networkRoutesApi,
   adminConfigApi,
+  notificationsApi,
   mohAnalyticsApi,
 ] as const;
 

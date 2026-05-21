@@ -60,6 +60,7 @@ import {
   UserCircle2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/apiError';
 
 type StaffForm = {
   email: string;
@@ -176,8 +177,8 @@ export function StaffDetailProfile({ staffId }: { staffId: string }) {
       toast.success('Staff updated successfully');
       setIsEditing(false);
       refetch();
-    } catch {
-      toast.error('Could not save changes. Please try again.');
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Could not save changes. Please try again.'));
     }
   };
 
@@ -187,8 +188,8 @@ export function StaffDetailProfile({ staffId }: { staffId: string }) {
       toast.success('Staff member removed');
       setDeleteOpen(false);
       router.push('/hospital-admin/staff-management');
-    } catch {
-      toast.error('Failed to delete staff member');
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Failed to delete staff member'));
     }
   };
 

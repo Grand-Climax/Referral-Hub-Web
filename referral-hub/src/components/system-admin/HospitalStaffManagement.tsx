@@ -14,6 +14,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -140,7 +141,7 @@ export function HospitalStaffManagement() {
       await refetchUsers();
     } catch (error) {
       console.error(error);
-      toast.error("Action failed. Please try again.");
+      toast.error(getApiErrorMessage(error, "Action failed. Please try again."));
     } finally {
       setLoadingUserId(null);
     }
@@ -159,7 +160,7 @@ export function HospitalStaffManagement() {
       await refetchUsers();
     } catch (error) {
       console.error(error);
-      toast.error("Could not create staff member.");
+      toast.error(getApiErrorMessage(error, "Could not create staff member."));
     }
   };
 
@@ -176,7 +177,7 @@ export function HospitalStaffManagement() {
       await refetchUsers();
     } catch (error) {
       console.error(error);
-      toast.error("Could not update staff member.");
+      toast.error(getApiErrorMessage(error, "Could not update staff member."));
     }
   };
 

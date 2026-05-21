@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { AlertCircle, Loader2, RefreshCcw, Save, Settings2 } from "lucide-react";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -121,7 +122,7 @@ export function SystemConfigManagement() {
       await refetch();
     } catch (error) {
       console.error(error);
-      toast.error("Could not update system configuration.");
+      toast.error(getApiErrorMessage(error, "Could not update system configuration."));
     }
   };
 

@@ -40,6 +40,7 @@ import { useGetUserByIdQuery } from "@/features/auth/authApi";
 import { ReferralDetailSkeleton } from "@/components/skeletons/ReferralDetailSkeleton";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { useRouter } from "next/navigation";
 
 function formatBytes(bytes?: number) {
@@ -129,7 +130,7 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
       toast.success("Referral marked as read.");
     } catch (error) {
       lastProcessedId.current = null;
-      toast.error("Failed to mark referral as read.");
+      toast.error(getApiErrorMessage(error, "Failed to mark referral as read."));
     }
   };
 
@@ -157,7 +158,7 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
       setIsReleaseDialogOpen(false);
       router.push("/receiving-specialist/referrals");
     } catch (error) {
-      toast.error("Failed to release referral.");
+      toast.error(getApiErrorMessage(error, "Failed to release referral."));
     }
   };
 
@@ -204,7 +205,7 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
       setIsRedirectDialogOpen(false);
       router.push("/receiving-specialist/referrals");
     } catch (error) {
-      toast.error("Failed to redirect referral.");
+      toast.error(getApiErrorMessage(error, "Failed to redirect referral."));
     }
   };
 
@@ -214,7 +215,7 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
       toast.success("Referral accepted successfully.");
       setIsAcceptDialogOpen(false);
     } catch (error) {
-      toast.error("Failed to accept referral.");
+      toast.error(getApiErrorMessage(error, "Failed to accept referral."));
     }
   };
 
@@ -231,7 +232,7 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
       toast.success("Referral rejected successfully.");
       setIsRejectDialogOpen(false);
     } catch (error) {
-      toast.error("Failed to reject referral.");
+      toast.error(getApiErrorMessage(error, "Failed to reject referral."));
     }
   };
 

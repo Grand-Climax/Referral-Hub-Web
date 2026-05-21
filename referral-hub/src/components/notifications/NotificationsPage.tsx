@@ -12,6 +12,7 @@ import {
 
 } from "lucide-react";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -146,8 +147,8 @@ export function NotificationsPage() {
     try {
       await markAllRead().unwrap();
       toast.success("All notifications marked as read.");
-    } catch {
-      toast.error("Could not mark all as read.");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Could not mark all as read."));
     }
   };
 
@@ -155,8 +156,8 @@ export function NotificationsPage() {
     if (!notification.is_read) {
       try {
         await markRead(notification.id).unwrap();
-      } catch {
-        toast.error("Could not mark notification as read.");
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, "Could not mark notification as read."));
       }
     }
 

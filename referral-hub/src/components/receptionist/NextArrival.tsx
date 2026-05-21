@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useGetScheduleQuery, useMarkPatientArrivalMutation } from "@/features/receptionist/receptionistApi";
 import { Loader2, Clock, MapPin } from "lucide-react";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { useState } from "react";
 
 export function NextArrival() {
@@ -19,7 +20,7 @@ export function NextArrival() {
       setCheckedInId(id);
       toast.success("Patient checked in successfully");
     } catch (err: any) {
-      toast.error(err?.data?.message || "Failed to check in patient");
+      toast.error(getApiErrorMessage(err, "Failed to check in patient"));
     }
   };
 

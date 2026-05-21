@@ -14,6 +14,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { Button } from "@/components/ui/button";
 import {
   Sidebar,
@@ -108,7 +109,7 @@ export function SystemAdminShell({ children }: SystemAdminShellProps) {
       router.push("/login");
     } catch (error) {
       console.error(error);
-      toast.error("Could not sign out. Please try again.");
+      toast.error(getApiErrorMessage(error, "Could not sign out. Please try again."));
     }
   };
 

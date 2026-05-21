@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAssignDoctorMutation, useGetReferralByIdQuery } from "@/features/receptionist/receptionistApi";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { Loader2 } from "lucide-react";
 
 interface AssignDoctorModalProps {
@@ -33,9 +34,8 @@ export function AssignDoctorModal({ open, onOpenChange, referralId }: AssignDoct
       await assignDoctor({ id: referralId, doctor_id: doctorId.trim() }).unwrap();
       toast.success("Doctor assigned successfully");
       onOpenChange(false);
-    } catch (err: any) {
-      const errorMessage = err?.data?.message || err?.data?.detail || "Failed to assign doctor";
-      toast.error(errorMessage);
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, "Failed to assign doctor"));
     }
   };
 

@@ -14,6 +14,7 @@ import { MoreVertical, Loader2 } from "lucide-react";
 import { useGetScheduleQuery, useMarkPatientArrivalMutation, useMarkMissedMutation } from "@/features/receptionist/receptionistApi";
 import { useState } from "react";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { AssignDoctorModal } from "./AssignDoctorModal";
 import { ReferralDetailsModal } from "./ReferralDetailsModal";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -32,7 +33,7 @@ export function AppointmentTable() {
       await markArrival(id).unwrap();
       toast.success("Patient arrival marked successfully");
     } catch (err: any) {
-      toast.error(err?.data?.message || "Failed to mark patient arrival");
+      toast.error(getApiErrorMessage(err, "Failed to mark patient arrival"));
     }
   };
 
@@ -41,7 +42,7 @@ export function AppointmentTable() {
       await markMissed(id).unwrap();
       toast.success("Patient marked as missed");
     } catch (err: any) {
-      toast.error(err?.data?.message || "Failed to mark patient as missed");
+      toast.error(getApiErrorMessage(err, "Failed to mark patient as missed"));
     }
   };
 

@@ -10,6 +10,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -175,7 +176,7 @@ export function SystemAdminDashboard() {
       await refetch();
     } catch (error) {
       console.error(error);
-      toast.error("System admin action failed.");
+      toast.error(getApiErrorMessage(error, "System admin action failed."));
     } finally {
       setLoadingUserId(null);
     }
@@ -191,7 +192,7 @@ export function SystemAdminDashboard() {
       await refetch();
     } catch (error) {
       console.error(error);
-      toast.error("Could not create the user.");
+      toast.error(getApiErrorMessage(error, "Could not create the user."));
     }
   };
 
@@ -208,7 +209,7 @@ export function SystemAdminDashboard() {
       await refetch();
     } catch (error) {
       console.error(error);
-      toast.error("Could not update the user.");
+      toast.error(getApiErrorMessage(error, "Could not update the user."));
     }
   };
 
@@ -222,7 +223,7 @@ export function SystemAdminDashboard() {
       await refetch();
     } catch (error) {
       console.error(error);
-      toast.error("Could not assign the role.");
+      toast.error(getApiErrorMessage(error, "Could not assign the role."));
     }
   };
 

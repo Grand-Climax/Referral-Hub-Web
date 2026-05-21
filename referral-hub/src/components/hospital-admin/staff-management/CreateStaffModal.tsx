@@ -14,6 +14,7 @@ import { useGetCurrentUserQuery } from "@/features/auth/authApi";
 import { useCreateStaffMutation } from "@/features/hospitalAdmin/hospitalAdminApi";
 import { useGetDepartmentsQuery } from "@/features/hospitals/hospitalsApi";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   HOSPITAL_STAFF_ROLE_OPTIONS,
@@ -88,7 +89,7 @@ export function CreateStaffModal({ open, onOpenChange }: { open: boolean; onOpen
       handleOpenChange(false);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to create staff");
+      toast.error(getApiErrorMessage(err, "Failed to create staff"));
     }
   };
 

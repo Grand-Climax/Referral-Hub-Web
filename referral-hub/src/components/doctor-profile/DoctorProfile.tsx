@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { useGetCurrentUserQuery } from "@/features/auth/authApi";
 import { useGetHospitalByIdQuery } from "@/features/hospitals/hospitalsApi";
 import { useUpdateProfileImageMutation } from "@/features/users/usersApi";
@@ -88,10 +89,7 @@ export function DoctorProfile() {
       toast.success("Profile photo updated.");
       await refetchCurrentUser();
     } catch (error: unknown) {
-      const message =
-        (error as { data?: { message?: string } })?.data?.message ??
-        "Failed to update profile photo.";
-      toast.error(message);
+      toast.error(getApiErrorMessage(error, "Failed to update profile photo."));
       setPreviewUrl(null);
     } finally {
       URL.revokeObjectURL(localUrl);

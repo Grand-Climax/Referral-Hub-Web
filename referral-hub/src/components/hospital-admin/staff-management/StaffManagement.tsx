@@ -25,6 +25,7 @@ import {
 import { useGetStaffQuery, useDeleteStaffMutation } from '@/features/hospitalAdmin/hospitalAdminApi';
 import { useGetDepartmentsQuery } from '@/features/department/department';
 import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/apiError';
 import { EditStaffRoleModal } from './EditStaffRoleModal';
 import { ReplaceStaffModal } from './ReplaceStaffModal';
 import {
@@ -91,7 +92,7 @@ export const StaffManagement = () => {
         await deleteStaff(id).unwrap();
         toast.success("Staff deleted successfully");
       } catch (err) {
-        toast.error("Failed to delete staff");
+        toast.error(getApiErrorMessage(err, "Failed to delete staff"));
       }
     }
   };

@@ -18,6 +18,7 @@ import {
 import { Eye, EyeOff, Lock, Mail, Activity, Loader2 } from "lucide-react";
 import { useLoginMutation } from "@/features/auth/authApi";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { useRouter } from "next/navigation";
 
 const loginSchema = z.object({
@@ -68,9 +69,8 @@ const Login = () => {
         router.push(targetPath);
       }
     } catch (error: unknown) {
-      const err = error as { data?: { message?: string } };
       toast.error(
-        err.data?.message || "Invalid credentials. Please try again.",
+        getApiErrorMessage(error, "Invalid credentials. Please try again."),
       );
     }
   };

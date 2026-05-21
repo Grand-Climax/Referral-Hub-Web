@@ -13,6 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -149,10 +150,7 @@ export function NetworkRoutesManagement() {
       setIsCreateDialogOpen(false);
       resetCreateForm();
     } catch (error: unknown) {
-      const message =
-        (error as { data?: { message?: string } })?.data?.message ??
-        "Failed to create network route.";
-      toast.error(message);
+      toast.error(getApiErrorMessage(error, "Failed to create network route."));
     }
   };
 
@@ -163,10 +161,7 @@ export function NetworkRoutesManagement() {
       toast.success("Network route deleted.");
       setPendingDelete(null);
     } catch (error: unknown) {
-      const message =
-        (error as { data?: { message?: string } })?.data?.message ??
-        "Failed to delete network route.";
-      toast.error(message);
+      toast.error(getApiErrorMessage(error, "Failed to delete network route."));
     }
   };
 

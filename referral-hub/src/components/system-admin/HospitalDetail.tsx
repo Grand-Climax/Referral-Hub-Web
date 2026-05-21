@@ -13,6 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -174,7 +175,7 @@ export function HospitalDetail({ hospitalId }: HospitalDetailProps) {
       await refetchHospital();
     } catch (error) {
       console.error(error);
-      toast.error("Could not update hospital. Please try again.");
+      toast.error(getApiErrorMessage(error, "Could not update hospital. Please try again."));
     }
   };
 
@@ -186,7 +187,7 @@ export function HospitalDetail({ hospitalId }: HospitalDetailProps) {
       router.push("/systemAdmin/hospitals");
     } catch (error) {
       console.error(error);
-      toast.error("Could not delete hospital. Please try again.");
+      toast.error(getApiErrorMessage(error, "Could not delete hospital. Please try again."));
     }
   };
 
@@ -216,7 +217,7 @@ export function HospitalDetail({ hospitalId }: HospitalDetailProps) {
       await refetchLinkedDepartments();
     } catch (error) {
       console.error(error);
-      toast.error("Could not link department. Please try again.");
+      toast.error(getApiErrorMessage(error, "Could not link department. Please try again."));
     }
   };
 
@@ -228,7 +229,7 @@ export function HospitalDetail({ hospitalId }: HospitalDetailProps) {
       await refetchLinkedDepartments();
     } catch (error) {
       console.error(error);
-      toast.error("Could not unlink department. Please try again.");
+      toast.error(getApiErrorMessage(error, "Could not unlink department. Please try again."));
     }
   };
 

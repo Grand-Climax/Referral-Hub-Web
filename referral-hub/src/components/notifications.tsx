@@ -19,6 +19,7 @@ import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import {
   useGetNotificationsQuery,
   useGetUnreadNotificationCountQuery,
@@ -120,8 +121,8 @@ export function Notifications() {
     try {
       await markAllRead().unwrap();
       toast.success("All notifications marked as read.");
-    } catch {
-      toast.error("Could not mark all notifications as read.");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Could not mark all notifications as read."));
     }
   };
 
@@ -129,8 +130,8 @@ export function Notifications() {
     if (!notification.is_read) {
       try {
         await markRead(notification.id).unwrap();
-      } catch {
-        toast.error("Could not mark notification as read.");
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, "Could not mark notification as read."));
       }
     }
 

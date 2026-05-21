@@ -37,12 +37,11 @@ import { useCreateReferralMutation } from "@/features/referral/referralApi";
 import { useGetDepartmentsQuery } from "@/features/hospitals/hospitalsApi";
 import { CreateReferralRequest } from "@/types/referral";
 import { useGetCurrentUserQuery } from "@/features/auth/authApi";
-import { useLazyLookupPatientQuery, useCreatePatientMutation } from "@/features/patients/patientsApi";
 import { useGetIcdCodesQuery } from "@/features/reference/icdApi";
 import { useGetLiaisonsQuery } from "@/features/reference/liaisonsApi";
 import { useGetNetworkedHospitalsQuery } from "@/features/reference/networkedHospitalsApi";
-import type { PatientCreationFormFields } from "@/types/patient";
 import { Form } from "@/components/ui/form";
+import { getApiErrorMessage } from "@/lib/apiError";
 
 const STEPS = [
   { id: 1, label: "Patient Info" },
@@ -81,15 +80,12 @@ const CreateReferral = () => {
   const [step, setStep] = useState(1);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [showPatientCreate, setShowPatientCreate] = useState(false);
-  const [patientLookupTried, setPatientLookupTried] = useState(false);
+  const [patientFlowBusy, setPatientFlowBusy] = useState(false);
 
   // Redux & API hooks
   const { data: user, isLoading: isUserLoading } = useGetCurrentUserQuery();
   const [createReferral, { isLoading: isSubmitting }] = useCreateReferralMutation();
   const { data: networkedHospitals = [], isLoading: isLoadingHospitals } = useGetNetworkedHospitalsQuery();
-  const [lookupPatient, { isFetching: isLookingUpPatient }] = useLazyLookupPatientQuery();
-  const [createPatient, { isLoading: isCreatingPatient }] = useCreatePatientMutation();
   const { data: icdCodes = [] } = useGetIcdCodesQuery();
   const { data: liaisons = [], isLoading: isLoadingLiaisons } = useGetLiaisonsQuery();
 
@@ -137,24 +133,7 @@ const CreateReferral = () => {
     },
   });
 
-  // Patient creation form state (only used inside PatientCreationStep)
-  const patientForm = useForm<PatientCreationFormFields>({
-    defaultValues: {
-      first_name: "",
-      middle_name: "",
-      last_name: "",
-      date_of_birth: "",
-      sex: "male",
-      phone_number: "",
-      home_region: "",
-      national_id_enc: "",
-      // Keep optional fields so RHF registration is stable
-      national_id_hash: undefined,
-    },
-  });
-
   const referralData = referralForm.watch();
-  const nationalIdEnc = patientForm.watch("national_id_enc") || "";
 
   const { data: departments = [], isLoading: isLoadingDepts } = useGetDepartmentsQuery(
     referralData.target_hospital_id || "",
@@ -223,97 +202,6 @@ const CreateReferral = () => {
     if (!p) return undefined;
     if (p.startsWith("+")) return p;
     return `+${p.replace(/\D/g, "")}`;
-  };
-
-  const handlePatientLookup = async () => {
-    const national_id = (nationalIdEnc || "").trim();
-    setPatientLookupTried(true);
-    setShowPatientCreate(false);
-    referralForm.setValue("patient_id" as any, "" as any, { shouldDirty: true });
-
-    if (!national_id) {
-      toast.error("National ID is required to search for the patient.");
-      return;
-    }
-
-    try {
-      const lookedUp = await lookupPatient({ national_id }).unwrap();
-      const patientId = lookedUp.id;
-
-      if (!patientId) {
-        toast.error("Patient lookup succeeded but no patient id was returned.");
-        return;
-      }
-
-      referralForm.setValue("patient_id" as any, patientId as any, { shouldDirty: true });
-      setShowPatientCreate(false);
-      setStep(2);
-      toast.success("Patient linked successfully.");
-    } catch (err: any) {
-      if (err?.status === 404 || err?.originalStatus === 404) {
-        setShowPatientCreate(true);
-        patientForm.setValue("national_id_enc", national_id, { shouldDirty: false });
-        return;
-      }
-      console.error("Patient lookup failed:", err);
-      toast.error(err?.data?.message || "Failed to look up patient.");
-    }
-  };
-
-  const handlePatientCreate = async () => {
-    const values = patientForm.getValues();
-    const national_id = (values.national_id_enc || "").trim();
-
-    if (!national_id) {
-      toast.error("National ID is required to create the patient.");
-      return;
-    }
-
-    const requiredFields: Array<keyof PatientCreationFormFields> = [
-      "first_name",
-      "last_name",
-      "date_of_birth",
-      "sex",
-      "home_region",
-      "phone_number",
-    ];
-
-    for (const field of requiredFields) {
-      const val = (values as any)[field];
-      if (!val || String(val).trim() === "") {
-        toast.error(`Please fill ${field.replace("_", " ")}.`);
-        return;
-      }
-    }
-
-    const patientPayload = {
-      first_name: values.first_name as string,
-      middle_name: values.middle_name || undefined,
-      last_name: values.last_name as string,
-      date_of_birth: values.date_of_birth as string,
-      sex: values.sex as "male" | "female",
-      home_region: values.home_region as string,
-      phone_number: cleanPhone(values.phone_number) || (values.phone_number as string),
-      national_id,
-    };
-
-    try {
-      const created = await createPatient(patientPayload).unwrap();
-      const patientId = created.id;
-
-      if (!patientId) {
-        toast.error("Patient creation succeeded but no patient id was returned.");
-        return;
-      }
-
-      referralForm.setValue("patient_id" as any, patientId as any, { shouldDirty: true });
-      setShowPatientCreate(false);
-      setStep(2);
-      toast.success("Patient created and linked successfully.");
-    } catch (err: any) {
-      console.error("Patient creation failed:", err);
-      toast.error(err?.data?.message || "Failed to create patient.");
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -391,7 +279,7 @@ const CreateReferral = () => {
       router.push("/referring-doctor");
     } catch (err: any) {
       console.error("Referral creation failed:", err);
-      toast.error(err?.data?.message || "Failed to submit referral. Please try again.");
+      toast.error(getApiErrorMessage(err, "Failed to submit referral. Please try again."));
     }
   };
 
@@ -500,71 +388,21 @@ const CreateReferral = () => {
 
             {/* Step 1: Patient Information */}
             {step === 1 && (
-              <div className="space-y-6">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <ClipboardList className="h-4 w-4" />
-                  </div>
-                  <h3 className="text-base font-semibold text-foreground">
-                    1. Patient Lookup / Registration
-                  </h3>
-                </div>
-
-                <div className="space-y-4 rounded-xl border bg-muted/20 p-4">
-                  <div className="space-y-2">
-                    <Label>
-                      National ID <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      placeholder="Enter national ID"
-                      value={nationalIdEnc}
-                      onChange={(e) =>
-                        patientForm.setValue("national_id_enc", e.target.value, { shouldDirty: true })
-                      }
-                      className="h-11 rounded-xl bg-background border-border/70"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <Button
-                      type="button"
-                      onClick={handlePatientLookup}
-                      disabled={isLookingUpPatient || isCreatingPatient}
-                    >
-                      {isLookingUpPatient ? "Searching..." : "Search Patient"}
-                    </Button>
-                  </div>
-
-                  {patientLookupTried && !showPatientCreate && referralData.patient_id && (
-                    <p className="text-sm text-muted-foreground">
-                      Selected patient id:{" "}
-                      <span className="font-medium">{referralData.patient_id}</span>
-                    </p>
-                  )}
-                </div>
-
-                {showPatientCreate && (
-                  <div className="space-y-4">
-                    <div className="rounded-xl border bg-destructive/5 p-4 text-sm">
-                      Patient not found. Please create the patient to continue.
-                    </div>
-
-                    <Form {...patientForm}>
-                      <PatientCreationStep />
-                    </Form>
-
-                    <div className="flex justify-end">
-                      <Button
-                        type="button"
-                        onClick={handlePatientCreate}
-                        disabled={isCreatingPatient}
-                      >
-                        {isCreatingPatient ? "Creating..." : "Create Patient"}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <PatientCreationStep
+                linkedPatientId={referralData.patient_id}
+                onBusyChange={setPatientFlowBusy}
+                onLookupStart={() => {
+                  referralForm.setValue("patient_id" as any, "" as any, {
+                    shouldDirty: true,
+                  });
+                }}
+                onPatientLinked={(patientId) => {
+                  referralForm.setValue("patient_id" as any, patientId as any, {
+                    shouldDirty: true,
+                  });
+                  setStep(2);
+                }}
+              />
             )}
 
             {/* Step 2: Clinical & Vitals */}
@@ -1149,7 +987,7 @@ const CreateReferral = () => {
                 <Button 
                   type="submit" 
                   className="gap-2 px-8" 
-                  disabled={isSubmitting || isLookingUpPatient || isCreatingPatient}
+                  disabled={isSubmitting || patientFlowBusy}
                 >
                   {isSubmitting
                     ? "Submitting..."

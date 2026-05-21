@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { useUpdateStaffActivationMutation } from '@/features/hospitalAdmin/hospitalAdminApi';
 import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/apiError';
 
 interface StaffListProps {
   staffList: HospitalAdminStaff[];
@@ -48,8 +49,8 @@ export const StaffList = ({
     try {
       await updateStaffActivation({ id: staff.id, is_active: checked }).unwrap();
       toast.success(checked ? 'Staff activated' : 'Staff deactivated');
-    } catch {
-      toast.error('Could not update status');
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Could not update status'));
     } finally {
       setTogglingId(null);
     }

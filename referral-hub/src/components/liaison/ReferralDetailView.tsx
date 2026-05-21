@@ -52,6 +52,7 @@ import {
 } from "@/features/liaison/liaisonApi";
 import type { LiaisonReviewChecklist } from "@/types/liaison";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 
 interface ReferralDetailViewProps {
   referral_id: string;
@@ -135,7 +136,7 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
       await updateReviewChecklist({ id: referral_id, body: next }).unwrap();
     } catch (err) {
       console.error("Failed to save checklist", err);
-      toast.error("Could not save review checklist.");
+      toast.error(getApiErrorMessage(err, "Could not save review checklist."));
       setChecklistDraft(base);
     }
   };
@@ -241,6 +242,7 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
       setStatusOverride(nextStatus);
     } catch (err) {
       console.error("Failed to approve referral", err);
+      toast.error(getApiErrorMessage(err, "Failed to approve referral."));
     }
   };
 
@@ -259,6 +261,7 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
       setReasonText("");
     } catch (err) {
       console.error("Failed to reject referral", err);
+      toast.error(getApiErrorMessage(err, "Failed to reject referral."));
     }
   };
 
@@ -277,6 +280,7 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
       setReasonText("");
     } catch (err) {
       console.error("Failed to return referral", err);
+      toast.error(getApiErrorMessage(err, "Failed to return referral to doctor."));
     }
   };
 

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/apiError';
 
 import { CapacityStatsCards } from './capacity/CapacityStatsCards';
 import { PlanningCalendar } from './capacity/PlanningCalendar';
@@ -87,7 +88,7 @@ export default function CapacityManagementPage() {
         result.message || `Batch scheduling completed! Scheduled ${result.scheduled_count || 0} referrals.`
       );
     } catch (error: any) {
-      toast.error(error?.data?.message || 'Failed to run batch scheduling');
+      toast.error(getApiErrorMessage(error, 'Failed to run batch scheduling'));
     }
   };
 

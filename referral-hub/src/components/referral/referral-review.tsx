@@ -48,6 +48,7 @@ import { useGetDepartmentsQuery } from "@/features/hospitals/hospitalsApi";
 import { useGetLiaisonsQuery } from "@/features/reference/liaisonsApi";
 import { CreateReferralRequest } from "@/types/referral";
 import { Form } from "@/components/ui/form";
+import { getApiErrorMessage } from "@/lib/apiError";
 
 /* ─── Reusable enhanced SelectTrigger className ─── */
 const selectTriggerCls =
@@ -297,7 +298,7 @@ const ReferralReview = () => {
       });
       router.push("/referring-doctor");
     } catch (err: any) {
-      toast.error(err?.data?.message || "Failed to resubmit referral.");
+      toast.error(getApiErrorMessage(err, "Failed to resubmit referral."));
     }
   };
 

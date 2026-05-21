@@ -11,6 +11,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -161,7 +162,7 @@ export function DepartmentManagement() {
       await refetchDepartments();
     } catch (error) {
       console.error(error);
-      toast.error("Could not create department. Please try again.");
+      toast.error(getApiErrorMessage(error, "Could not create department. Please try again."));
     }
   };
 
@@ -196,7 +197,7 @@ export function DepartmentManagement() {
       await refetchDepartments();
     } catch (error) {
       console.error(error);
-      toast.error("Could not delete department. Please try again.");
+      toast.error(getApiErrorMessage(error, "Could not delete department. Please try again."));
     }
   };
 

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Bell,
   Building2,
   Layers,
   LogOut,
@@ -33,6 +34,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggler";
+import { Notifications } from "@/components/notifications";
 import { useGetCurrentUserQuery, useLogoutMutation } from "@/features/auth/authApi";
 import { cn } from "@/lib/utils";
 
@@ -85,6 +87,11 @@ const navItems: readonly NavItem[] = [
     label: "System Config",
     href: "/systemAdmin/config",
     icon: Settings2,
+  },
+  {
+    label: "Notifications",
+    href: "/systemAdmin/notifications",
+    icon: Bell,
   },
 ] as const;
 
@@ -222,6 +229,7 @@ export function SystemAdminShell({ children }: SystemAdminShellProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Notifications />
             <ThemeToggle />
           </div>
         </header>

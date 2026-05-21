@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { Provider } from "react-redux";
 import { makeStore, type AppStore } from "@/lib/store";
 import { AuthInitializer } from "./AuthInitializer";
+import { NotificationClientProvider } from "./NotificationClientProvider";
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const storeRef = useRef<AppStore | null>(null);
@@ -13,7 +14,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   return (
     <Provider store={storeRef.current}>
       <AuthInitializer />
-      {children}
+      <NotificationClientProvider>{children}</NotificationClientProvider>
     </Provider>
   );
 }

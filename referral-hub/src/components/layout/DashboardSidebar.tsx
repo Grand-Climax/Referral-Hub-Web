@@ -30,6 +30,7 @@ import {
   CalendarCheck,
   ArrowLeftRight,
   History,
+  Bell,
   LogOut,
   Settings,
   Mail,
@@ -72,6 +73,11 @@ const NAV_BY_ROLE = {
       url: "/referring-doctor/review",
       icon: FilePlus,
     },
+    {
+      title: "Notifications",
+      url: "/referring-doctor/notifications",
+      icon: Bell,
+    },
   ],
   hospital_admin: [
     { title: "Dashboard", url: "/hospital-admin", icon: LayoutDashboard },
@@ -90,6 +96,11 @@ const NAV_BY_ROLE = {
       url: "/hospital-admin/activity-logs",
       icon: ListChecks,
     },
+    {
+      title: "Notifications",
+      url: "/hospital-admin/notifications",
+      icon: Bell,
+    },
   ],
   liaison_officer: [
     { title: "Dashboard", url: "/liaison-officer", icon: LayoutDashboard },
@@ -103,6 +114,11 @@ const NAV_BY_ROLE = {
       ],
     },
     { title: "Reports", url: "/liaison-officer/report", icon: Users },
+    {
+      title: "Notifications",
+      url: "/liaison-officer/notifications",
+      icon: Bell,
+    },
   ],
   receptionist: [
     { title: "Dashboard", url: "/receptionist", icon: LayoutDashboard },
@@ -110,6 +126,11 @@ const NAV_BY_ROLE = {
       title: "Scheduled Patients",
       url: "/receptionist/scheduled-patients",
       icon: CalendarCheck,
+    },
+    {
+      title: "Notifications",
+      url: "/receptionist/notifications",
+      icon: Bell,
     },
   ],
   dept_head: [
@@ -123,6 +144,11 @@ const NAV_BY_ROLE = {
       title: "Specialist Availability",
       url: "/department-head/specialist-availability",
       icon: Users,
+    },
+    {
+      title: "Notifications",
+      url: "/department-head/notifications",
+      icon: Bell,
     },
   ],
   moh_analyst: [
@@ -163,6 +189,11 @@ const NAV_BY_ROLE = {
       title: "Archive",
       url: "/receiving-specialist/archive",
       icon: History,
+    },
+    {
+      title: "Notifications",
+      url: "/receiving-specialist/notifications",
+      icon: Bell,
     },
   ],
 };

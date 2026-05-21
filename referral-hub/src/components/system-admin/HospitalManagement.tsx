@@ -14,6 +14,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -177,7 +178,7 @@ export function HospitalManagement() {
       await refetchHospitals();
     } catch (error) {
       console.error(error);
-      toast.error("Could not create hospital. Please try again.");
+      toast.error(getApiErrorMessage(error, "Could not create hospital. Please try again."));
     }
   };
 
@@ -202,7 +203,7 @@ export function HospitalManagement() {
       await refetchHospitals();
     } catch (error) {
       console.error(error);
-      toast.error("Could not update hospital. Please try again.");
+      toast.error(getApiErrorMessage(error, "Could not update hospital. Please try again."));
     }
   };
 
@@ -216,7 +217,7 @@ export function HospitalManagement() {
       await refetchHospitals();
     } catch (error) {
       console.error(error);
-      toast.error("Could not delete hospital. Please try again.");
+      toast.error(getApiErrorMessage(error, "Could not delete hospital. Please try again."));
     }
   };
 

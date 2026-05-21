@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { X, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/apiError';
 import Cookies from 'js-cookie';
 import { jwtDecode } from 'jwt-decode';
 import {
@@ -168,27 +169,28 @@ export function CapacityOverrideDialog({
         error: error,
       });
       
-      // Extract error message
-      let errorMessage = 'Failed to save capacity override';
-      let details = null;
-      
-      const errorData = error?.data;
-      
-      if (errorData?.message) {
-        errorMessage = errorData.message;
-        
-        // Check for specific errors
-        if (errorMessage.includes('foreign key') || errorMessage.includes('constraint')) {
-          details = `Database error: The dept_id "${actualDeptId}" doesn't exist in the system. Contact your administrator.`;
-        } else if (errorMessage.includes('dept_id') || errorMessage.includes('department')) {
-          details = `Department ID issue. Actual dept_id: ${actualDeptId}, JWT dept_id: ${departmentId}. Please contact support.`;
-        } else if (errorMessage.includes('date')) {
-          details = 'Invalid date. Please ensure the date is in the future.';
-        }
+      const errorMessage = getApiErrorMessage(
+        error,
+        'Failed to save capacity override',
+      );
+      let details: string | null = null;
+
+      if (
+        errorMessage.includes('foreign key') ||
+        errorMessage.includes('constraint')
+      ) {
+        details = `Database error: The dept_id "${actualDeptId}" doesn't exist in the system. Contact your administrator.`;
+      } else if (
+        errorMessage.includes('dept_id') ||
+        errorMessage.includes('department')
+      ) {
+        details = `Department ID issue. Actual dept_id: ${actualDeptId}, JWT dept_id: ${departmentId}. Please contact support.`;
+      } else if (errorMessage.includes('date')) {
+        details = 'Invalid date. Please ensure the date is in the future.';
       } else if (error?.status === 500) {
         details = `Server error. Dept ID: ${actualDeptId}. The department may not exist in the database.`;
       }
-      
+
       setErrorDetails(details || 'An error occurred. Please try again.');
       toast.error(errorMessage);
     }

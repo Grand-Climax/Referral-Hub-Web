@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { MOCK_REFERRALS } from "@/data/mock";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,44 +10,38 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Eye, Filter, Download, Search } from "lucide-react";
+import { Eye, Filter, Download, Search, AlertCircle } from "lucide-react";
 import { ReferralTable } from "@/components/referral/ReferralTable";
 import Link from "next/link";
-import { Referral } from "@/types/referral";
 import { ReferralListItem } from "@/types/referral-list";
+import { useGetArchiveReferralsQuery } from "@/features/specialist/specialistApi";
+import { ReferralHistorySkeleton } from "@/components/skeletons/ReferralHistorySkeleton";
 
 type SortField = "time" | "name" | "status";
 type SortOrder = "asc" | "desc";
 type FilterStatus = "all" | "ACCEPTED" | "REJECTED" | "COMPLETED";
 
-const getPatientFullName = (ref: Referral) => {
-  const first = ref.patient?.first_name ?? "";
-  const middle = ref.patient?.middle_name ?? "";
-  const last = ref.patient?.last_name ?? "";
+function filterStatusToListType(
+  status: FilterStatus,
+): "all" | "approved" | "rejected" | "completed" {
+  switch (status) {
+    case "ACCEPTED":
+      return "approved";
+    case "REJECTED":
+      return "rejected";
+    case "COMPLETED":
+      return "completed";
+    default:
+      return "all";
+  }
+}
+
+const getPatientFullName = (ref: ReferralListItem) => {
+  const first = ref.patient_first_name ?? "";
+  const middle = ref.patient_middle_name ?? "";
+  const last = ref.patient_last_name ?? "";
   return [first, middle, last].filter(Boolean).join(" ").trim();
 };
-
-const getDiagnosis = (ref: Referral) => {
-  const primaryDiagnosis =
-    ref.diagnoses?.find((dx) => dx.is_primary) ?? ref.diagnoses?.[0];
-  return primaryDiagnosis?.code_info?.description ?? "Unspecified Diagnosis";
-};
-
-const toListItem = (ref: Referral): ReferralListItem => ({
-  id: ref.id,
-  status: ref.status,
-  date: ref.updated_at,
-  department: ref.target_dept_id,
-  condition_at_referral: ref.referral_form?.condition_at_referral ?? "STABLE",
-  diagnosis: getDiagnosis(ref),
-  icd_code: ref.diagnoses?.[0]?.icd_code ?? "N/A",
-  patient_first_name: ref.patient?.first_name ?? "Unknown",
-  patient_middle_name: ref.patient?.middle_name ?? "",
-  patient_last_name: ref.patient?.last_name ?? "Patient",
-  created_at: ref.created_at,
-  updated_at: ref.updated_at,
-  patient_region: ref.patient?.home_region ?? "N/A",
-});
 
 export function ReferralArchive() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -58,75 +51,60 @@ export function ReferralArchive() {
   const [page, setPage] = useState(0);
   const pageSize = 8;
 
-  // Only show processed requests in the history page
-  const referrals = MOCK_REFERRALS.filter(
-    (r) =>
-      r.status === "ACCEPTED" ||
-      r.status === "REJECTED" ||
-      r.status === "COMPLETED",
-  );
+  const listType = filterStatusToListType(statusFilter);
+
+  const {
+    data: response,
+    isLoading,
+    isFetching,
+    isError,
+  } = useGetArchiveReferralsQuery({
+    page: page + 1,
+    limit: pageSize,
+    listType,
+  });
+
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery, sortField, sortOrder, statusFilter]);
+
+  const referrals = response?.data ?? [];
+  const totalCount = response?.total ?? 0;
 
   const filteredAndSortedReferrals = useMemo(() => {
     let result = [...referrals];
 
-    // Status Filtering
-    if (statusFilter !== "all") {
-      result = result.filter((ref) => ref.status === statusFilter);
-    }
-
-    // Search Filtering
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
         (ref) =>
           getPatientFullName(ref).toLowerCase().includes(query) ||
-          ref.sender_hospital_id.toLowerCase().includes(query) ||
-          getDiagnosis(ref).toLowerCase().includes(query),
+          ref.id.toLowerCase().includes(query) ||
+          (ref.diagnosis ?? "").toLowerCase().includes(query) ||
+          (ref.patient_region ?? "").toLowerCase().includes(query),
       );
     }
 
-    // Sorting
     result.sort((a, b) => {
       let comparison = 0;
       switch (sortField) {
         case "time":
           comparison =
-            new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime();
+            new Date(a.updated_at ?? a.created_at ?? 0).getTime() -
+            new Date(b.updated_at ?? b.created_at ?? 0).getTime();
           break;
         case "name":
-          comparison = getPatientFullName(a).localeCompare(
-            getPatientFullName(b),
-          );
+          comparison = getPatientFullName(a).localeCompare(getPatientFullName(b));
           break;
         case "status":
-          comparison = a.status.localeCompare(b.status);
+          comparison = (a.status ?? "").localeCompare(b.status ?? "");
           break;
       }
       return sortOrder === "asc" ? comparison : -comparison;
     });
 
     return result;
-  }, [referrals, searchQuery, sortField, sortOrder, statusFilter]);
-
-  const tableData = useMemo(
-    () => filteredAndSortedReferrals.map(toListItem),
-    [filteredAndSortedReferrals],
-  );
-  const pagedData = useMemo(() => {
-    const start = page * pageSize;
-    return tableData.slice(start, start + pageSize);
-  }, [page, pageSize, tableData]);
-
-  useEffect(() => {
-    setPage(0);
-  }, [searchQuery, sortField, sortOrder, statusFilter]);
-
-  useEffect(() => {
-    const maxPage = Math.max(0, Math.ceil(tableData.length / pageSize) - 1);
-    if (page > maxPage) {
-      setPage(maxPage);
-    }
-  }, [page, pageSize, tableData.length]);
+  }, [referrals, searchQuery, sortField, sortOrder]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -136,6 +114,24 @@ export function ReferralArchive() {
       setSortOrder("desc");
     }
   };
+
+  if (isLoading) {
+    return <ReferralHistorySkeleton />;
+  }
+
+  if (isError) {
+    return (
+      <div className="mx-auto flex flex-col items-center justify-center gap-4 py-20">
+        <AlertCircle className="h-10 w-10 text-destructive opacity-50" />
+        <div className="text-center">
+          <h2 className="text-lg font-semibold">Failed to load referral history</h2>
+          <p className="text-muted-foreground">
+            Please check your connection and try again.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 mx-auto pb-8">
@@ -198,7 +194,7 @@ export function ReferralArchive() {
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-4 px-6 border-b border-border">
           <div>
             <CardTitle className="text-lg font-bold">
-              Processed Referrals ({filteredAndSortedReferrals.length})
+              Processed Referrals ({totalCount})
             </CardTitle>
           </div>
           <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
@@ -206,7 +202,7 @@ export function ReferralArchive() {
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Search patient, hospital..."
+                placeholder="Search patient, diagnosis..."
                 className="pl-8 h-9 bg-background"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -252,8 +248,10 @@ export function ReferralArchive() {
         </CardHeader>
         <CardContent className="p-0">
           <ReferralTable
-            data={pagedData}
-            total={tableData.length}
+            data={filteredAndSortedReferrals}
+            total={totalCount}
+            isLoading={isLoading}
+            isFetching={isFetching}
             page={page}
             onPageChange={setPage}
             pageSize={pageSize}
@@ -273,28 +271,6 @@ export function ReferralArchive() {
               </Link>
             )}
           />
-          {filteredAndSortedReferrals.length > 0 && (
-            <div className="p-4 border-t border-border flex items-center justify-between text-sm text-muted-foreground">
-              <span>Showing {filteredAndSortedReferrals.length} referrals</span>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="h-8" disabled>
-                  Previous
-                </Button>
-                <Button
-                  size="sm"
-                  className="h-8 bg-blue-600 hover:bg-blue-700 text-white px-4"
-                  disabled
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
-          {filteredAndSortedReferrals.length === 0 && (
-            <div className="p-12 text-center text-muted-foreground">
-              No historical referrals matched your filters.
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>

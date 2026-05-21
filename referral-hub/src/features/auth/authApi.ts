@@ -48,7 +48,10 @@ export const authApi = createApi({
             async onQueryStarted(_, { queryFulfilled, dispatch }) {
                 try {
                     const { data } = await queryFulfilled
-                    // 1. Store tokens
+                    // Clear any cached data from a previous account before loading the new session.
+                    const { resetAllApiCaches } = await import('@/lib/resetApiCaches')
+                    resetAllApiCaches(dispatch)
+
                     Cookies.set('access_token', data.access_token, {
                         expires: 1,
                         secure: true,
@@ -60,10 +63,8 @@ export const authApi = createApi({
                         sameSite: 'strict'
                     })
 
-                    // 2. Decode JWT
                     const decoded: any = jwtDecode(data.access_token)
 
-                    // 3. Store in Redux
                     dispatch(
                         setUser({
                             user: {
@@ -87,12 +88,14 @@ export const authApi = createApi({
             async onQueryStarted(_, { queryFulfilled, dispatch }) {
                 try {
                     await queryFulfilled
-                    // Remove both tokens from cookies
+                } catch (error) {
+                    console.error('Logout failed:', error)
+                } finally {
                     Cookies.remove('access_token')
                     Cookies.remove('refresh_token')
                     dispatch(logoutAction())
-                } catch (error) {
-                    console.error('Logout failed:', error)
+                    const { resetAllApiCaches } = await import('@/lib/resetApiCaches')
+                    resetAllApiCaches(dispatch)
                 }
             },
         }),
@@ -121,6 +124,7 @@ export const authApi = createApi({
                 url: AUTH_ROUTES.ME,
                 method: 'GET',
             }),
+            providesTags: [{ type: 'Auth', id: 'CURRENT_USER' }],
         }),
         getUserById: builder.query<UserProfile, string>({
             query: (id) => ({

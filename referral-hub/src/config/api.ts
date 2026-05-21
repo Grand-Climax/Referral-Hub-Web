@@ -75,6 +75,8 @@ export const LIAISON_ROUTES = {
 
 export const SPECIALIST_ROUTES = {
   LIST: "/api/v1/specialist/referrals",
+  APPROVED: "/api/v1/specialist/referrals/approved",
+  REJECTED: "/api/v1/specialist/referrals/rejected",
   GET_BY_ID: (id: string) => `/api/v1/specialist/referrals/${id}`,
   ACCEPT: (id: string) => `/api/v1/specialist/referrals/${id}/accept`,
   REJECT: (id: string) => `/api/v1/specialist/referrals/${id}/reject`,
@@ -156,4 +158,8 @@ export const ADMIN_NETWORK_ROUTES = {
   LIST: "/api/v1/admin/network-routes",
   CREATE: "/api/v1/admin/network-routes",
   DELETE: (id: string) => `/api/v1/admin/network-routes/${id}`,
+} as const;
+
+export const ADMIN_CONFIG_ROUTES = {
+  CONFIG: "/api/v1/admin/config",
 } as const;

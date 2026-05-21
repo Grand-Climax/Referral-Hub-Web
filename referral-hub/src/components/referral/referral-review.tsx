@@ -91,7 +91,6 @@ const ReferralReview = () => {
       target_hospital_id: "",
       target_dept_id: "",
       liaison_officer_id: undefined,
-      status: "SUBMITTED",
       vitals: {
         systolic_bp: 120,
         diastolic_bp: 80,
@@ -146,7 +145,6 @@ const ReferralReview = () => {
         target_hospital_id: referral.target_hospital_id || "",
         target_dept_id: referral.target_dept_id || "",
         liaison_officer_id: referral.liaison_officer_id || undefined,
-        status: "SUBMITTED",
         vitals: referral.vitals?.[0]
           ? {
               systolic_bp: referral.vitals[0].systolic_bp,
@@ -256,7 +254,7 @@ const ReferralReview = () => {
       return;
     }
 
-    const payload: CreateReferralRequest = {
+    const payload: Omit<CreateReferralRequest, "status"> = {
       patient_id: vals.patient_id || referral?.patient_id || "",
       clinical_summary: vals.clinical_summary || "",
       patient_history: vals.patient_history || "",
@@ -265,7 +263,6 @@ const ReferralReview = () => {
       reason_for_referral_category: vals.reason_for_referral_category as any,
       reason_of_referral: vals.reason_of_referral || "",
       condition_at_referral: vals.condition_at_referral as any,
-      status: "SUBMITTED",
       mode_of_transport: vals.mode_of_transport as any,
       accompanying_person_name: vals.accompanying_person_name || undefined,
       accompanying_person_phone: cleanPhone(vals.accompanying_person_phone) || undefined,

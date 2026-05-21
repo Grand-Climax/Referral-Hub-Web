@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useChangeStaffRoleMutation } from "@/features/hospitalAdmin/hospitalAdminApi";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   HospitalAdminStaff,
@@ -27,7 +28,7 @@ export function EditStaffRoleModal({ open, onOpenChange, staff }: { open: boolea
       toast.success("Staff role updated successfully");
       onOpenChange(false);
     } catch (err) {
-      toast.error("Failed to update staff role");
+      toast.error(getApiErrorMessage(err, "Failed to update staff role"));
     }
   };
 

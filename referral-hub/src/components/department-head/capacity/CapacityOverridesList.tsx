@@ -5,6 +5,7 @@ import { Loader2, Edit, Trash2, Calendar } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/apiError';
 import type { CapacityOverride } from '@/types/department-head';
 import { useDeleteCapacityOverrideMutation } from '@/features/department-head/departmentHeadApi';
 import { useState } from 'react';
@@ -32,7 +33,7 @@ export function CapacityOverridesList({ overrides, isLoading }: CapacityOverride
       await deleteOverride(id).unwrap();
       toast.success('Capacity override deleted successfully');
     } catch (error: any) {
-      toast.error(error?.data?.message || 'Failed to delete capacity override');
+      toast.error(getApiErrorMessage(error, 'Failed to delete capacity override'));
     }
   };
 

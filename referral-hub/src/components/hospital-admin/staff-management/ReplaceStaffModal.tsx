@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useReplaceStaffMutation } from "@/features/hospitalAdmin/hospitalAdminApi";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { HospitalAdminStaff } from "@/types/hospital-admin";
 
 export function ReplaceStaffModal({ open, onOpenChange, staff }: { open: boolean; onOpenChange: (open: boolean) => void; staff: HospitalAdminStaff | null }) {
@@ -28,7 +29,7 @@ export function ReplaceStaffModal({ open, onOpenChange, staff }: { open: boolean
       onOpenChange(false);
       setFormData({ new_staff_first_name: "", new_staff_last_name: "", new_staff_email: "" });
     } catch (err) {
-      toast.error("Failed to replace staff");
+      toast.error(getApiErrorMessage(err, "Failed to replace staff"));
     }
   };
 

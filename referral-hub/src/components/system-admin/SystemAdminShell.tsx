@@ -7,6 +7,7 @@ import {
   Layers,
   LogOut,
   Network,
+  Settings2,
   ShieldCheck,
   Users,
   UsersRound,
@@ -29,7 +30,6 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarProvider,
-  SidebarRail,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggler";
@@ -80,6 +80,11 @@ const navItems: readonly NavItem[] = [
     label: "Department Management",
     href: "/systemAdmin/departments",
     icon: Layers,
+  },
+  {
+    label: "System Config",
+    href: "/systemAdmin/config",
+    icon: Settings2,
   },
 ] as const;
 
@@ -205,7 +210,6 @@ export function SystemAdminShell({ children }: SystemAdminShellProps) {
             <span className="group-data-[collapsible=icon]:hidden">Sign out</span>
           </Button>
         </SidebarFooter>
-        <SidebarRail />
       </Sidebar>
 
       <SidebarInset>

@@ -18,6 +18,7 @@ import { hospitalAdminApi } from "@/features/hospitalAdmin/hospitalAdminApi";
 import { departmentHeadApi } from "@/features/department-head/departmentHeadApi";
 import { usersApi } from "@/features/users/usersApi";
 import { networkRoutesApi } from "@/features/networkRoutes/networkRoutesApi";
+import { adminConfigApi } from "@/features/adminConfig/adminConfigApi";
 import { mohAnalyticsApi } from "@/features/analytics/mohAnalyticsApi";
 
 
@@ -43,6 +44,7 @@ export const makeStore = () => {
       [usersApi.reducerPath]: usersApi.reducer,
       [mohAnalyticsApi.reducerPath]: mohAnalyticsApi.reducer,
       [networkRoutesApi.reducerPath]: networkRoutesApi.reducer,
+      [adminConfigApi.reducerPath]: adminConfigApi.reducer,
       [regionsApi.reducerPath]: regionsApi.reducer,
     },
     middleware: (getDefaultMiddleware) =>
@@ -64,6 +66,7 @@ export const makeStore = () => {
         usersApi.middleware,
         mohAnalyticsApi.middleware,
         networkRoutesApi.middleware,
+        adminConfigApi.middleware,
         regionsApi.middleware,
       ),
   });

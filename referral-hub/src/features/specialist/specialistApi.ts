@@ -9,6 +9,21 @@ import {
   RedirectReferralRequest,
   ReleaseReferralRequest,
 } from '@/types/specialist'
+import type { SpecialistReferralListItem } from '@/types/specialist'
+
+function normalizeSpecialistListResponse(
+  raw: SpecialistReferralListResponse | { data?: SpecialistReferralListItem[]; total?: number; page?: number; limit?: number },
+): SpecialistReferralListResponse {
+  const data = Array.isArray(raw.data) ? raw.data : []
+  return {
+    data,
+    success: 'success' in raw ? Boolean(raw.success) : true,
+    message: 'message' in raw && typeof raw.message === 'string' ? raw.message : '',
+    total: Number(raw.total ?? data.length),
+    page: Number(raw.page ?? 1),
+    limit: Number(raw.limit ?? data.length),
+  }
+}
 
 function unwrapRedirectOptions(raw: RedirectOptionsResponse | RedirectHospitalOption[]): RedirectHospitalOption[] {
   if (Array.isArray(raw)) return raw;
@@ -28,6 +43,39 @@ export const specialistApi = createApi({
         const limit = params?.limit ?? 20;
         return `${SPECIALIST_ROUTES.LIST}?page=${pageNum}&limit=${limit}`;
       },
+      transformResponse: (raw: SpecialistReferralListResponse) =>
+        normalizeSpecialistListResponse(raw),
+      providesTags: ['SpecialistReferral'],
+    }),
+    getArchiveReferrals: builder.query<
+      SpecialistReferralListResponse,
+      {
+        page?: number;
+        limit?: number;
+        listType?: 'all' | 'approved' | 'rejected' | 'completed';
+      }
+    >({
+      query: (params) => {
+        const pageNum = params?.page ?? 1;
+        const limit = params?.limit ?? 20;
+        const url =
+          params?.listType === 'approved'
+            ? SPECIALIST_ROUTES.APPROVED
+            : params?.listType === 'rejected'
+              ? SPECIALIST_ROUTES.REJECTED
+              : SPECIALIST_ROUTES.LIST;
+
+        return {
+          url,
+          params: {
+            page: pageNum,
+            limit,
+            ...(params?.listType === 'completed' ? { status: 'COMPLETED' } : {}),
+          },
+        };
+      },
+      transformResponse: (raw: SpecialistReferralListResponse) =>
+        normalizeSpecialistListResponse(raw),
       providesTags: ['SpecialistReferral'],
     }),
     getReferralById: builder.query<SpecialistReferralDetailResponse, string>({
@@ -83,6 +131,7 @@ export const specialistApi = createApi({
 
 export const {
   useGetReferralsQuery,
+  useGetArchiveReferralsQuery,
   useGetReferralByIdQuery,
   useAcceptReferralMutation,
   useRejectReferralMutation,

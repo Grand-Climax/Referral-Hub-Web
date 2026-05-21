@@ -77,17 +77,19 @@ export const baseQueryWithReauth: BaseQueryFn<
             result = await rawBaseQuery(args, api, extraOptions)
         } else {
             // Refresh truly failed — force logout
-            forceLogout(api)
+            void forceLogout(api)
         }
     }
 
     return result
 }
 
-function forceLogout(api: any) {
+async function forceLogout(api: { dispatch: (action: unknown) => void }) {
     Cookies.remove('access_token')
     Cookies.remove('refresh_token')
     api.dispatch(logout())
+    const { resetAllApiCaches } = await import('@/lib/resetApiCaches')
+    resetAllApiCaches(api.dispatch as import('@/lib/store').AppDispatch)
     // Redirect to sign-in on the client side
     // if (typeof window !== 'undefined') {
     //     window.location.href = '/login'

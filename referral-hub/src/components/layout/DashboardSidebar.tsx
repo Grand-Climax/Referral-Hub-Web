@@ -186,7 +186,7 @@ const PROFILE_PATH_BY_ROLE: Record<RoleKey, string> = {
   receptionist: "/receptionist/profile",
   dept_head: "/department-head/profile",
   moh_analyst: "/analytics/profile",
-  receiving_specialist: "/receiving-specialist",
+  receiving_specialist: "/receiving-specialist/profile",
 };
 
 export function DashboardSidebar() {
@@ -204,7 +204,7 @@ export function DashboardSidebar() {
   const menuItems = (role ? NAV_BY_ROLE[role] : []) as NavItem[];
   const profilePath = role
     ? PROFILE_PATH_BY_ROLE[role]
-    : "/referring-doctor/profile";
+    : "";
   const { data: hospital, isLoading: isHospitalLoading } =
     useGetHospitalByIdQuery(userProfile?.hospital_id ?? "", {
       skip: !userProfile?.hospital_id,

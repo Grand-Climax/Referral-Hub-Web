@@ -235,6 +235,16 @@ export interface TopReferringHospitalRow {
   count: number;
 }
 
+/** GET /hospital-admin/dashboard/personnel-widget */
+export interface PersonnelWidgetStats {
+  total_personnel: number;
+  active_duty: number;
+  inactive: number;
+  access_requests: number;
+  success?: boolean;
+  message?: string;
+}
+
 /** Global department catalog entry (GET /departments). */
 export interface DepartmentCatalogEntry {
   id: string;

@@ -33,6 +33,7 @@ import {
   ReassignStaffDepartmentPayload,
   HospitalReferralLogResponse,
   HospitalReferralLogEntry,
+  PersonnelWidgetStats,
 } from '@/types/hospital-admin';
 import { Referral } from '@/types/referral';
 import { ReferralListPaginatedResponse } from '@/types/referral-list';
@@ -323,6 +324,29 @@ function unwrapStaffSessions(raw: unknown): StaffSessionListResponse {
   return { data: [], page: 1, total: 0 };
 }
 
+function unwrapPersonnelWidget(raw: unknown): PersonnelWidgetStats {
+  if (raw && typeof raw === 'object' && 'data' in raw) {
+    return unwrapPersonnelWidget((raw as { data: unknown }).data);
+  }
+  if (raw && typeof raw === 'object' && 'total_personnel' in raw) {
+    const o = raw as Record<string, unknown>;
+    return {
+      total_personnel: Number(o.total_personnel ?? 0),
+      active_duty: Number(o.active_duty ?? 0),
+      inactive: Number(o.inactive ?? 0),
+      access_requests: Number(o.access_requests ?? 0),
+      success: typeof o.success === 'boolean' ? o.success : undefined,
+      message: typeof o.message === 'string' ? o.message : undefined,
+    };
+  }
+  return {
+    total_personnel: 0,
+    active_duty: 0,
+    inactive: 0,
+    access_requests: 0,
+  };
+}
+
 export const hospitalAdminApi = createApi({
   reducerPath: 'hospitalAdminApi',
   baseQuery: baseQueryWithReauth,
@@ -334,8 +358,14 @@ export const hospitalAdminApi = createApi({
     'HospitalAdminProfile',
     'HospitalAdminReferrals',
     'HospitalAdminStaffSessions',
+    'HospitalAdminPersonnelWidget',
   ],
   endpoints: (builder) => ({
+    getPersonnelWidget: builder.query<PersonnelWidgetStats, void>({
+      query: () => HOSPITAL_ADMIN_ROUTES.DASHBOARD_PERSONNEL_WIDGET,
+      transformResponse: (raw: unknown) => unwrapPersonnelWidget(raw),
+      providesTags: ['HospitalAdminPersonnelWidget'],
+    }),
     getStaff: builder.query<HospitalAdminStaffResponse, GetStaffParams | undefined>({
       query: (params) => buildStaffListQuery(params),
       providesTags: ['HospitalAdminStaff'],
@@ -357,7 +387,11 @@ export const hospitalAdminApi = createApi({
       }),
       transformResponse: (raw: HospitalAdminStaffDetail | { data: HospitalAdminStaffDetail }) =>
         unwrapStaffDetail(raw),
-      invalidatesTags: (result, error, { id }) => [{ type: 'HospitalAdminStaff', id }, 'HospitalAdminStaff'],
+      invalidatesTags: (result, error, { id }) => [
+        { type: 'HospitalAdminStaff', id },
+        'HospitalAdminStaff',
+        'HospitalAdminPersonnelWidget',
+      ],
     }),
     updateStaffActivation: builder.mutation<unknown, { id: string; is_active: boolean }>({
       query: ({ id, is_active }) => ({
@@ -365,7 +399,11 @@ export const hospitalAdminApi = createApi({
         method: 'PATCH',
         body: { is_active },
       }),
-      invalidatesTags: (result, error, { id }) => [{ type: 'HospitalAdminStaff', id }, 'HospitalAdminStaff'],
+      invalidatesTags: (result, error, { id }) => [
+        { type: 'HospitalAdminStaff', id },
+        'HospitalAdminStaff',
+        'HospitalAdminPersonnelWidget',
+      ],
     }),
     createStaff: builder.mutation<HospitalAdminStaff, CreateStaffPayload>({
       query: (body) => ({
@@ -373,14 +411,14 @@ export const hospitalAdminApi = createApi({
         method: 'POST',
         body,
       }),
-      invalidatesTags: ['HospitalAdminStaff'],
+      invalidatesTags: ['HospitalAdminStaff', 'HospitalAdminPersonnelWidget'],
     }),
     deleteStaff: builder.mutation<void, string>({
       query: (id) => ({
         url: HOSPITAL_ADMIN_ROUTES.STAFF_BY_ID(id),
         method: 'DELETE',
       }),
-      invalidatesTags: ['HospitalAdminStaff'],
+      invalidatesTags: ['HospitalAdminStaff', 'HospitalAdminPersonnelWidget'],
     }),
     replaceStaff: builder.mutation<HospitalAdminStaff, { id: string } & ReplaceStaffPayload>({
       query: ({ id, ...body }) => ({
@@ -388,7 +426,11 @@ export const hospitalAdminApi = createApi({
         method: 'POST',
         body,
       }),
-      invalidatesTags: (result, error, { id }) => [{ type: 'HospitalAdminStaff', id }, 'HospitalAdminStaff'],
+      invalidatesTags: (result, error, { id }) => [
+        { type: 'HospitalAdminStaff', id },
+        'HospitalAdminStaff',
+        'HospitalAdminPersonnelWidget',
+      ],
     }),
     changeStaffRole: builder.mutation<HospitalAdminStaff, { id: string } & ChangeRolePayload>({
       query: ({ id, ...body }) => ({
@@ -396,7 +438,11 @@ export const hospitalAdminApi = createApi({
         method: 'PATCH',
         body,
       }),
-      invalidatesTags: (result, error, { id }) => [{ type: 'HospitalAdminStaff', id }, 'HospitalAdminStaff'],
+      invalidatesTags: (result, error, { id }) => [
+        { type: 'HospitalAdminStaff', id },
+        'HospitalAdminStaff',
+        'HospitalAdminPersonnelWidget',
+      ],
     }),
     reassignStaffDepartment: builder.mutation<
       HospitalAdminStaffDetail,
@@ -586,6 +632,7 @@ export const hospitalAdminApi = createApi({
 });
 
 export const {
+  useGetPersonnelWidgetQuery,
   useGetStaffQuery,
   useGetStaffByIdQuery,
   useCreateStaffMutation,

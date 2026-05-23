@@ -1,30 +1,12 @@
-'use client'
-import React from 'react';
+'use client';
+
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useGetStaffQuery, useGetPendingApprovalReferralsQuery } from '@/features/hospitalAdmin/hospitalAdminApi';
+import { useGetPersonnelWidgetQuery } from '@/features/hospitalAdmin/hospitalAdminApi';
 import { Loader2 } from 'lucide-react';
 
 export const StaffStats = () => {
-  const { data: totalData, isLoading: isLoadingTotal } = useGetStaffQuery({
-    page: 1,
-    page_size: 1,
-  });
-  const { data: activeData, isLoading: isLoadingActive } = useGetStaffQuery({
-    page: 1,
-    page_size: 1,
-    is_active: true,
-  });
-  const { data: inactiveData, isLoading: isLoadingInactive } = useGetStaffQuery({
-    page: 1,
-    page_size: 1,
-    is_active: false,
-  });
-  const { data: pendingData, isLoading: isLoadingPending } =
-    useGetPendingApprovalReferralsQuery({ page: 1, page_size: 1 });
-
-  const isLoading =
-    isLoadingTotal || isLoadingActive || isLoadingInactive || isLoadingPending;
+  const { data, isLoading, isError } = useGetPersonnelWidgetQuery();
 
   if (isLoading) {
     return (
@@ -34,11 +16,10 @@ export const StaffStats = () => {
     );
   }
 
-  const totalStaff = totalData?.total ?? 0;
-  const activeStaff = activeData?.total ?? 0;
-  const inactiveStaff = inactiveData?.total ?? 0;
-
-  const pendingApprovals = pendingData?.total ?? 0;
+  const totalStaff = data?.total_personnel ?? 0;
+  const activeStaff = data?.active_duty ?? 0;
+  const inactiveStaff = data?.inactive ?? 0;
+  const pendingApprovals = data?.access_requests ?? 0;
 
   const stats = [
     {
@@ -68,8 +49,8 @@ export const StaffStats = () => {
     {
       label: 'ACCESS REQUESTS',
       value: pendingApprovals.toString(),
-      subtext: 'Requires immediate review',
-      subtextColor: 'text-slate-500',
+      subtext: isError ? 'Could not load latest count' : 'Requires immediate review',
+      subtextColor: isError ? 'text-destructive' : 'text-slate-500',
       badge: 'PENDING',
       badgeColor: 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400',
     },

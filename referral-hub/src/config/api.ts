@@ -105,6 +105,7 @@ export const RECEPTIONIST_ROUTES = {
 
 export const HOSPITAL_ADMIN_ROUTES = {
   AUDIT_LOGS: "/api/v1/hospital-admin/audit-logs",
+  DASHBOARD_PERSONNEL_WIDGET: "/api/v1/hospital-admin/dashboard/personnel-widget",
   DEPARTMENTS: "/api/v1/hospital-admin/departments",
   DEPARTMENT_ACTIVATION: (deptId: string) =>
     `/api/v1/hospital-admin/departments/${deptId}/activation`,

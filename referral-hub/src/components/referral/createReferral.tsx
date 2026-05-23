@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,6 +68,51 @@ const REFERRAL_CATEGORIES = [
 const CONDITION_OPTIONS = ["Stable", "Unstable", "Critical", "Improving"];
 
 const TRANSPORT_MODES = ["Private Vehicle", "Ambulance", "Hospital Transfer", "Other"];
+
+function validateStep(
+  stepNum: number,
+  data: Partial<CreateReferralRequest>,
+): string | null {
+  if (stepNum >= 1) {
+    if (!data.patient_id) {
+      return "Select or create a patient first (Step 1).";
+    }
+  }
+  if (stepNum >= 2) {
+    if (!data.clinical_summary?.trim()) {
+      return "Clinical summary is required (Step 2).";
+    }
+    if (!data.patient_history?.trim()) {
+      return "Patient history is required (Step 2).";
+    }
+    if (!data.reason_of_referral?.trim()) {
+      return "Reason for referral is required (Step 2).";
+    }
+    const diagnoses = data.diagnoses ?? [];
+    const withCode = diagnoses.filter((d) => d.icd_code?.trim());
+    if (withCode.length === 0) {
+      return "Select at least one ICD-10 diagnosis (Step 2).";
+    }
+    if (!withCode.some((d) => d.is_primary)) {
+      return "Mark one diagnosis as primary (Step 2).";
+    }
+    if (
+      data.reason_for_referral_category === "EMERGENCY" &&
+      !data.emergency_detail?.emergency_justification?.trim()
+    ) {
+      return "Emergency justification is required (Step 2).";
+    }
+  }
+  if (stepNum >= 3) {
+    if (!data.target_hospital_id) {
+      return "Select a receiving hospital (Step 3).";
+    }
+    if (!data.target_dept_id) {
+      return "Select a target department (Step 3).";
+    }
+  }
+  return null;
+}
 
 /* ─── Reusable enhanced SelectTrigger className ─── */
 const selectTriggerCls =
@@ -155,6 +200,11 @@ const CreateReferral = () => {
       );
     } else {
       referralForm.setValue(field as any, value, { shouldDirty: true });
+      if (field === "target_hospital_id") {
+        referralForm.setValue("target_dept_id" as any, "" as any, {
+          shouldDirty: true,
+        });
+      }
     }
   };
 
@@ -204,6 +254,12 @@ const CreateReferral = () => {
     return `+${p.replace(/\D/g, "")}`;
   };
 
+  useEffect(() => {
+    if (step !== 1) {
+      setPatientFlowBusy(false);
+    }
+  }, [step]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -212,12 +268,14 @@ const CreateReferral = () => {
       return;
     }
 
+    const validationError = validateStep(4, referralData);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
     try {
-      const patient_id = referralData.patient_id;
-      if (!patient_id) {
-        toast.error("Please select or create a patient first (Step 1).");
-        return;
-      }
+      const patient_id = referralData.patient_id!;
 
       const payload: CreateReferralRequest = {
         patient_id,
@@ -242,7 +300,9 @@ const CreateReferral = () => {
         liaison_officer_id: referralData.liaison_officer_id || undefined,
 
         vitals: referralData.vitals as any,
-        diagnoses: (referralData.diagnoses || []) as any,
+        diagnoses: (referralData.diagnoses || []).filter((d) =>
+          d.icd_code?.trim(),
+        ) as any,
 
         emergency_detail:
           referralData.reason_for_referral_category === "EMERGENCY"
@@ -286,11 +346,10 @@ const CreateReferral = () => {
   const handleNext = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (step === 1) {
-      if (!referralData.patient_id) {
-        toast.error("Select or create a patient first (Step 1).");
-        return;
-      }
+    const validationError = validateStep(step, referralData);
+    if (validationError) {
+      toast.error(validationError);
+      return;
     }
     if (step < 4) setStep(step + 1);
   };
@@ -987,7 +1046,7 @@ const CreateReferral = () => {
                 <Button 
                   type="submit" 
                   className="gap-2 px-8" 
-                  disabled={isSubmitting || patientFlowBusy}
+                  disabled={isSubmitting || isUserLoading}
                 >
                   {isSubmitting
                     ? "Submitting..."

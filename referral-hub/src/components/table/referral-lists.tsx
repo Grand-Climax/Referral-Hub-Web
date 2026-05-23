@@ -30,6 +30,8 @@ import { DataTableToolbar } from "./data-table-toolbar";
 import { Referral } from "@/types/referral";
 import { ReferralListItem } from "@/types/referral-list";
 import { SpecialistReferralListItem } from "@/types/specialist";
+import { useDepartmentNameMap } from "@/hooks/useDepartmentNameMap";
+import type { ReferralListsTableMeta } from "./types";
 
 /** When set, row counts and page changes come from the server (see liaison list API). */
 export type ReferralListsServerPagination = {
@@ -51,6 +53,7 @@ export function ReferralLists({
   getRowHref,
   serverPagination,
 }: ReferralListsProps) {
+  const { nameById, isLoading: departmentsLoading } = useDepartmentNameMap();
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     [],
@@ -117,7 +120,9 @@ export function ReferralLists({
     },
     meta: {
       getRowHref,
-    },
+      departmentNames: nameById,
+      departmentsLoading,
+    } satisfies ReferralListsTableMeta,
   });
 
   return (

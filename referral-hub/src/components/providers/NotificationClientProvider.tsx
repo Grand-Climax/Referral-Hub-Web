@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Cookies from "js-cookie";
-import { NotificationProvider } from "@/context/NotificationProvider";
+import { RealtimeProvider } from "@/context/RealtimeProvider";
 import { useGetCurrentUserQuery } from "@/features/auth/authApi";
-import { isNotificationsEnabledForRole } from "@/lib/notificationRoutes";
+import { isChatEnabledForRole } from "@/lib/chatRoutes";
 
 export function NotificationClientProvider({
   children,
@@ -22,13 +22,14 @@ export function NotificationClientProvider({
   }, []);
 
   const { data: user } = useGetCurrentUserQuery(undefined, { skip: !token });
-  const notificationsEnabled = isNotificationsEnabledForRole(user?.role);
+  const realtimeEnabled = isChatEnabledForRole(user?.role);
 
-  if (!notificationsEnabled) {
+  if (!realtimeEnabled) {
     return <>{children}</>;
   }
 
-  return (
-    <NotificationProvider token={token}>{children}</NotificationProvider>
-  );
+  return <RealtimeProvider token={token}>{children}</RealtimeProvider>;
 }
+
+/** @deprecated Use NotificationClientProvider */
+export const RealtimeClientProvider = NotificationClientProvider;

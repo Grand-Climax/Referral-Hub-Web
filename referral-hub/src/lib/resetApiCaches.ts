@@ -18,6 +18,7 @@ import { usersApi } from "@/features/users/usersApi";
 import { networkRoutesApi } from "@/features/networkRoutes/networkRoutesApi";
 import { adminConfigApi } from "@/features/adminConfig/adminConfigApi";
 import { notificationsApi } from "@/features/notifications/notificationsApi";
+import { chatApi } from "@/features/chat/chatApi";
 import { mohAnalyticsApi } from "@/features/analytics/mohAnalyticsApi";
 
 const apiSlices = [
@@ -40,6 +41,7 @@ const apiSlices = [
   networkRoutesApi,
   adminConfigApi,
   notificationsApi,
+  chatApi,
   mohAnalyticsApi,
 ] as const;
 

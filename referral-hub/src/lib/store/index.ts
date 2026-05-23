@@ -20,6 +20,7 @@ import { usersApi } from "@/features/users/usersApi";
 import { networkRoutesApi } from "@/features/networkRoutes/networkRoutesApi";
 import { adminConfigApi } from "@/features/adminConfig/adminConfigApi";
 import { notificationsApi } from "@/features/notifications/notificationsApi";
+import { chatApi } from "@/features/chat/chatApi";
 import { mohAnalyticsApi } from "@/features/analytics/mohAnalyticsApi";
 
 
@@ -47,6 +48,7 @@ export const makeStore = () => {
       [networkRoutesApi.reducerPath]: networkRoutesApi.reducer,
       [adminConfigApi.reducerPath]: adminConfigApi.reducer,
       [notificationsApi.reducerPath]: notificationsApi.reducer,
+      [chatApi.reducerPath]: chatApi.reducer,
       [regionsApi.reducerPath]: regionsApi.reducer,
     },
     middleware: (getDefaultMiddleware) =>
@@ -70,6 +72,7 @@ export const makeStore = () => {
         networkRoutesApi.middleware,
         adminConfigApi.middleware,
         notificationsApi.middleware,
+        chatApi.middleware,
         regionsApi.middleware,
       ),
   });

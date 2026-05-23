@@ -7,6 +7,7 @@ import {
   Building2,
   Layers,
   LogOut,
+  MessageSquare,
   Network,
   Settings2,
   ShieldCheck,
@@ -36,6 +37,7 @@ import {
 } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggler";
 import { Notifications } from "@/components/notifications";
+import { ChatHeaderLink } from "@/components/chat/ChatHeaderLink";
 import { useGetCurrentUserQuery, useLogoutMutation } from "@/features/auth/authApi";
 import { cn } from "@/lib/utils";
 
@@ -93,6 +95,11 @@ const navItems: readonly NavItem[] = [
     label: "Notifications",
     href: "/systemAdmin/notifications",
     icon: Bell,
+  },
+  {
+    label: "Messages",
+    href: "/systemAdmin/messages",
+    icon: MessageSquare,
   },
 ] as const;
 
@@ -230,6 +237,7 @@ export function SystemAdminShell({ children }: SystemAdminShellProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <ChatHeaderLink />
             <Notifications />
             <ThemeToggle />
           </div>

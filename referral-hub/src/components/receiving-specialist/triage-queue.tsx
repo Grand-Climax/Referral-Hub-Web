@@ -56,7 +56,6 @@ const getPriorityScore = (ref: Referral) => {
 const toListItem = (ref: Referral): ReferralListItem => ({
   id: ref.id,
   status: ref.status,
-  date: ref.created_at,
   department: ref.target_dept_id,
   condition_at_referral: ref.referral_form?.condition_at_referral ?? "STABLE",
   diagnosis: getDiagnosis(ref),
@@ -67,6 +66,7 @@ const toListItem = (ref: Referral): ReferralListItem => ({
   created_at: ref.created_at,
   updated_at: ref.updated_at,
   patient_region: ref.patient?.home_region ?? "N/A",
+  ml_status: ref.ml_status ?? "PENDING",
 });
 
 export function TriageQueue() {

@@ -105,6 +105,22 @@ export const RECEPTIONIST_ROUTES = {
 
 export const HOSPITAL_ADMIN_ROUTES = {
   AUDIT_LOGS: "/api/v1/hospital-admin/audit-logs",
+  DEPARTMENTS: "/api/v1/hospital-admin/departments",
+  DEPARTMENT_ACTIVATION: (deptId: string) =>
+    `/api/v1/hospital-admin/departments/${deptId}/activation`,
+  DEPARTMENT_HEAD: (deptId: string) =>
+    `/api/v1/hospital-admin/departments/${deptId}/head`,
+  HOSPITAL_PROFILE: "/api/v1/hospital-admin/hospital/profile",
+  REFERRALS_LOG: "/api/v1/hospital-admin/referrals-log",
+  REFERRALS_INBOUND: "/api/v1/hospital-admin/referrals/inbound",
+  REFERRALS_OUTBOUND: "/api/v1/hospital-admin/referrals/outbound",
+  REFERRALS_PENDING_APPROVALS:
+    "/api/v1/hospital-admin/referrals/pending-approvals",
+  REFERRALS_REJECTED_REDIRECTED:
+    "/api/v1/hospital-admin/referrals/rejected-redirected",
+  REFERRALS_STATS_BY_STATUS:
+    "/api/v1/hospital-admin/referrals/stats/by-status",
+  REFERRAL_BY_ID: (id: string) => `/api/v1/hospital-admin/referrals/${id}`,
   REPORTS_ACCEPTANCE_REJECTION_RATE:
     "/api/v1/hospital-admin/reports/acceptance-rejection-rate",
   REPORTS_AVERAGE_WAIT_TIME:
@@ -120,8 +136,12 @@ export const HOSPITAL_ADMIN_ROUTES = {
   STATUS_HISTORY: (id: string) => `/api/v1/hospital-admin/referrals/${id}/status-history`,
   STAFF: "/api/v1/hospital-admin/staff",
   STAFF_BY_ID: (id: string) => `/api/v1/hospital-admin/staff/${id}`,
+  STAFF_SESSIONS: "/api/v1/hospital-admin/staff/sessions",
   /** PATCH body: `{ "is_active": boolean }` */
   STAFF_ACTIVATION: (id: string) => `/api/v1/hospital-admin/staff/${id}/activation`,
+  STAFF_DEPARTMENT: (id: string) => `/api/v1/hospital-admin/staff/${id}/department`,
+  STAFF_FORCE_LOGOUT: (id: string) =>
+    `/api/v1/hospital-admin/staff/${id}/force-logout`,
   REPLACE_STAFF: (id: string) => `/api/v1/hospital-admin/staff/${id}/replace`,
   CHANGE_ROLE: (id: string) => `/api/v1/hospital-admin/staff/${id}/role`,
 } as const;

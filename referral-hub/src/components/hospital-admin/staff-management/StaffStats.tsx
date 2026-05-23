@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useGetStaffQuery } from '@/features/hospitalAdmin/hospitalAdminApi';
+import { useGetStaffQuery, useGetPendingApprovalReferralsQuery } from '@/features/hospitalAdmin/hospitalAdminApi';
 import { Loader2 } from 'lucide-react';
 
 export const StaffStats = () => {
@@ -20,8 +20,11 @@ export const StaffStats = () => {
     page_size: 1,
     is_active: false,
   });
+  const { data: pendingData, isLoading: isLoadingPending } =
+    useGetPendingApprovalReferralsQuery({ page: 1, page_size: 1 });
 
-  const isLoading = isLoadingTotal || isLoadingActive || isLoadingInactive;
+  const isLoading =
+    isLoadingTotal || isLoadingActive || isLoadingInactive || isLoadingPending;
 
   if (isLoading) {
     return (
@@ -34,6 +37,8 @@ export const StaffStats = () => {
   const totalStaff = totalData?.total ?? 0;
   const activeStaff = activeData?.total ?? 0;
   const inactiveStaff = inactiveData?.total ?? 0;
+
+  const pendingApprovals = pendingData?.total ?? 0;
 
   const stats = [
     {
@@ -62,7 +67,7 @@ export const StaffStats = () => {
     },
     {
       label: 'ACCESS REQUESTS',
-      value: '0',
+      value: pendingApprovals.toString(),
       subtext: 'Requires immediate review',
       subtextColor: 'text-slate-500',
       badge: 'PENDING',

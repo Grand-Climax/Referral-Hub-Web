@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import {
   useChangeStaffRoleMutation,
   useDeleteStaffMutation,
+  useForceLogoutStaffMutation,
   useGetStaffByIdQuery,
   useUpdateStaffMutation,
 } from '@/features/hospitalAdmin/hospitalAdminApi';
@@ -58,6 +59,7 @@ import {
   Shield,
   Trash2,
   UserCircle2,
+  LogOut,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/apiError';
@@ -99,6 +101,7 @@ export function StaffDetailProfile({ staffId }: { staffId: string }) {
   const [updateStaff, { isLoading: isUpdating }] = useUpdateStaffMutation();
   const [changeRole, { isLoading: isChangingRole }] = useChangeStaffRoleMutation();
   const [deleteStaff, { isLoading: isDeleting }] = useDeleteStaffMutation();
+  const [forceLogoutStaff, { isLoading: isForcingLogout }] = useForceLogoutStaffMutation();
 
   const [isEditing, setIsEditing] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -179,6 +182,15 @@ export function StaffDetailProfile({ staffId }: { staffId: string }) {
       refetch();
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Could not save changes. Please try again.'));
+    }
+  };
+
+  const handleForceLogout = async () => {
+    try {
+      await forceLogoutStaff(staffId).unwrap();
+      toast.success('Staff session terminated.');
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Could not force logout staff member.'));
     }
   };
 
@@ -270,6 +282,19 @@ export function StaffDetailProfile({ staffId }: { staffId: string }) {
               >
                 <Pencil className="h-4 w-4" />
                 Edit
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2 rounded-xl"
+                onClick={() => void handleForceLogout()}
+                disabled={isForcingLogout}
+              >
+                {isForcingLogout ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <LogOut className="h-4 w-4" />
+                )}
+                Force logout
               </Button>
               <Button
                 variant="outline"

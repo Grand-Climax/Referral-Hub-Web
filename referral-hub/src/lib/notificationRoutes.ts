@@ -37,7 +37,7 @@ const REFERRAL_DETAIL_BY_ROLE: Record<
   (id: string) => string
 > = {
   referring_doctor: (id) => `/referring-doctor/${id}`,
-  hospital_admin: (id) => `/hospital-admin/referral-logs`,
+  hospital_admin: (id) => `/hospital-admin/referrals/${id}`,
   liaison_officer: (id) => `/liaison-officer/referrals/${id}`,
   receptionist: (id) => `/receptionist`,
   dept_head: (id) => `/department-head`,

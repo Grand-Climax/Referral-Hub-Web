@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { useGetCurrentUserQuery } from "@/features/auth/authApi";
 import { useCreateStaffMutation } from "@/features/hospitalAdmin/hospitalAdminApi";
 import { useGetDepartmentsQuery } from "@/features/hospitals/hospitalsApi";
+import { useGetRegionsQuery } from "@/features/reference/regionsApi";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/apiError";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,6 +31,8 @@ const defaultFormData: CreateStaffPayload = {
   middle_name: "",
   national_id: "",
   password: "",
+  phone_number: "",
+  region: "",
   role: "LIAISON_OFFICER",
 };
 
@@ -42,8 +45,14 @@ export function CreateStaffModal({ open, onOpenChange }: { open: boolean; onOpen
     useGetDepartmentsQuery(hospitalId ?? "", {
       skip: !hospitalId,
     });
+  const { data: regions = [], isLoading: isLoadingRegions } =
+    useGetRegionsQuery();
   const [formData, setFormData] =
     useState<CreateStaffPayload>(defaultFormData);
+
+  const selectedRegionInOptions = regions.some(
+    (region) => region === formData.region,
+  );
 
   const handleChange = (field: keyof CreateStaffPayload, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -67,6 +76,14 @@ export function CreateStaffModal({ open, onOpenChange }: { open: boolean; onOpen
       toast.error("Please select a department.");
       return;
     }
+    if (!formData.region.trim()) {
+      toast.error("Please select a region.");
+      return;
+    }
+    if (!formData.phone_number.trim()) {
+      toast.error("Please enter a phone number.");
+      return;
+    }
     if (!hospitalId) {
       toast.error("Could not determine your hospital. Please refresh and try again.");
       return;
@@ -80,6 +97,8 @@ export function CreateStaffModal({ open, onOpenChange }: { open: boolean; onOpen
       middle_name: formData.middle_name.trim(),
       national_id: formData.national_id.trim(),
       password: formData.password,
+      phone_number: formData.phone_number.trim(),
+      region: formData.region.trim(),
       role: formData.role,
     };
 
@@ -152,6 +171,17 @@ export function CreateStaffModal({ open, onOpenChange }: { open: boolean; onOpen
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
+              <Label htmlFor="staff_phone_number">Phone number</Label>
+              <Input
+                id="staff_phone_number"
+                type="tel"
+                required
+                value={formData.phone_number}
+                onChange={(e) => handleChange("phone_number", e.target.value)}
+                placeholder="+251922334455"
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="staff_national_id">National ID</Label>
               <Input
                 id="staff_national_id"
@@ -161,6 +191,9 @@ export function CreateStaffModal({ open, onOpenChange }: { open: boolean; onOpen
                 placeholder="ETH-0001"
               />
             </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="staff_password">Password</Label>
               <Input
@@ -175,6 +208,43 @@ export function CreateStaffModal({ open, onOpenChange }: { open: boolean; onOpen
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="staff_region">Region</Label>
+              <Select
+                value={formData.region}
+                onValueChange={(val) => handleChange("region", val)}
+                disabled={isLoadingRegions && regions.length === 0}
+                required
+              >
+                <SelectTrigger id="staff_region" className="w-full">
+                  <SelectValue
+                    placeholder={
+                      isLoadingRegions ? "Loading regions..." : "Select region"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {!selectedRegionInOptions && formData.region ? (
+                    <SelectItem value={formData.region}>
+                      {formData.region}
+                    </SelectItem>
+                  ) : null}
+                  {regions.length === 0 && !formData.region ? (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      {isLoadingRegions
+                        ? "Loading regions..."
+                        : "No regions available"}
+                    </div>
+                  ) : (
+                    regions.map((region) => (
+                      <SelectItem key={region} value={region}>
+                        {region}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="staff_department_id">Department</Label>
               <Select
@@ -238,7 +308,10 @@ export function CreateStaffModal({ open, onOpenChange }: { open: boolean; onOpen
                 isLoading ||
                 isLoadingCurrentUser ||
                 isLoadingDepartments ||
-                !hospitalId
+                isLoadingRegions ||
+                !hospitalId ||
+                !formData.region ||
+                !formData.phone_number.trim()
               }
             >
               {isLoading ? "Creating..." : "Create staff"}

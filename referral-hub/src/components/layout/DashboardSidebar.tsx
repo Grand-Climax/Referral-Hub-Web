@@ -93,6 +93,16 @@ const NAV_BY_ROLE = {
       icon: ClipboardList,
     },
     {
+      title: "Departments",
+      url: "/hospital-admin/departments",
+      icon: Users,
+    },
+    {
+      title: "Referrals",
+      url: "/hospital-admin/referrals",
+      icon: ArrowLeftRight,
+    },
+    {
       title: "Referral Logs",
       url: "/hospital-admin/referral-logs",
       icon: FileText,
@@ -101,6 +111,11 @@ const NAV_BY_ROLE = {
       title: "Activity Logs",
       url: "/hospital-admin/activity-logs",
       icon: ListChecks,
+    },
+    {
+      title: "Hospital Profile",
+      url: "/hospital-admin/hospital-profile",
+      icon: Settings,
     },
     {
       title: "Notifications",

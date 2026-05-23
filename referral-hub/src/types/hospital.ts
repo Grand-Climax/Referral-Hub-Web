@@ -35,6 +35,15 @@ export interface Department {
   description?: string;
   created_at?: string;
   updated_at?: string;
+  success?: boolean;
+}
+
+export interface DepartmentListResponse {
+  data: Department[];
+  total: number;
+  page: number;
+  success?: boolean;
+  message?: string;
 }
 
 export interface CreateDepartmentRequest {

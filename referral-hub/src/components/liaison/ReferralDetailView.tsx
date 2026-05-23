@@ -30,8 +30,12 @@ import {
   Paperclip,
   ShieldCheck,
 } from "lucide-react";
-import { useGetHospitalByIdQuery } from "@/features/hospitals/hospitalsApi";
+import {
+  useGetDepartmentsQuery,
+  useGetHospitalByIdQuery,
+} from "@/features/hospitals/hospitalsApi";
 import { useGetUserByIdQuery } from "@/features/auth/authApi";
+import ReferralPdfExportButton from "@/components/referral/ReferralPdfExportButton";
 import {
   Popover,
   PopoverContent,
@@ -161,6 +165,10 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
   const { data: targetHospital } = useGetHospitalByIdQuery(
     referral?.target_hospital_id || "",
   );
+  const { data: departments = [] } = useGetDepartmentsQuery(
+    referral?.target_hospital_id ?? "",
+    { skip: !referral?.target_hospital_id },
+  );
 
   if (isLoading) {
     return (
@@ -203,6 +211,22 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
   const doctorLabel = doctor
     ? `Dr. ${doctor.first_name} ${doctor.last_name}`
     : referral.referring_doctor_id;
+  const targetDepartment = departments.find(
+    (department) => department.id === referral.target_dept_id,
+  );
+  const patientName = referral.patient
+    ? [referral.patient.first_name, referral.patient.middle_name, referral.patient.last_name]
+        .filter(Boolean)
+        .join(" ")
+    : "Unknown Patient";
+  const senderHospitalName = hospital?.name ?? "Not recorded";
+  const targetHospitalName = targetHospital?.name ?? "Not recorded";
+  const targetDepartmentName = targetDepartment?.name ?? "Not recorded";
+  const referringDoctorName = doctor
+    ? [doctor.first_name, doctor.middle_name, doctor.last_name]
+        .filter(Boolean)
+        .join(" ")
+    : "Not recorded";
   const effectiveStatus = statusOverride ?? referral.status;
   const canTakeAction = effectiveStatus === "UNDER_LIAISON_REVIEW";
   const latestVitals = referral.vitals?.[0];
@@ -377,7 +401,7 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
             )}
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            Referral Case: #{referral.id}
+            Referral
           </h1>
           <p className="text-sm text-muted-foreground mt-2 flex items-center gap-1.5">
             <DoctorIcon className="h-4 w-4" />
@@ -412,14 +436,14 @@ export function ReferralDetailView({ referral_id }: ReferralDetailViewProps) {
             )
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" className="font-semibold">
-            Save Draft
-          </Button>
-          <Button className="font-semibold bg-primary hover:bg-primary/90 text-primary-foreground">
-            Submit Review
-          </Button>
-        </div>
+        <ReferralPdfExportButton
+          referral={referral}
+          patientName={patientName}
+          senderHospitalName={senderHospitalName}
+          targetHospitalName={targetHospitalName}
+          targetDepartmentName={targetDepartmentName}
+          referringDoctorName={referringDoctorName}
+        />
       </div>
 
       {/* ── CASE METADATA ── */}

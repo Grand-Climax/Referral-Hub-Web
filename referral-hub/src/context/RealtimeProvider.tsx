@@ -9,7 +9,12 @@ import React, {
   useState,
 } from "react";
 import { toast } from "sonner";
-import { isWSChatFrame, type WSIncomingRealtimeEnvelope } from "@/types/realtime";
+import {
+  isWSChatFrame,
+  type ChatMessage,
+  type WSInboundChatFrame,
+  type WSIncomingRealtimeEnvelope,
+} from "@/types/realtime";
 import {
   isWSNotificationFrame,
 } from "@/types/notification";
@@ -34,6 +39,12 @@ interface RealtimeContextType {
   isReconnecting: boolean;
   activeConversationId: string | null;
   setActiveConversationId: (id: string | null) => void;
+  /** WebSocket-first send; REST fallback when socket is offline. */
+  sendChatMessage: (
+    receiverId: string,
+    content: string,
+    referralId: string | null,
+  ) => Promise<ChatMessage | null>;
 }
 
 const RealtimeContext = createContext<RealtimeContextType | undefined>(
@@ -254,6 +265,49 @@ export function RealtimeProvider({
     dispatch,
   ]);
 
+  const sendChatMessage = useCallback(
+    async (
+      receiverId: string,
+      content: string,
+      referralId: string | null,
+    ): Promise<ChatMessage | null> => {
+      const trimmed = content.trim();
+      if (trimmed.length === 0 || trimmed.length > 5000) {
+        throw new Error("Message must be between 1 and 5000 characters.");
+      }
+
+      const frame: WSInboundChatFrame = {
+        type: "chat",
+        receiver_id: receiverId,
+        referral_id: referralId,
+        content: trimmed,
+      };
+
+      const ws = socketRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.send(JSON.stringify(frame));
+          invalidateChatCaches(dispatch, activeConversationIdRef.current ?? undefined);
+          return null;
+        } catch (wsErr) {
+          console.warn("[WS] Send failed, using REST fallback:", wsErr);
+        }
+      }
+
+      const result = await dispatch(
+        chatApi.endpoints.sendMessage.initiate({
+          receiver_id: receiverId,
+          content: trimmed,
+          referral_id: referralId,
+        }),
+      ).unwrap();
+
+      invalidateChatCaches(dispatch, result.conversation_id);
+      return result;
+    },
+    [dispatch],
+  );
+
   useEffect(() => {
     connectWSRef.current = connectWS;
     disconnectWSRef.current = disconnectWS;
@@ -310,6 +364,7 @@ export function RealtimeProvider({
         isReconnecting,
         activeConversationId,
         setActiveConversationId,
+        sendChatMessage,
       }}
     >
       {children}
@@ -325,6 +380,9 @@ export function useRealtime() {
       isReconnecting: false,
       activeConversationId: null,
       setActiveConversationId: () => {},
+      sendChatMessage: async () => {
+        throw new Error("RealtimeProvider is not mounted.");
+      },
     };
   }
   return context;

@@ -130,6 +130,8 @@ export interface CreateStaffPayload {
   last_name: string;
   national_id: string;
   password: string;
+  phone_number: string;
+  region: string;
   role: string;
 }
 
@@ -146,13 +148,25 @@ export interface ChangeRolePayload {
 }
 
 export interface ReferralStatusHistory {
-  id: string;
+  history_id: string;
   referral_id: string;
-  status: string;
+  changed_by_id: string;
+  role: string;
+  from_status: string;
+  to_status: string;
   created_at: string;
-  changed_by: string;
-  notes?: string;
-  [key: string]: any;
+}
+
+/** Single row from GET /hospital-admin/referrals-log */
+export type HospitalReferralLogEntry = ReferralStatusHistory;
+
+export interface HospitalReferralLogResponse {
+  data: HospitalReferralLogEntry[];
+  page: number;
+  page_size: number;
+  total: number;
+  success?: boolean;
+  message?: string;
 }
 
 /** Hospital admin audit trail (GET /hospital-admin/audit-logs). */
@@ -219,4 +233,123 @@ export interface TopReferringHospitalRow {
   hospital_id: string;
   hospital_name: string;
   count: number;
+}
+
+/** GET /hospital-admin/dashboard/personnel-widget */
+export interface PersonnelWidgetStats {
+  total_personnel: number;
+  active_duty: number;
+  inactive: number;
+  access_requests: number;
+  success?: boolean;
+  message?: string;
+}
+
+/** Global department catalog entry (GET /departments). */
+export interface DepartmentCatalogEntry {
+  id: string;
+  name: string;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
+  success?: boolean;
+}
+
+/** Hospital-scoped department link (GET /hospital-admin/departments). */
+export interface HospitalAdminDepartment {
+  /** Hospital–department link id (use for activation/head routes). */
+  id: string;
+  hospital_id?: string;
+  /** Global department catalog id. */
+  department_id: string;
+  department?: DepartmentCatalogEntry;
+  name: string;
+  description?: string;
+  standard_daily_limit?: number;
+  is_active?: boolean;
+  head_user_id?: string | null;
+  head_name?: string | null;
+  head_email?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface HospitalAdminDepartmentsResponse {
+  data: HospitalAdminDepartment[];
+  success?: boolean;
+  message?: string;
+}
+
+export interface AddHospitalDepartmentPayload {
+  department_id?: string;
+  name?: string;
+  description?: string;
+}
+
+export interface UpdateDepartmentActivationPayload {
+  is_active: boolean;
+}
+
+export interface AssignDepartmentHeadPayload {
+  head_user_id: string;
+}
+
+export interface HospitalAdminProfile {
+  id: string;
+  name: string;
+  tier_level: string;
+  region: string;
+  address: string;
+  contact_phone: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface UpdateHospitalAdminProfilePayload {
+  name?: string;
+  tier_level?: string;
+  region?: string;
+  address?: string;
+  contact_phone?: string;
+}
+
+export interface GetHospitalAdminReferralsParams {
+  page?: number;
+  page_size?: number;
+  limit?: number;
+  status?: string;
+}
+
+export interface ReferralStatsByStatusRow {
+  status: string;
+  count: number;
+}
+
+export type ReferralStatsByStatus =
+  | ReferralStatsByStatusRow[]
+  | Record<string, number>;
+
+export interface StaffSession {
+  id: string;
+  user_id: string;
+  user_email?: string;
+  user_name?: string;
+  first_name?: string;
+  last_name?: string;
+  role?: string;
+  ip_address?: string;
+  user_agent?: string;
+  last_active_at?: string;
+  created_at?: string;
+}
+
+export interface StaffSessionListResponse {
+  data: StaffSession[];
+  page?: number;
+  total?: number;
+}
+
+export interface ReassignStaffDepartmentPayload {
+  department_id: string;
 }

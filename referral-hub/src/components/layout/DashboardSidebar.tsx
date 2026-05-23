@@ -34,6 +34,7 @@ import {
   LogOut,
   Settings,
   Mail,
+  MessageSquare,
   IdCard,
   ChevronRight,
 } from "lucide-react";
@@ -78,6 +79,11 @@ const NAV_BY_ROLE = {
       url: "/referring-doctor/notifications",
       icon: Bell,
     },
+    {
+      title: "Messages",
+      url: "/referring-doctor/messages",
+      icon: MessageSquare,
+    },
   ],
   hospital_admin: [
     { title: "Dashboard", url: "/hospital-admin", icon: LayoutDashboard },
@@ -85,6 +91,16 @@ const NAV_BY_ROLE = {
       title: "Staff Management",
       url: "/hospital-admin/staff-management",
       icon: ClipboardList,
+    },
+    {
+      title: "Departments",
+      url: "/hospital-admin/departments",
+      icon: Users,
+    },
+    {
+      title: "Referrals",
+      url: "/hospital-admin/referrals",
+      icon: ArrowLeftRight,
     },
     {
       title: "Referral Logs",
@@ -97,9 +113,19 @@ const NAV_BY_ROLE = {
       icon: ListChecks,
     },
     {
+      title: "Hospital Profile",
+      url: "/hospital-admin/hospital-profile",
+      icon: Settings,
+    },
+    {
       title: "Notifications",
       url: "/hospital-admin/notifications",
       icon: Bell,
+    },
+    {
+      title: "Messages",
+      url: "/hospital-admin/messages",
+      icon: MessageSquare,
     },
   ],
   liaison_officer: [
@@ -119,6 +145,11 @@ const NAV_BY_ROLE = {
       url: "/liaison-officer/notifications",
       icon: Bell,
     },
+    {
+      title: "Messages",
+      url: "/liaison-officer/messages",
+      icon: MessageSquare,
+    },
   ],
   receptionist: [
     { title: "Dashboard", url: "/receptionist", icon: LayoutDashboard },
@@ -131,6 +162,11 @@ const NAV_BY_ROLE = {
       title: "Notifications",
       url: "/receptionist/notifications",
       icon: Bell,
+    },
+    {
+      title: "Messages",
+      url: "/receptionist/messages",
+      icon: MessageSquare,
     },
   ],
   dept_head: [
@@ -149,6 +185,11 @@ const NAV_BY_ROLE = {
       title: "Notifications",
       url: "/department-head/notifications",
       icon: Bell,
+    },
+    {
+      title: "Messages",
+      url: "/department-head/messages",
+      icon: MessageSquare,
     },
   ],
   moh_analyst: [
@@ -194,6 +235,11 @@ const NAV_BY_ROLE = {
       title: "Notifications",
       url: "/receiving-specialist/notifications",
       icon: Bell,
+    },
+    {
+      title: "Messages",
+      url: "/receiving-specialist/messages",
+      icon: MessageSquare,
     },
   ],
 };

@@ -4,23 +4,40 @@ import { DEPARTMENT_ROUTES } from '@/config/api'
 import type {
     CreateDepartmentRequest,
     Department,
+    DepartmentListResponse,
     UpdateDepartmentRequest,
 } from '@/types/hospital'
+
+export type GetDepartmentsParams = {
+    page?: number;
+    page_size?: number;
+};
+
+function unwrapDepartmentList(raw: unknown): Department[] {
+    if (Array.isArray(raw)) return raw as Department[];
+    if (raw && typeof raw === 'object' && 'data' in raw) {
+        const data = (raw as DepartmentListResponse).data;
+        return Array.isArray(data) ? data : [];
+    }
+    return [];
+}
 
 export const departmentApi = createApi({
     reducerPath: 'departmentApi',
     baseQuery: baseQueryWithReauth,
     tagTypes: ['Department', 'DepartmentList'],
     endpoints: (builder) => ({
-        getDepartments: builder.query<Department[], void>({
-            query: () => ({
-                url: DEPARTMENT_ROUTES.LIST,
-                method: 'GET',
-            }),
-            transformResponse: (response: Department[] | { data: Department[] }) => {
-                if (Array.isArray(response)) return response;
-                return response.data || [];
+        getDepartments: builder.query<Department[], GetDepartmentsParams | void>({
+            query: (params) => {
+                const searchParams = new URLSearchParams();
+                searchParams.set('page', String(params?.page ?? 1));
+                searchParams.set('page_size', String(params?.page_size ?? 100));
+                return {
+                    url: `${DEPARTMENT_ROUTES.LIST}?${searchParams.toString()}`,
+                    method: 'GET',
+                };
             },
+            transformResponse: (response: unknown) => unwrapDepartmentList(response),
             providesTags: (result) =>
                 result
                     ? [

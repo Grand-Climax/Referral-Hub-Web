@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, UserPlus } from 'lucide-react';
+import Link from 'next/link';
+import { Download, Monitor, UserPlus } from 'lucide-react';
 import { CreateStaffModal } from './CreateStaffModal';
 
 export const StaffHeader = () => {
@@ -14,6 +15,12 @@ export const StaffHeader = () => {
         </p>
       </div>
       <div className="flex items-center gap-3">
+        <Link href="/hospital-admin/staff-sessions">
+          <Button variant="outline" className="flex items-center gap-2">
+            <Monitor className="h-4 w-4" />
+            Active sessions
+          </Button>
+        </Link>
         <Button variant="outline" className="flex items-center gap-2">
           <Download className="h-4 w-4" />
           Export Directory

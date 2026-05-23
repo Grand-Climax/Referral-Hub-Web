@@ -2,6 +2,7 @@ import React from "react";
 import { SidebarTrigger } from "../ui/sidebar";
 import { ThemeToggle } from "../theme-toggler";
 import { Notifications } from "../notifications";
+import { ChatHeaderLink } from "../chat/ChatHeaderLink";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +20,7 @@ const Header = () => {
       <SidebarTrigger className="-ml-1" />
 
       <div className="flex items-center gap-4">
+        <ChatHeaderLink />
         <Notifications />
         <ThemeToggle />
       </div>

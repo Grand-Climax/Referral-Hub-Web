@@ -61,6 +61,9 @@ export default function PatientCreation({
 
   useEffect(() => {
     onBusyChange?.(isBusy);
+    return () => {
+      onBusyChange?.(false);
+    };
   }, [isBusy, onBusyChange]);
 
   const handlePatientLookup = async () => {

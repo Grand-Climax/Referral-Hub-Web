@@ -194,6 +194,7 @@ export const NOTIFICATION_ROUTES = {
 
 export const CHAT_ROUTES = {
   CONVERSATIONS: "/api/v1/chat/conversations",
+  CONTACTS: "/api/v1/chat/contacts",
   MESSAGES: "/api/v1/chat/messages",
   MESSAGES_READ: "/api/v1/chat/messages/read",
   UNREAD_COUNT: "/api/v1/chat/unread-count",

@@ -1,16 +1,22 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { baseQueryWithReauth } from "@/lib/baseQuery";
 import { CHAT_ROUTES } from "@/config/api";
-import type {
-  ChatMessage,
-  ChatUnreadCountResponse,
-  Conversation,
-  ConversationsListResponse,
-  MarkMessagesReadRequest,
-  MessagesListResponse,
-  SendMessageRequest,
-  SendMessageResponse,
+import {
+  parseSendMessageResponse,
+  type ChatContact,
+  type ChatMessage,
+  type ChatUnreadCountResponse,
+  type ContactsListResponse,
+  type Conversation,
+  type ConversationsListResponse,
+  type MarkMessagesReadRequest,
+  type MessagesListResponse,
+  type SendMessageRequest,
+  type SendMessageResponse,
+  type ToggleConversationDisabledRequest,
 } from "@/types/realtime";
+
+export type ConversationListFilter = "all" | "direct" | "referral";
 
 export interface ConversationsPageResult {
   data: Conversation[];
@@ -26,10 +32,25 @@ export interface MessagesPageResult {
   page_size: number;
 }
 
+export interface ContactsPageResult {
+  data: ChatContact[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 export interface GetMessagesParams {
   conversation_id?: string;
   other_user_id?: string;
   referral_id?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface GetContactsParams {
+  referral_id?: string;
+  search?: string;
+  role?: string;
   page?: number;
   limit?: number;
 }
@@ -66,26 +87,30 @@ function normalizeMessages(
   return { data: [], total: 0, page: 1, page_size: 30 };
 }
 
-function parseSendMessageResponse(raw: SendMessageResponse): ChatMessage {
-  return {
-    id: raw.id,
-    conversation_id: raw.conversation_id,
-    referral_id: raw.referral_id ?? null,
-    sender_id: raw.sender_id,
-    receiver_id: raw.receiver_id,
-    content: raw.content,
-    created_at: raw.created_at,
-  };
+function normalizeContacts(
+  raw: ContactsListResponse | unknown,
+): ContactsPageResult {
+  if (raw && typeof raw === "object") {
+    const payload = raw as ContactsListResponse;
+    const data = Array.isArray(payload.data) ? payload.data : [];
+    return {
+      data,
+      total: Number(payload.total ?? data.length),
+      page: Number(payload.page ?? 1),
+      page_size: Number(payload.page_size ?? data.length),
+    };
+  }
+  return { data: [], total: 0, page: 1, page_size: 50 };
 }
 
 export const chatApi = createApi({
   reducerPath: "chatApi",
   baseQuery: baseQueryWithReauth,
-  tagTypes: ["Conversation", "ChatMessage", "ChatUnread"],
+  tagTypes: ["Conversation", "ChatMessage", "ChatUnread", "ChatContact"],
   endpoints: (builder) => ({
     getConversations: builder.query<
       ConversationsPageResult,
-      { page?: number; limit?: number } | void
+      { page?: number; limit?: number; type?: ConversationListFilter } | void
     >({
       query: (params) => ({
         url: CHAT_ROUTES.CONVERSATIONS,
@@ -93,6 +118,9 @@ export const chatApi = createApi({
         params: {
           page: params?.page ?? 1,
           limit: params?.limit ?? 50,
+          ...(params?.type && params.type !== "all"
+            ? { type: params.type }
+            : {}),
         },
       }),
       transformResponse: (raw: ConversationsListResponse) =>
@@ -107,6 +135,21 @@ export const chatApi = createApi({
               { type: "Conversation" as const, id: "LIST" },
             ]
           : [{ type: "Conversation" as const, id: "LIST" }],
+    }),
+    getContacts: builder.query<ContactsPageResult, GetContactsParams | void>({
+      query: (params) => ({
+        url: CHAT_ROUTES.CONTACTS,
+        method: "GET",
+        params: {
+          page: params?.page ?? 1,
+          limit: params?.limit ?? 50,
+          ...(params?.referral_id ? { referral_id: params.referral_id } : {}),
+          ...(params?.search ? { search: params.search } : {}),
+          ...(params?.role ? { role: params.role } : {}),
+        },
+      }),
+      transformResponse: (raw: ContactsListResponse) => normalizeContacts(raw),
+      providesTags: [{ type: "ChatContact", id: "LIST" }],
     }),
     getMessages: builder.query<MessagesPageResult, GetMessagesParams>({
       query: (params) => {
@@ -184,14 +227,42 @@ export const chatApi = createApi({
         Number(raw?.unread_count ?? 0),
       providesTags: [{ type: "ChatUnread", id: "COUNT" }],
     }),
+    toggleConversationDisabled: builder.mutation<
+      void,
+      { conversationId: string; body: ToggleConversationDisabledRequest }
+    >({
+      query: ({ conversationId, body }) => ({
+        url: CHAT_ROUTES.TOGGLE_DISABLED(conversationId),
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: (_r, _e, { conversationId }) => [
+        { type: "Conversation", id: conversationId },
+        { type: "Conversation", id: "LIST" },
+      ],
+    }),
+    deleteConversation: builder.mutation<void, string>({
+      query: (conversationId) => ({
+        url: CHAT_ROUTES.DELETE_CONVERSATION(conversationId),
+        method: "DELETE",
+      }),
+      invalidatesTags: [
+        { type: "Conversation", id: "LIST" },
+        { type: "ChatUnread", id: "COUNT" },
+      ],
+    }),
   }),
 });
 
 export const {
   useGetConversationsQuery,
+  useGetContactsQuery,
+  useLazyGetContactsQuery,
   useGetMessagesQuery,
   useSendMessageMutation,
   useMarkMessagesReadMutation,
   useGetChatUnreadCountQuery,
   useLazyGetMessagesQuery,
+  useToggleConversationDisabledMutation,
+  useDeleteConversationMutation,
 } = chatApi;

@@ -58,6 +58,7 @@ import {
   useGetHospitalsQuery,
   useUpdateHospitalMutation,
 } from "@/features/hospitals/hospitalsApi";
+import { useGetRegionsQuery } from "@/features/reference/regionsApi";
 import { useGetSystemAdminUsersQuery } from "@/features/systemAdmin/systemAdminApi";
 import type {
   CreateHospitalRequest,
@@ -117,6 +118,13 @@ export function HospitalManagement() {
     useUpdateHospitalMutation();
   const [deleteHospital, { isLoading: isDeletingHospital }] =
     useDeleteHospitalMutation();
+  const { data: regions = [], isLoading: isLoadingRegions } =
+    useGetRegionsQuery();
+
+  const selectedCreateRegionInOptions =
+    !hospitalForm.region || regions.includes(hospitalForm.region);
+  const selectedEditRegionInOptions =
+    !editForm?.region || regions.includes(editForm.region);
 
   useEffect(() => {
     if (editingHospital) {
@@ -163,6 +171,16 @@ export function HospitalManagement() {
 
   const handleCreateHospital = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (
+      !hospitalForm.name.trim() ||
+      !hospitalForm.region ||
+      !hospitalForm.contact_phone.trim() ||
+      !hospitalForm.address.trim()
+    ) {
+      toast.error("Please complete all required hospital fields.");
+      return;
+    }
 
     try {
       await createHospital({
@@ -318,15 +336,39 @@ export function HospitalManagement() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="hospital_region">Region</Label>
-                <Input
-                  id="hospital_region"
+                <Select
                   value={hospitalForm.region}
-                  onChange={(event) =>
-                    updateHospitalField("region", event.target.value)
-                  }
-                  placeholder="Addis Ababa"
-                  required
-                />
+                  onValueChange={(value) => updateHospitalField("region", value)}
+                  disabled={isLoadingRegions && regions.length === 0}
+                >
+                  <SelectTrigger id="hospital_region" className="w-full">
+                    <SelectValue
+                      placeholder={
+                        isLoadingRegions ? "Loading regions..." : "Select region"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {!selectedCreateRegionInOptions && hospitalForm.region ? (
+                      <SelectItem value={hospitalForm.region}>
+                        {hospitalForm.region}
+                      </SelectItem>
+                    ) : null}
+                    {regions.length === 0 && !hospitalForm.region ? (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                        {isLoadingRegions
+                          ? "Loading regions..."
+                          : "No regions available"}
+                      </div>
+                    ) : (
+                      regions.map((region) => (
+                        <SelectItem key={region} value={region}>
+                          {region}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -387,7 +429,16 @@ export function HospitalManagement() {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isCreatingHospital}>
+              <Button
+                type="submit"
+                disabled={
+                  isCreatingHospital ||
+                  !hospitalForm.name.trim() ||
+                  !hospitalForm.region ||
+                  !hospitalForm.contact_phone.trim() ||
+                  !hospitalForm.address.trim()
+                }
+              >
                 {isCreatingHospital ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : null}
@@ -427,14 +478,39 @@ export function HospitalManagement() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit_hospital_region">Region</Label>
-                  <Input
-                    id="edit_hospital_region"
+                  <Select
                     value={editForm.region}
-                    onChange={(event) =>
-                      updateEditField("region", event.target.value)
-                    }
-                    required
-                  />
+                    onValueChange={(value) => updateEditField("region", value)}
+                    disabled={isLoadingRegions && regions.length === 0}
+                  >
+                    <SelectTrigger id="edit_hospital_region" className="w-full">
+                      <SelectValue
+                        placeholder={
+                          isLoadingRegions ? "Loading regions..." : "Select region"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {!selectedEditRegionInOptions && editForm.region ? (
+                        <SelectItem value={editForm.region}>
+                          {editForm.region}
+                        </SelectItem>
+                      ) : null}
+                      {regions.length === 0 && !editForm.region ? (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          {isLoadingRegions
+                            ? "Loading regions..."
+                            : "No regions available"}
+                        </div>
+                      ) : (
+                        regions.map((region) => (
+                          <SelectItem key={region} value={region}>
+                            {region}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

@@ -170,3 +170,13 @@ export const NOTIFICATION_ROUTES = {
   READ: (id: string) => `/api/v1/me/notifications/${id}/read`,
   READ_ALL: "/api/v1/me/notifications/read-all",
 } as const;
+
+export const CHAT_ROUTES = {
+  CONVERSATIONS: "/api/v1/chat/conversations",
+  MESSAGES: "/api/v1/chat/messages",
+  MESSAGES_READ: "/api/v1/chat/messages/read",
+  UNREAD_COUNT: "/api/v1/chat/unread-count",
+  TOGGLE_DISABLED: (id: string) =>
+    `/api/v1/chat/conversations/${id}/toggle-disabled`,
+  DELETE_CONVERSATION: (id: string) => `/api/v1/chat/conversations/${id}`,
+} as const;

@@ -39,7 +39,6 @@ import {
   ChevronRight,
   Activity,
   Sliders,
-  UserCog,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
@@ -174,11 +173,6 @@ const NAV_BY_ROLE = {
   dept_head: [
     { title: "Dashboard", url: "/department-head", icon: LayoutDashboard },
     {
-      title: "Activity",
-      url: "/department-head/activity",
-      icon: History,
-    },
-    {
       title: "Triage Queue",
       url: "/department-head/triage-queue",
       icon: ClipboardList,
@@ -202,11 +196,6 @@ const NAV_BY_ROLE = {
         { title: "Overrides", url: "/department-head/capacity/overrides" },
         { title: "Settings", url: "/department-head/capacity/settings" },
       ],
-    },
-    {
-      title: "Staff Management",
-      url: "/department-head/staff",
-      icon: UserCog,
     },
     {
       title: "Notifications",

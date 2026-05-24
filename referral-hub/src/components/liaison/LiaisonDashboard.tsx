@@ -188,11 +188,7 @@ function StatCardSkeleton() {
   );
 }
 
-function matchesSearch(
-  referral: ReferralListItem,
-  query: string,
-  getDepartmentName: (id: string | null | undefined, fallback?: string) => string,
-) {
+function matchesSearch(referral: ReferralListItem, query: string) {
   const q = query.trim().toLowerCase();
   if (!q) return true;
   const patient = formatPatientName(referral).toLowerCase();

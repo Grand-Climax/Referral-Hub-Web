@@ -13,7 +13,6 @@ import {
   FileText,
   Download,
   AlertCircle,
-  BrainCircuit,
   CheckCircle2,
   XCircle,
   CornerUpRight,
@@ -27,6 +26,7 @@ import { AcceptReferralDialog } from "./accept-referral-dialog";
 import { RejectReferralDialog } from "./reject-referral-dialog";
 import { RedirectReferralDialog } from "./redirect-referral-dialog";
 import { ReleaseReferralDialog } from "./release-referral-dialog";
+import { MlInsightsCard } from "./MlInsightsCard";
 import {
   useGetReferralByIdQuery,
   useAcceptReferralMutation,
@@ -36,7 +36,7 @@ import {
   useGetRedirectOptionsQuery,
   useRedirectReferralMutation,
 } from "@/features/specialist/specialistApi";
-import { useGetUserByIdQuery } from "@/features/auth/authApi";
+import { useGetCurrentUserQuery, useGetUserByIdQuery } from "@/features/auth/authApi";
 import { ReferralDetailSkeleton } from "@/components/skeletons/ReferralDetailSkeleton";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
@@ -63,6 +63,16 @@ function humanize(value?: string | null) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function normalizeId(value?: string | null) {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+function idsMatch(a?: string | null, b?: string | null) {
+  const left = normalizeId(a);
+  const right = normalizeId(b);
+  return Boolean(left) && Boolean(right) && left === right;
+}
+
 async function downloadAttachment(url: string, fileName: string) {
   try {
     const response = await fetch(url);
@@ -87,11 +97,20 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [isRedirectDialogOpen, setIsRedirectDialogOpen] = useState(false);
   const [isReleaseDialogOpen, setIsReleaseDialogOpen] = useState(false);
+  const [referralPollMs, setReferralPollMs] = useState(0);
   const {
     data: referral,
     isLoading,
     isError,
-  } = useGetReferralByIdQuery(referralId);
+  } = useGetReferralByIdQuery(referralId, {
+    pollingInterval: referralPollMs,
+  });
+
+  useEffect(() => {
+    setReferralPollMs(
+      referral?.ml_status?.toUpperCase() === "PENDING" ? 3000 : 0,
+    );
+  }, [referral?.ml_status]);
   const [acceptReferral, { isLoading: isAccepting }] =
     useAcceptReferralMutation();
   const [rejectReferral, { isLoading: isRejecting }] =
@@ -114,12 +133,22 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
       skip: !referral?.referring_doctor_id,
     },
   );
+  const { data: assignedSpecialist, isFetching: isFetchingAssignedSpecialist } =
+    useGetUserByIdQuery(referral?.specialist_id ?? "", {
+      skip: !referral?.specialist_id,
+    });
+  const { data: currentUser } = useGetCurrentUserQuery();
 
   const doctorName = doctor
     ? [doctor.first_name, doctor.middle_name, doctor.last_name]
       .filter(Boolean)
       .join(" ")
     : referral?.referring_doctor_id;
+  const assignedSpecialistName = assignedSpecialist
+    ? [assignedSpecialist.first_name, assignedSpecialist.middle_name, assignedSpecialist.last_name]
+      .filter(Boolean)
+      .join(" ")
+    : null;
 
   const lastProcessedId = useRef<string | null>(null);
   const handleMarkRead = async () => {
@@ -294,8 +323,11 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
   const canRedirect = statusKey === "UNDER_SPECIALIST_REVIEW";
   const canTakeDecision =
     statusKey === "UNDER_SPECIALIST_REVIEW" || statusKey === "REDIRECTED";
-  const severityScore =
-    referral.ml_status === "SUCCESS" ? (referral.waiting_hours_weight ?? 0) : 0;
+  const assignedToAnotherSpecialist =
+    Boolean(referral.specialist_id) &&
+    Boolean(currentUser?.id) &&
+    !idsMatch(referral.specialist_id, currentUser?.id);
+  const canManageReferral = canTakeDecision && !assignedToAnotherSpecialist;
   const createdAtLabel = referral.created_at
     ? format(new Date(referral.created_at), "PPp")
     : "—";
@@ -698,65 +730,7 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
 
         {/* Right Column - Side Panels */}
         <div className="space-y-6">
-          {/* ML Insights Card */}
-          <Card className="border-blue-200 shadow-sm overflow-hidden bg-blue-50/30">
-            <div className="bg-blue-600 text-white px-4 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-2 font-semibold">
-                <BrainCircuit className="h-5 w-5" />
-                ML Insights
-              </div>
-              <Badge
-                variant="secondary"
-                className="bg-blue-500/30 hover:bg-blue-500/30 text-white border-0 text-[10px] uppercase tracking-wider"
-              >
-                V2.4 Engine
-              </Badge>
-            </div>
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">
-                    Triage Severity
-                  </p>
-                  <p className="text-3xl font-black text-blue-600">
-                    {severityScore >= 80
-                      ? "HIGH"
-                      : severityScore >= 50
-                        ? "MEDIUM"
-                        : "LOW"}
-                  </p>
-                </div>
-                <div className="relative flex items-center justify-center w-16 h-16 rounded-full border-4 border-blue-500 bg-white shadow-sm">
-                  <span className="text-xl font-bold text-blue-700">
-                    {severityScore}
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg p-4 border border-blue-100 shadow-sm mb-4">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  <AlertCircle className="h-3.5 w-3.5" />
-                  Key Findings
-                </div>
-                <ul className="text-xs text-slate-600 space-y-2">
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-red-500 mt-1">&bull;</span>
-                    High risk correlation between Ultrasound findings and
-                    comorbid Type 2 Diabetes.
-                  </li>
-                  <li className="flex items-start gap-1.5">
-                    <span className="text-red-500 mt-1">&bull;</span>
-                    Blood panel indicates elevated CRP (12.4 mg/L) suggesting
-                    inflammation.
-                  </li>
-                </ul>
-              </div>
-
-              <p className="text-[11px] text-center text-slate-500 font-medium italic">
-                AI generated suggestion. Please verify clinically.
-              </p>
-            </CardContent>
-          </Card>
+          <MlInsightsCard referralId={referralId} referral={referral} />
 
           {/* Decision Panel */}
           <Card className="border-border shadow-sm">
@@ -776,7 +750,30 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
                 </div>
               )}
 
-              {canTakeDecision && (
+              {referral.specialist_id && (
+                <div
+                  className={`flex items-start gap-2 rounded-md border p-3 text-xs ${
+                    assignedToAnotherSpecialist && canTakeDecision
+                      ? "border-amber-200 bg-amber-50 text-amber-800"
+                      : "border-slate-200 bg-slate-50 text-slate-700"
+                  }`}
+                >
+                  <Stethoscope className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    <span className="font-semibold">Assigned specialist: </span>
+                    {isFetchingAssignedSpecialist
+                      ? "Loading…"
+                      : assignedSpecialistName ?? "Unknown specialist"}
+                    {assignedToAnotherSpecialist && canTakeDecision
+                      ? ". Accept, reject, redirect, and release actions are not available to you."
+                      : idsMatch(referral.specialist_id, currentUser?.id)
+                        ? " (you)"
+                        : "."}
+                  </span>
+                </div>
+              )}
+
+              {canManageReferral && (
                 <div className="space-y-3">
                   {!canRedirect && (
                     <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700">

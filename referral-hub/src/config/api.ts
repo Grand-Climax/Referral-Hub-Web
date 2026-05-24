@@ -84,6 +84,9 @@ export const SPECIALIST_ROUTES = {
   RELEASE: (id: string) => `/api/v1/specialist/referrals/${id}/release`,
   REDIRECT: (id: string) => `/api/v1/specialist/referrals/${id}/redirect`,
   REDIRECT_OPTIONS: (id: string) => `/api/v1/specialist/referrals/${id}/redirect-options`,
+  ML_PREDICTION: (id: string) =>
+    `/api/v1/specialist/referrals/${id}/ml-prediction`,
+  RERUN_ML: (id: string) => `/api/v1/specialist/referrals/${id}/rerun-ml`,
 } as const;
 
 export const SYSTEM_ADMIN_ROUTES = {

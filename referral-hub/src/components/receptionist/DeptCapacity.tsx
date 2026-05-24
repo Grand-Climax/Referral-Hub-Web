@@ -2,19 +2,15 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClipboardList, Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
-import { useGetReferralsQuery } from "@/features/receptionist/receptionistApi";
+import { useGetScheduleQuery } from "@/features/receptionist/receptionistApi";
 import { useMemo } from "react";
 
 export function DeptCapacity() {
-  // Fetch all referrals to calculate today's summary
-  const { data: referralsData, isLoading } = useGetReferralsQuery({ 
-    page: 1, 
-    limit: 1000,
-  });
+  const { data: schedule = [], isLoading } = useGetScheduleQuery();
 
   // Calculate today's statistics
   const todayStats = useMemo(() => {
-    if (!referralsData?.data || referralsData.data.length === 0) {
+    if (schedule.length === 0) {
       return {
         total: 0,
         pending: 0,
@@ -24,8 +20,6 @@ export function DeptCapacity() {
       };
     }
 
-    const today = new Date().toISOString().split('T')[0];
-    
     const stats = {
       total: 0,
       pending: 0,
@@ -34,8 +28,7 @@ export function DeptCapacity() {
       urgent: 0,
     };
 
-    referralsData.data.forEach((referral) => {
-      // Count all referrals
+    schedule.forEach((referral) => {
       stats.total += 1;
       
       // Count by arrival status
@@ -50,15 +43,15 @@ export function DeptCapacity() {
     });
 
     return stats;
-  }, [referralsData]);
+  }, [schedule]);
 
   return (
     <Card className="border-none shadow-md overflow-hidden bg-white mb-6">
-      <CardHeader className="flex flex-row items-center justify-between py-6 px-6 pb-2">
+      <CardHeader className="flex flex-row items-center justify-between py-5 sm:py-6 px-4 sm:px-6 pb-2">
         <CardTitle className="text-sm font-bold text-slate-700 tracking-tight">Today's Summary</CardTitle>
         <ClipboardList className="h-4 w-4 text-slate-400" />
       </CardHeader>
-      <CardContent className="px-6 pb-6">
+      <CardContent className="px-4 sm:px-6 pb-6">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-8 text-slate-400">
             <Loader2 className="h-6 w-6 animate-spin mb-2" />

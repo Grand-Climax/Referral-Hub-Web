@@ -2,20 +2,17 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import { useGetReferralsQuery } from "@/features/receptionist/receptionistApi";
+import { useGetScheduleQuery } from "@/features/receptionist/receptionistApi";
 
 export function StatsCards() {
-  const { data, isLoading } = useGetReferralsQuery({ limit: 100 });
-
-  // Debug: Log the response
-  console.log('StatsCards API Response:', data);
+  const { data: schedule = [], isLoading } = useGetScheduleQuery();
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
         {[1, 2, 3].map((i) => (
           <Card key={i} className="overflow-hidden border border-slate-200 shadow-sm bg-white">
-            <CardContent className="p-6 flex items-center justify-center min-h-[120px]">
+            <CardContent className="p-4 sm:p-6 flex items-center justify-center min-h-[108px] sm:min-h-[120px]">
               <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
             </CardContent>
           </Card>
@@ -24,23 +21,22 @@ export function StatsCards() {
     );
   }
 
-  const referrals = data?.data || [];
-  const expectedToday = referrals.length;
-  const admitted = referrals.filter(r => r.arrival_status === "ARRIVED").length;
-  const missed = referrals.filter(r => r.arrival_status === "MISSED").length;
+  const expectedToday = schedule.length;
+  const admitted = schedule.filter((item) => item.arrival_status === "ARRIVED").length;
+  const missed = schedule.filter((item) => item.arrival_status === "MISSED").length;
   
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
       {/* Expected Today Card */}
       <Card className="overflow-hidden border border-slate-200 shadow-sm bg-white hover:shadow-md transition-shadow">
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           <div className="flex items-start justify-between">
             <div className="space-y-2">
               <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                 Expected Today
               </p>
               <div className="flex items-baseline gap-2">
-                <h2 className="text-4xl font-bold text-slate-900">{expectedToday.toString().padStart(2, '0')}</h2>
+                <h2 className="text-3xl sm:text-4xl font-bold text-slate-900">{expectedToday.toString().padStart(2, '0')}</h2>
                 <span className="text-sm font-medium text-green-600">Scheduled</span>
               </div>
             </div>
@@ -55,14 +51,14 @@ export function StatsCards() {
 
       {/* Admitted Card */}
       <Card className="overflow-hidden border border-slate-200 shadow-sm bg-white hover:shadow-md transition-shadow">
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           <div className="flex items-start justify-between">
             <div className="space-y-2">
               <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                 Admitted
               </p>
               <div className="flex items-baseline gap-2">
-                <h2 className="text-4xl font-bold text-green-600">{admitted.toString().padStart(2, '0')}</h2>
+                <h2 className="text-3xl sm:text-4xl font-bold text-green-600">{admitted.toString().padStart(2, '0')}</h2>
                 <span className="text-sm font-medium text-slate-500">Checked In</span>
               </div>
             </div>
@@ -77,14 +73,14 @@ export function StatsCards() {
 
       {/* Missed Card */}
       <Card className="overflow-hidden border border-slate-200 shadow-sm bg-white hover:shadow-md transition-shadow">
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           <div className="flex items-start justify-between">
             <div className="space-y-2">
               <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                 Missed
               </p>
               <div className="flex items-baseline gap-2">
-                <h2 className="text-4xl font-bold text-red-600">{missed.toString().padStart(2, '0')}</h2>
+                <h2 className="text-3xl sm:text-4xl font-bold text-red-600">{missed.toString().padStart(2, '0')}</h2>
                 <span className="text-sm font-medium text-slate-500">No Show</span>
               </div>
             </div>

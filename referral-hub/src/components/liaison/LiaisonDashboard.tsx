@@ -42,6 +42,7 @@ import type { ReferralListItem } from "@/types/referral-list";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useDepartmentNameMap } from "@/hooks/useDepartmentNameMap";
 
 type StatTone = "default" | "warning" | "success" | "destructive";
 
@@ -187,7 +188,11 @@ function StatCardSkeleton() {
   );
 }
 
-function matchesSearch(referral: ReferralListItem, query: string) {
+function matchesSearch(
+  referral: ReferralListItem,
+  query: string,
+  getDepartmentName: (id: string | null | undefined, fallback?: string) => string,
+) {
   const q = query.trim().toLowerCase();
   if (!q) return true;
   const patient = formatPatientName(referral).toLowerCase();
@@ -224,6 +229,7 @@ const LiaisonDashboard = () => {
   const router = useRouter();
   const [queueFilter, setQueueFilter] = useState<QueueFilter>("all");
   const [search, setSearch] = useState("");
+  const { getDepartmentName } = useDepartmentNameMap();
 
   const {
     data: stats,
@@ -510,7 +516,7 @@ const LiaisonDashboard = () => {
                           </p>
                         </TableCell>
                         <TableCell className="hidden text-muted-foreground sm:table-cell">
-                          {referral.department || "—"}
+                          {getDepartmentName(referral.department)}
                         </TableCell>
                         <TableCell className="hidden max-w-[220px] truncate text-muted-foreground md:table-cell">
                           {referral.diagnosis || "—"}

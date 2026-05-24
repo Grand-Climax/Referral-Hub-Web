@@ -105,32 +105,141 @@ export interface TrendEntry {
   has_override: boolean;
 }
 
-// ─── Triage Queue Types ───────────────────────────────────────────────────────
+// ─── Triage Queue Types (matches FRONTEND_TRIAGE_QUEUE.md contract) ───────────
 
-export interface TriagePatient {
-  id: string;
-  referral_id?: string;
+export type ArrivalStatus = "EXPECTED" | "ARRIVED" | "ADMITTED" | "MISSED";
+export type ReferralStatusEnum = "ACCEPTED" | "SCHEDULED";
+export type Condition = "stable" | "urgent" | "critical";
+export type TriageSortBy =
+  | "composite_score"
+  | "appointment_date"
+  | "created_at";
+export type TriageSortOrder = "asc" | "desc";
+
+/** Filter set accepted by all three triage list endpoints (§3). */
+export interface TriageQueueFilters {
+  page?: number;
+  /** Clamped 1..100 server-side, default 20. */
+  limit?: number;
+  /** Ignored by the dept-head endpoint (server forces caller's scope). */
+  department_id?: string;
+  arrival_status?: ArrivalStatus[];
+  referral_status?: ReferralStatusEnum[];
+  has_doctor_assigned?: boolean;
+  patient_id?: string;
+  national_id?: string;
+  sort_by?: TriageSortBy;
+  sort_order?: TriageSortOrder;
+  /** Audit view — include terminal statuses. Default false. */
+  include_terminal?: boolean;
+}
+
+/** A row in the triage list envelope (§4). */
+export interface TriageListItem {
+  queue_id: string;
+  referral_id: string;
+  patient_id: string;
   patient_name: string;
-  patient_age?: number;
-  patient_sex?: string;
-  urgency_level?: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
-  severity_score?: number;
-  composite_score?: number;
-  arrival_status?: string;
+  composite_score: number;
+  appointment_date: string | null;
+  arrival_status: ArrivalStatus;
+  referral_status: ReferralStatusEnum;
+  condition_at_referral: Condition | "";
+  department_id: string;
+  department_name: string;
+  has_doctor_assigned: boolean;
   assigned_doctor_id?: string;
-  appointment_date?: string;
-  waiting_days?: number;
-  referring_facility?: string;
-  estimated_arrival?: string;
-  status?: string;
+  assigned_doctor_name?: string;
   created_at: string;
 }
 
+/** `dto.TriageListEnvelope` from the backend. */
+export interface TriageListEnvelope {
+  success: boolean;
+  data: TriageListItem[];
+  total: number;
+  page: number;
+  limit: number;
+  has_more: boolean;
+}
+
+/** Single timeline event from a triage detail (§5). */
+export interface ArrivalHistoryEvent {
+  at: string;
+  event: string;
+  description?: string;
+  actor_id?: string;
+  actor_name?: string;
+}
+
+/** Doctor block in the dept-head detail (no access dates). */
+export interface TriageAssignedDoctor {
+  user_id?: string;
+  full_name?: string;
+  email?: string;
+}
+
+/** Patient block in the dept-head detail (PII redacted: no national_id, no phone). */
+export interface TriageDetailPatient {
+  id?: string;
+  full_name?: string;
+  first_name?: string;
+  middle_name?: string;
+  last_name?: string;
+  sex?: string;
+  age_years?: number;
+  home_region?: string;
+}
+
+/**
+ * Available-actions flags from the detail response. For DEPT_HEAD they are
+ * all `false` (read-only), but we type them strictly to mirror the contract
+ * so the same type can be reused if the page ever proxies for another role.
+ */
+export interface TriageAvailableActions {
+  schedule: boolean;
+  emergency_schedule: boolean;
+  return_to_triage: boolean;
+  mark_arrived: boolean;
+  mark_missed: boolean;
+  assign_doctor: boolean;
+  revoke_doctor: boolean;
+}
+
+/** Dept-head detail response payload (§5.3 — `TriageDetailDeptHeadResponse.data`). */
+export interface TriageDetailDeptHead {
+  queue_id: string;
+  referral_id: string;
+  arrival_status: ArrivalStatus;
+  referral_status: ReferralStatusEnum;
+  condition_at_referral: Condition | "";
+  composite_score: number;
+  appointment_date: string | null;
+  department_id: string;
+  department_name: string;
+  has_doctor_assigned: boolean;
+  assigned_doctor: TriageAssignedDoctor | null;
+  patient: TriageDetailPatient;
+  arrival_history: ArrivalHistoryEvent[];
+  available_actions: TriageAvailableActions;
+  created_at: string;
+}
+
+// ─── Legacy aliases (kept temporarily for non-migrated callers) ───────────────
+
+/** @deprecated Use `TriageListItem` (matches the new contract). */
+export type TriagePatient = TriageListItem & {
+  /** Legacy "id" alias — server now returns `queue_id` + `referral_id`. */
+  id?: string;
+};
+
+/** @deprecated Use `TriageListEnvelope`. */
 export interface TriageQueueResponse {
-  data: TriagePatient[];
+  data: TriageListItem[];
   total: number;
   page?: number;
-  page_size?: number;
+  limit?: number;
+  has_more?: boolean;
   success?: boolean;
 }
 

@@ -43,7 +43,7 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAppSelector } from "@/lib/store/hooks";
 import {
   useLogoutMutation,
@@ -295,6 +295,13 @@ const PROFILE_PATH_BY_ROLE: Record<RoleKey, string> = {
 
 export function DashboardSidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // Full path+query — used for matching sub-items that point at the same
+  // route but with different filter params (e.g. /triage-queue vs
+  // /triage-queue?arrival_status=MISSED).
+  const fullPath = searchParams.toString()
+    ? `${pathname}?${searchParams.toString()}`
+    : pathname;
   const router = useRouter();
   const [logoutApi] = useLogoutMutation();
   const { data: userProfile, isLoading: isUserLoading } =
@@ -390,25 +397,36 @@ export function DashboardSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
               {(() => {
-                // Pre-compute longest matching URL across all (sub-)items so
-                // only the most specific route lights up. Parents stay open
-                // when any of their children match.
+                // Pre-compute the most specific matching URL across all
+                // (sub-)items so only one entry lights up. Entries that
+                // contain a `?` are query-aware and must match the full
+                // `pathname + search`; bare routes still use a longest-
+                // prefix path match.
+                const matches = (url: string): boolean => {
+                  if (url.includes("?")) return fullPath === url;
+                  return pathname === url || pathname.startsWith(url + "/");
+                };
                 const allUrls: string[] = [];
                 for (const item of menuItems) {
                   allUrls.push(item.url);
                   if (item.items) for (const s of item.items) allUrls.push(s.url);
                 }
+                // Query-string matches are inherently more specific than
+                // bare-path matches, so they win ties via this sort order.
                 const bestMatch = allUrls
-                  .filter((u) => pathname === u || pathname.startsWith(u + "/"))
-                  .sort((a, b) => b.length - a.length)[0];
+                  .filter(matches)
+                  .sort((a, b) => {
+                    const qa = a.includes("?") ? 1 : 0;
+                    const qb = b.includes("?") ? 1 : 0;
+                    if (qa !== qb) return qb - qa;
+                    return b.length - a.length;
+                  })[0];
 
                 return menuItems.map((item) => {
                   const Icon = item.icon;
                   const isItselfBest = item.url === bestMatch;
                   const hasChildMatch = Boolean(
-                    item.items?.some(
-                      (s) => pathname === s.url || pathname.startsWith(s.url + "/"),
-                    ),
+                    item.items?.some((s) => matches(s.url)),
                   );
                   const isExpanded = isItselfBest || hasChildMatch;
 

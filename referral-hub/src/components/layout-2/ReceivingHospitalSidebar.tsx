@@ -110,7 +110,6 @@ const NAV_BY_ROLE = {
       group: "General",
       items: [
         { title: "Dashboard", url: "/department-head", icon: LayoutDashboard },
-        { title: "Activity", url: "/department-head/activity", icon: History },
       ],
     },
     {
@@ -132,7 +131,7 @@ const NAV_BY_ROLE = {
       ],
     },
     {
-      group: "Capacity & Staff",
+      group: "Capacity",
       items: [
         { title: "Capacity Calendar", url: "/department-head/capacity", icon: CalendarCheck },
         {
@@ -140,7 +139,6 @@ const NAV_BY_ROLE = {
           url: "/department-head/capacity/overrides",
           icon: ShieldAlert,
         },
-        { title: "Staff Management", url: "/department-head/staff", icon: UserCog },
       ],
     },
     {

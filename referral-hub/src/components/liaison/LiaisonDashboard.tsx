@@ -188,21 +188,15 @@ function StatCardSkeleton() {
   );
 }
 
-function matchesSearch(
-  referral: ReferralListItem,
-  query: string,
-  getDepartmentName: (id: string | null | undefined, fallback?: string) => string,
-) {
+function matchesSearch(referral: ReferralListItem, query: string) {
   const q = query.trim().toLowerCase();
   if (!q) return true;
   const patient = formatPatientName(referral).toLowerCase();
-  const departmentId = (referral.department ?? "").toLowerCase();
-  const departmentName = getDepartmentName(referral.department, "").toLowerCase();
+  const departmentName = (referral.department ?? "").toLowerCase();
   const diagnosis = (referral.diagnosis ?? "").toLowerCase();
   const status = referral.status.replace(/_/g, " ").toLowerCase();
   return (
     patient.includes(q) ||
-    departmentId.includes(q) ||
     departmentName.includes(q) ||
     diagnosis.includes(q) ||
     status.includes(q)
@@ -260,7 +254,7 @@ const LiaisonDashboard = () => {
   const referrals = referralsData?.data ?? [];
   const total = referralsData?.total ?? 0;
   const filteredReferrals = referrals.filter((r) =>
-    matchesSearch(r, search, getDepartmentName),
+    matchesSearch(r, search),
   );
   const hasSearch = search.trim().length > 0;
   const pendingCount = stats?.pending_review?.count ?? 0;
@@ -514,7 +508,7 @@ const LiaisonDashboard = () => {
                             {formatPatientName(referral) || "Unknown patient"}
                           </p>
                           <p className="mt-0.5 text-xs text-muted-foreground md:hidden">
-                            {getDepartmentName(referral.department, "No department")}
+                            {referral.department || "—"}
                           </p>
                         </TableCell>
                         <TableCell className="hidden text-muted-foreground sm:table-cell">

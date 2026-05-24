@@ -3,8 +3,12 @@ import Cookies from 'js-cookie'
 import { baseQueryWithReauth } from '@/lib/baseQuery'
 import { AUTH_ROUTES } from '@/config/api'
 import { jwtDecode } from 'jwt-decode'
-import { setUser, logout as logoutAction } from '@/redux/slices/authSlice'
+import { setUser } from '@/redux/slices/authSlice'
 import { UserProfile } from '@/types/user'
+import {
+  setAuthCookies,
+  setAccessTokenCookie,
+} from '@/lib/authSession'
 
 interface LoginCredentials {
     email: string
@@ -22,6 +26,19 @@ interface AuthResponse {
     }
 }
 
+type TokenResponse = {
+  access_token: string
+  refresh_token?: string
+}
+
+function unwrapTokenResponse(raw: unknown): TokenResponse {
+  if (raw && typeof raw === 'object' && 'data' in raw) {
+    const nested = (raw as { data?: TokenResponse }).data
+    if (nested?.access_token) return nested
+  }
+  return raw as TokenResponse
+}
+
 export const authApi = createApi({
     reducerPath: 'authApi',
     baseQuery: baseQueryWithReauth,
@@ -33,46 +50,43 @@ export const authApi = createApi({
                 method: 'POST',
                 body: credentials,
             }),
-            transformResponse: (response: { access_token: string; refresh_token: string }) => {
-                const decoded: any = jwtDecode(response.access_token)
+            transformResponse: (response: unknown) => {
+                const tokens = unwrapTokenResponse(response)
+                const decoded: any = jwtDecode(tokens.access_token)
                 return {
-                    ...response,
+                    access_token: tokens.access_token,
+                    refresh_token: tokens.refresh_token ?? '',
                     user: {
                         id: decoded.sub,
                         role: decoded.role,
                         hospitalId: decoded.hosp_id,
                         departmentId: decoded.dept_id,
-                    }
+                    },
                 }
             },
             async onQueryStarted(_, { queryFulfilled, dispatch }) {
                 try {
                     const { data } = await queryFulfilled
-                    // Clear any cached data from a previous account before loading the new session.
-                    const { resetAllApiCaches } = await import('@/lib/resetApiCaches')
-                    resetAllApiCaches(dispatch)
 
-                    Cookies.set('access_token', data.access_token, {
-                        expires: 1,
-                        secure: true,
-                        sameSite: 'strict'
-                    })
-                    Cookies.set('refresh_token', data.refresh_token, {
-                        expires: 7,
-                        secure: true,
-                        sameSite: 'strict'
-                    })
-
-                    const decoded: any = jwtDecode(data.access_token)
+                    setAuthCookies(data.access_token, data.refresh_token)
 
                     dispatch(
                         setUser({
                             user: {
-                                role: decoded.role,
-                                hospitalId: decoded.hosp_id,
-                                departmentId: decoded.dept_id,
-                            }
-                        })
+                                role: data.user.role,
+                                hospitalId: data.user.hospitalId,
+                                departmentId: data.user.departmentId,
+                            },
+                        }),
+                    )
+
+                    // Clear previous account data without resetting authApi mid-login.
+                    const { resetDataApiCaches } = await import('@/lib/resetApiCaches')
+                    resetDataApiCaches(dispatch)
+                    dispatch(
+                        authApi.util.invalidateTags([
+                            { type: 'Auth', id: 'CURRENT_USER' },
+                        ]),
                     )
                 } catch (error) {
                     console.error('Login failed:', error)
@@ -91,11 +105,8 @@ export const authApi = createApi({
                 } catch (error) {
                     console.error('Logout failed:', error)
                 } finally {
-                    Cookies.remove('access_token')
-                    Cookies.remove('refresh_token')
-                    dispatch(logoutAction())
-                    const { resetAllApiCaches } = await import('@/lib/resetApiCaches')
-                    resetAllApiCaches(dispatch)
+                    const { resetAuthSession } = await import('@/lib/resetApiCaches')
+                    resetAuthSession(dispatch)
                 }
             },
         }),
@@ -108,12 +119,7 @@ export const authApi = createApi({
             async onQueryStarted(_, { queryFulfilled }) {
                 try {
                     const { data } = await queryFulfilled
-                    // Update access token
-                    Cookies.set('access_token', data.access_token, {
-                        expires: 1,
-                        secure: true,
-                        sameSite: 'strict'
-                    })
+                    setAccessTokenCookie(data.access_token)
                 } catch (error) {
                     console.error('Token refresh failed:', error)
                 }

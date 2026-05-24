@@ -17,8 +17,14 @@ export function NotificationClientProvider({
     const readToken = () => Cookies.get("access_token") ?? null;
     setToken(readToken);
 
+    const onAuthChange = () => setToken(readToken());
+    window.addEventListener("auth-token-changed", onAuthChange);
+
     const interval = setInterval(readToken, 2000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("auth-token-changed", onAuthChange);
+    };
   }, []);
 
   const { data: user } = useGetCurrentUserQuery(undefined, { skip: !token });

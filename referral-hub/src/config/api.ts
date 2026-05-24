@@ -169,6 +169,7 @@ export const DEPARTMENT_HEAD_ROUTES = {
   // Capacity
   CAPACITY_DETAIL: "/api/v1/department-head/capacity/detail",
   CAPACITY_CALENDAR: "/api/v1/department-head/capacity/calendar",
+  DAILY_CAPACITY: "/api/v1/department-head/daily-capacity",
 
   // Capacity Overrides
   LIST_CAPACITY_OVERRIDES: "/api/v1/department-head/capacity/overrides",

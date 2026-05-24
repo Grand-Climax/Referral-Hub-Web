@@ -246,6 +246,22 @@ export interface ActivityEntry {
   };
 }
 
+// ─── Daily Capacity Baseline ──────────────────────────────────────────────────
+
+export interface DailyCapacityBaseline {
+  hospital_id?: string;
+  department_id?: string;
+  standard_daily_limit: number;
+  overbook_limit: number;
+  updated_at?: string;
+  success?: boolean;
+}
+
+export interface UpdateDailyCapacityBaselineRequest {
+  standard_daily_limit: number;
+  overbook_limit: number;
+}
+
 // ─── API Response Wrappers ────────────────────────────────────────────────────
 
 export interface ApiSuccessResponse {

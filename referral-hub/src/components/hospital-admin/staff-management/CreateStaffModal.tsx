@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   HOSPITAL_STAFF_ROLE_OPTIONS,
   HOSPITAL_STAFF_ROLE_LABELS,
+  hospitalStaffRoleRequiresDepartment,
 } from "@/types/hospital-admin";
 import type { CreateStaffPayload } from "@/types/hospital-admin";
 
@@ -54,8 +55,22 @@ export function CreateStaffModal({ open, onOpenChange }: { open: boolean; onOpen
     (region) => region === formData.region,
   );
 
+  const roleNeedsDepartment = hospitalStaffRoleRequiresDepartment(formData.role);
+
   const handleChange = (field: keyof CreateStaffPayload, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleRoleChange = (value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      role: value,
+      // Clear department whenever the new role doesn't need one so we don't
+      // send a stale id from a previous selection.
+      department_id: hospitalStaffRoleRequiresDepartment(value)
+        ? prev.department_id
+        : "",
+    }));
   };
 
   const resetForm = () => {
@@ -72,7 +87,7 @@ export function CreateStaffModal({ open, onOpenChange }: { open: boolean; onOpen
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.department_id) {
+    if (roleNeedsDepartment && !formData.department_id) {
       toast.error("Please select a department.");
       return;
     }
@@ -90,7 +105,6 @@ export function CreateStaffModal({ open, onOpenChange }: { open: boolean; onOpen
     }
 
     const payload: CreateStaffPayload = {
-      department_id: formData.department_id,
       email: formData.email.trim(),
       first_name: formData.first_name.trim(),
       last_name: formData.last_name.trim(),
@@ -100,6 +114,9 @@ export function CreateStaffModal({ open, onOpenChange }: { open: boolean; onOpen
       phone_number: formData.phone_number.trim(),
       region: formData.region.trim(),
       role: formData.role,
+      ...(roleNeedsDepartment && formData.department_id
+        ? { department_id: formData.department_id }
+        : {}),
     };
 
     try {
@@ -246,38 +263,10 @@ export function CreateStaffModal({ open, onOpenChange }: { open: boolean; onOpen
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="staff_department_id">Department</Label>
-              <Select
-                value={formData.department_id}
-                onValueChange={(val) => handleChange("department_id", val)}
-                disabled={!hospitalId || isLoadingCurrentUser || isLoadingDepartments}
-                required
-              >
-                <SelectTrigger id="staff_department_id" className="w-full">
-                  <SelectValue
-                    placeholder={
-                      isLoadingCurrentUser || isLoadingDepartments
-                        ? "Loading departments..."
-                        : !hospitalId
-                          ? "Hospital unavailable"
-                        : "Select department"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {departments.map((department) => (
-                    <SelectItem key={department.id} value={department.id}>
-                      {department.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="staff_role">Role</Label>
               <Select
                 value={formData.role}
-                onValueChange={(val) => handleChange("role", val)}
+                onValueChange={handleRoleChange}
               >
                 <SelectTrigger id="staff_role" className="w-full">
                   <SelectValue placeholder="Select role" />
@@ -291,6 +280,36 @@ export function CreateStaffModal({ open, onOpenChange }: { open: boolean; onOpen
                 </SelectContent>
               </Select>
             </div>
+            {roleNeedsDepartment && (
+              <div className="space-y-2">
+                <Label htmlFor="staff_department_id">Department</Label>
+                <Select
+                  value={formData.department_id ?? ""}
+                  onValueChange={(val) => handleChange("department_id", val)}
+                  disabled={!hospitalId || isLoadingCurrentUser || isLoadingDepartments}
+                  required
+                >
+                  <SelectTrigger id="staff_department_id" className="w-full">
+                    <SelectValue
+                      placeholder={
+                        isLoadingCurrentUser || isLoadingDepartments
+                          ? "Loading departments..."
+                          : !hospitalId
+                            ? "Hospital unavailable"
+                          : "Select department"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((department) => (
+                      <SelectItem key={department.id} value={department.id}>
+                        {department.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           <DialogFooter>

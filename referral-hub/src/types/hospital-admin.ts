@@ -25,6 +25,26 @@ export const HOSPITAL_STAFF_ROLE_OPTIONS: HospitalStaffRole[] = [
   'REFERRING_DOCTOR',
 ];
 
+/**
+ * Roles that are *not* tied to a specific department.
+ * Hospital-wide roles (admins, liaison, receptionist) and floating clinical
+ * roles (receiving specialist) don't require a department assignment.
+ */
+export const HOSPITAL_STAFF_ROLES_WITHOUT_DEPARTMENT: ReadonlySet<string> =
+  new Set([
+    'HOSPITAL_ADMIN',
+    'LIAISON_OFFICER',
+    'RECEPTIONIST',
+    'RECEIVING_SPECIALIST',
+  ]);
+
+export function hospitalStaffRoleRequiresDepartment(
+  role?: string | null,
+): boolean {
+  if (!role) return true;
+  return !HOSPITAL_STAFF_ROLES_WITHOUT_DEPARTMENT.has(role.trim().toUpperCase());
+}
+
 export function formatHospitalStaffRole(role: string): string {
   if (role in HOSPITAL_STAFF_ROLE_LABELS) {
     return HOSPITAL_STAFF_ROLE_LABELS[role as HospitalStaffRole];
@@ -123,7 +143,9 @@ export interface HospitalAdminStaffResponse {
 }
 
 export interface CreateStaffPayload {
-  department_id: string;
+  /** Optional — hospital-wide roles (admin, liaison, receptionist) and
+   *  floating specialists don't require a department. */
+  department_id?: string;
   email: string;
   first_name: string;
   middle_name: string;

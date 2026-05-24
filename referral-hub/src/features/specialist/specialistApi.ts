@@ -14,6 +14,17 @@ import {
   SpecialistReferralDetail,
 } from '@/types/specialist'
 import type { SpecialistReferralListItem } from '@/types/specialist'
+import type {
+  TriageListItem,
+  TriageListEnvelope,
+  TriageQueueFilters,
+  TriageDetailSpecialist,
+  ScheduleOption,
+  ScheduleRequest,
+  EmergencyScheduleRequest,
+  ScheduleSuccessResponse,
+  ReturnToTriageRequest,
+} from '@/types/specialist-triage'
 
 function normalizeSpecialistListResponse(
   raw: SpecialistReferralListResponse | { data?: SpecialistReferralListItem[]; total?: number; page?: number; limit?: number },
@@ -123,7 +134,13 @@ function unwrapMlPrediction(raw: unknown): MlPredictionDetail {
 export const specialistApi = createApi({
   reducerPath: 'specialistApi',
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['SpecialistReferral', 'MlPrediction'],
+  tagTypes: [
+    'SpecialistReferral',
+    'MlPrediction',
+    'SpecialistTriageQueue',
+    'SpecialistTriageDetail',
+    'ScheduleOptions',
+  ],
   endpoints: (builder) => ({
     getReferrals: builder.query<SpecialistReferralListResponse, { page?: number; limit?: number } | void>({
       query: (params) => {
@@ -268,6 +285,176 @@ export const specialistApi = createApi({
       }),
       invalidatesTags: (result, error, { id }) => [{ type: 'SpecialistReferral', id }, 'SpecialistReferral'],
     }),
+
+    // ─── Specialist Triage Queue (post-acceptance scheduling workspace) ─────────
+
+    /**
+     * Specialist triage list.
+     *
+     * Same filter matrix as the dept-head endpoint (csv list params, sort
+     * enums, terminal-status toggle). We build the URL by hand because
+     * RTK-Query's `params` object repeats keys for arrays instead of
+     * comma-joining — the server only accepts the csv form.
+     */
+    getSpecialistTriageQueue: builder.query<
+      TriageListEnvelope,
+      TriageQueueFilters | void
+    >({
+      query: (filters) => {
+        const f = filters ?? {}
+        const sp = new URLSearchParams()
+        sp.set('page', String(f.page ?? 1))
+        sp.set('limit', String(f.limit ?? 20))
+        if (f.department_id) sp.set('department_id', f.department_id)
+        if (f.arrival_status?.length)
+          sp.set('arrival_status', f.arrival_status.join(','))
+        if (f.referral_status?.length)
+          sp.set('referral_status', f.referral_status.join(','))
+        if (typeof f.has_doctor_assigned === 'boolean')
+          sp.set('has_doctor_assigned', String(f.has_doctor_assigned))
+        if (f.patient_id) sp.set('patient_id', f.patient_id)
+        if (f.national_id) sp.set('national_id', f.national_id)
+        if (f.sort_by) sp.set('sort_by', f.sort_by)
+        if (f.sort_order) sp.set('sort_order', f.sort_order)
+        if (f.include_terminal) sp.set('include_terminal', 'true')
+        return `${SPECIALIST_ROUTES.TRIAGE_QUEUE}?${sp.toString()}`
+      },
+      transformResponse: (raw: unknown): TriageListEnvelope => {
+        if (Array.isArray(raw)) {
+          return {
+            success: true,
+            data: raw as TriageListItem[],
+            total: raw.length,
+            page: 1,
+            limit: raw.length,
+            has_more: false,
+          }
+        }
+        const r = (raw ?? {}) as Partial<TriageListEnvelope> & {
+          data?: TriageListItem[]
+        }
+        return {
+          success: r.success ?? true,
+          data: r.data ?? [],
+          total: r.total ?? r.data?.length ?? 0,
+          page: r.page ?? 1,
+          limit: r.limit ?? 20,
+          has_more: r.has_more ?? false,
+        }
+      },
+      providesTags: ['SpecialistTriageQueue'],
+    }),
+
+    /**
+     * Specialist triage detail. `referralId` is the `referral_id` from a list
+     * row — never the `queue_id`. Returns `null` on 404 so the UI can render
+     * a friendly empty state instead of a generic error banner.
+     */
+    getSpecialistTriageDetail: builder.query<
+      TriageDetailSpecialist | null,
+      string
+    >({
+      query: (referralId) => SPECIALIST_ROUTES.TRIAGE_DETAIL(referralId),
+      transformResponse: (raw: unknown): TriageDetailSpecialist | null => {
+        if (!raw) return null
+        const r = raw as Record<string, unknown>
+        if (r.data && typeof r.data === 'object') {
+          return r.data as TriageDetailSpecialist
+        }
+        return raw as TriageDetailSpecialist
+      },
+      providesTags: (_r, _e, referralId) => [
+        { type: 'SpecialistTriageDetail', id: referralId },
+      ],
+    }),
+
+    /**
+     * Capacity preview for the next N days. Powers the date picker / readout
+     * in the scheduling modals. Server clamps `days` to 30.
+     */
+    getScheduleOptions: builder.query<
+      ScheduleOption[],
+      { referralId: string; days?: number }
+    >({
+      query: ({ referralId, days = 14 }) => ({
+        url: SPECIALIST_ROUTES.SCHEDULE_OPTIONS(referralId),
+        params: { days },
+      }),
+      transformResponse: (raw: unknown): ScheduleOption[] => {
+        if (Array.isArray(raw)) return raw as ScheduleOption[]
+        const r = (raw ?? {}) as Record<string, unknown>
+        if (Array.isArray(r.data)) return r.data as ScheduleOption[]
+        if (Array.isArray(r.options)) return r.options as ScheduleOption[]
+        return []
+      },
+      providesTags: (_r, _e, { referralId }) => [
+        { type: 'ScheduleOptions', id: referralId },
+      ],
+    }),
+
+    /**
+     * Routine schedule. `appointment_date` is RFC3339 here (NOT date-only) —
+     * see §2.1 of FRONTEND_SCHEDULE_OVERRIDE.md.
+     */
+    scheduleAppointment: builder.mutation<
+      ScheduleSuccessResponse,
+      { referralId: string; body: ScheduleRequest }
+    >({
+      query: ({ referralId, body }) => ({
+        url: SPECIALIST_ROUTES.SCHEDULE(referralId),
+        method: 'POST',
+        body,
+      }),
+      // Invalidate the detail, the queue (any filter), and the capacity
+      // preview so all three views resync on success.
+      invalidatesTags: (_r, _e, { referralId }) => [
+        { type: 'SpecialistTriageDetail', id: referralId },
+        'SpecialistTriageQueue',
+        { type: 'ScheduleOptions', id: referralId },
+        { type: 'SpecialistReferral', id: referralId },
+      ],
+    }),
+
+    /**
+     * Emergency override. `appointment_date` is **YYYY-MM-DD** here (NOT
+     * RFC3339) — the two scheduling endpoints intentionally use different
+     * formats; see §2.2 of the guide.
+     */
+    emergencySchedule: builder.mutation<
+      ScheduleSuccessResponse,
+      { referralId: string; body: EmergencyScheduleRequest }
+    >({
+      query: ({ referralId, body }) => ({
+        url: SPECIALIST_ROUTES.EMERGENCY_SCHEDULE(referralId),
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: (_r, _e, { referralId }) => [
+        { type: 'SpecialistTriageDetail', id: referralId },
+        'SpecialistTriageQueue',
+        { type: 'ScheduleOptions', id: referralId },
+        { type: 'SpecialistReferral', id: referralId },
+      ],
+    }),
+
+    /**
+     * Return-to-triage. Only allowed for MISSED rows; flips the row back
+     * into the active queue with a fresh expectation.
+     */
+    returnToTriage: builder.mutation<
+      { success: boolean; message: string },
+      { referralId: string; body: ReturnToTriageRequest }
+    >({
+      query: ({ referralId, body }) => ({
+        url: SPECIALIST_ROUTES.RETURN_TO_TRIAGE(referralId),
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: (_r, _e, { referralId }) => [
+        { type: 'SpecialistTriageDetail', id: referralId },
+        'SpecialistTriageQueue',
+      ],
+    }),
   }),
 })
 
@@ -284,4 +471,11 @@ export const {
   useGetMlPredictionQuery,
   useRerunMlPredictionMutation,
   useOverrideMlSeverityMutation,
+  // Triage queue
+  useGetSpecialistTriageQueueQuery,
+  useGetSpecialistTriageDetailQuery,
+  useGetScheduleOptionsQuery,
+  useScheduleAppointmentMutation,
+  useEmergencyScheduleMutation,
+  useReturnToTriageMutation,
 } = specialistApi

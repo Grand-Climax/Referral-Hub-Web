@@ -30,7 +30,6 @@ import { Referral } from "@/types/referral";
 import { ReferralListItem } from "@/types/referral-list";
 import { SpecialistReferralListItem } from "@/types/specialist";
 import type { ReferralListsTableMeta } from "./types";
-import type { ReferralListsTableMeta } from "./types";
 
 type ReferralRow = Referral | ReferralListItem | SpecialistReferralListItem;
 
@@ -194,14 +193,12 @@ export const columns: ColumnDef<ReferralRow>[] = [
   {
     id: "department",
     accessorFn: (row) => getDepartmentLabel(row),
-     header: "Department",
+    header: "Department",
     cell: ({ row, table }) => {
       const meta = table.options.meta as ReferralListsTableMeta | undefined;
       const label = getDepartmentLabel(row.original, meta);
 
       return (
-        <Badge variant="outline" className="max-w-[160px] truncate border-primary/15 bg-primary/5 px-2.5 py-1 text-[10px] font-semibold normal-case tracking-normal text-primary">
-          {label}
         <Badge variant="outline" className="max-w-[160px] truncate border-primary/15 bg-primary/5 px-2.5 py-1 text-[10px] font-semibold normal-case tracking-normal text-primary">
           {label}
         </Badge>

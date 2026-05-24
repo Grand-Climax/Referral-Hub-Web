@@ -12,14 +12,17 @@ function getRequestUrl(args: string | FetchArgs): string {
   return args.url
 }
 
+const PUBLIC_AUTH_URLS: readonly string[] = [
+  AUTH_ROUTES.LOGIN,
+  AUTH_ROUTES.REFRESH,
+  AUTH_ROUTES.FORGOT_PASSWORD,
+  AUTH_ROUTES.FORGOT_PASSWORD_VERIFY,
+  AUTH_ROUTES.RESET_PASSWORD,
+]
+
 function isPublicAuthRequest(args: string | FetchArgs): boolean {
   const url = getRequestUrl(args)
-  return (
-    url === AUTH_ROUTES.LOGIN ||
-    url.endsWith(AUTH_ROUTES.LOGIN) ||
-    url === AUTH_ROUTES.REFRESH ||
-    url.endsWith(AUTH_ROUTES.REFRESH)
-  )
+  return PUBLIC_AUTH_URLS.some((u) => url === u || url.endsWith(u))
 }
 
 function isLoginRequest(args: string | FetchArgs): boolean {
@@ -27,10 +30,14 @@ function isLoginRequest(args: string | FetchArgs): boolean {
   return url === AUTH_ROUTES.LOGIN || url.endsWith(AUTH_ROUTES.LOGIN)
 }
 
+function skipAuthHeader(args: string | FetchArgs): boolean {
+  return isPublicAuthRequest(args)
+}
+
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: API_BASE_URL,
   prepareHeaders: (headers, { arg }) => {
-    if (isLoginRequest(arg)) {
+    if (isLoginRequest(arg) || skipAuthHeader(arg)) {
       return headers
     }
 

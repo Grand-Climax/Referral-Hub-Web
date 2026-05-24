@@ -27,6 +27,7 @@ export interface UserProfile {
   middle_name?: string;
   last_name: string;
   national_id: string;
+  phone_number?: string;
   role: string;
   hospital_id: string;
   department_id?: string;
@@ -38,4 +39,16 @@ export interface UserProfile {
   success?: boolean;
   message?: string;
   profile_image_url?: string | null;
+}
+
+export interface UpdateMePayload {
+  first_name?: string;
+  middle_name?: string;
+  last_name?: string;
+  phone_number?: string;
+}
+
+export interface UpdatePasswordPayload {
+  current_password: string;
+  new_password: string;
 }

@@ -1,4 +1,5 @@
 import type { AppDispatch } from "@/lib/store/index";
+import { clearAuthSession } from "@/lib/authSession";
 import { authApi } from "@/features/auth/authApi";
 import { hospitalsApi } from "@/features/hospitals/hospitalsApi";
 import { referralApi } from "@/features/referral/referralApi";
@@ -45,9 +46,23 @@ const apiSlices = [
   mohAnalyticsApi,
 ] as const;
 
+/** Clears data API caches but keeps authApi state (safe during login). */
+export function resetDataApiCaches(dispatch: AppDispatch) {
+  for (const api of apiSlices) {
+    if (api === authApi) continue;
+    dispatch(api.util.resetApiState());
+  }
+}
+
 /** Clears all RTK Query caches so the next session fetches fresh data. */
 export function resetAllApiCaches(dispatch: AppDispatch) {
   for (const api of apiSlices) {
     dispatch(api.util.resetApiState());
   }
+}
+
+/** Full sign-out / pre-login cleanup: cookies, Redux auth, and all API caches. */
+export function resetAuthSession(dispatch: AppDispatch) {
+  clearAuthSession(dispatch);
+  resetAllApiCaches(dispatch);
 }

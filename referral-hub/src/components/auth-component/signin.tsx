@@ -20,6 +20,8 @@ import { useLoginMutation } from "@/features/auth/authApi";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/apiError";
 import { useRouter } from "next/navigation";
+import { useAppDispatch } from "@/lib/store/hooks";
+import { resetAuthSession } from "@/lib/resetApiCaches";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid hospital email address"),
@@ -32,6 +34,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [login, { isLoading }] = useLoginMutation();
   const router = useRouter();
+  const dispatch = useAppDispatch();
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -42,6 +45,8 @@ const Login = () => {
   });
 
   const onSubmit = async (values: LoginFormValues) => {
+    resetAuthSession(dispatch);
+
     try {
       const result = await login({
         email: values.email,
@@ -66,7 +71,7 @@ const Login = () => {
 
       if (result.user && result.user.role) {
         const targetPath = roleToPath[result.user.role] || "/";
-        router.push(targetPath);
+        router.replace(targetPath);
       }
     } catch (error: unknown) {
       toast.error(

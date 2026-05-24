@@ -27,8 +27,10 @@ export interface ReferralListItem {
   patient_middle_name?: string;
   patient_last_name: string;
   patient_region: string;
-  /** Department id from list endpoint. */
-  department: string;
+  /** Department id when provided separately by the list endpoint. */
+  department_id?: string;
+  /** Department display name from the list endpoint. */
+  department?: string;
   status: ReferralListStatus;
   icd_code: string;
   diagnosis: string;

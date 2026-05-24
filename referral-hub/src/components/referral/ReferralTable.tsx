@@ -53,14 +53,31 @@ function ConditionChip({ value }: { value: string }) {
   );
 }
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // ── Department Resolver ────────────────────────────────────────────────────────
-function DepartmentName({ id }: { id: string }) {
-  const { data: department, isLoading } = useGetDepartmentByIdQuery(id, { skip: !id });
+function DepartmentName({ id }: { id?: string | null }) {
+  const { data: department, isLoading } = useGetDepartmentByIdQuery(id ?? "", {
+    skip: !id,
+  });
 
   if (!id) return <span>—</span>;
   if (isLoading) return <span className="animate-pulse opacity-50">Loading…</span>;
-  
-  return <span className="truncate">{department?.name || id.slice(0, 8) + "…"}</span>;
+
+  return (
+    <span className="truncate">{department?.name || id.slice(0, 8) + "…"}</span>
+  );
+}
+
+function ListDepartmentLabel({ referral }: { referral: ReferralListItem }) {
+  const departmentValue = referral.department?.trim();
+  if (departmentValue && !UUID_RE.test(departmentValue)) {
+    return <span className="truncate">{departmentValue}</span>;
+  }
+
+  const departmentId = referral.department_id ?? departmentValue ?? "";
+  return <DepartmentName id={departmentId} />;
 }
 
 // ── Row skeleton ──────────────────────────────────────────────────────────────
@@ -202,7 +219,7 @@ export function ReferralTable({
 
                       <TableCell className="hidden sm:table-cell p-0">
                         <Link href={`${detailHrefPrefix}/${ref.id}`} className="flex items-center px-4 py-3 h-full text-sm text-foreground/80 max-w-[150px]">
-                          <DepartmentName id={ref.department} />
+                          <ListDepartmentLabel referral={ref} />
                         </Link>
                       </TableCell>
 

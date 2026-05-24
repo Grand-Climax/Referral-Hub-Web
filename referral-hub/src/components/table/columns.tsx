@@ -89,20 +89,35 @@ const humanize = (value: string) =>
     .toLowerCase()
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
-function getDepartmentId(row: ReferralRow): string {
-  const original = row as ReferralListItem & { target_dept_id?: string };
-  return original.department ?? original.target_dept_id ?? "";
-}
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function resolveDepartmentLabel(
-  id: string,
+function getDepartmentLabel(
+  row: ReferralRow,
   meta?: ReferralListsTableMeta,
 ): string {
-  if (!id) return "General";
-  const name = meta?.departmentNames?.[id];
-  if (name) return name;
+  const original = row as ReferralListItem & {
+    department_id?: string;
+    target_dept_id?: string;
+  };
+
+  const departmentValue = original.department?.trim();
+  if (departmentValue && !UUID_RE.test(departmentValue)) {
+    return departmentValue;
+  }
+
+  const departmentId =
+    original.department_id ??
+    (departmentValue && UUID_RE.test(departmentValue) ? departmentValue : "") ??
+    original.target_dept_id ??
+    "";
+
+  if (!departmentId) return "—";
+
+  const mapped = meta?.departmentNames?.[departmentId];
+  if (mapped) return mapped;
   if (meta?.departmentsLoading) return "Loading…";
-  return "Unknown department";
+  return `${departmentId.slice(0, 8)}…`;
 }
 
 export const columns: ColumnDef<ReferralRow>[] = [
@@ -177,12 +192,11 @@ export const columns: ColumnDef<ReferralRow>[] = [
   },
   {
     id: "department",
-    accessorFn: (row) => getDepartmentId(row),
-    header: "Department",
+    accessorFn: (row) => getDepartmentLabel(row),
+     header: "Department",
     cell: ({ row, table }) => {
-      const departmentId = getDepartmentId(row.original);
       const meta = table.options.meta as ReferralListsTableMeta | undefined;
-      const label = resolveDepartmentLabel(departmentId, meta);
+      const label = getDepartmentLabel(row.original, meta);
 
       return (
         <Badge variant="outline" className="max-w-[160px] truncate border-primary/15 bg-primary/5 px-2.5 py-1 text-[10px] font-semibold normal-case tracking-normal text-primary">

@@ -141,3 +141,13 @@ export interface MlPredictionResponse {
   message: string;
   data: MlPredictionDetail;
 }
+
+export interface MlSeverityOverrideRequest {
+  score: number;
+  justification: string;
+}
+
+export interface MlSeverityOverrideResponse {
+  success: boolean;
+  message: string;
+}

@@ -87,6 +87,8 @@ export const SPECIALIST_ROUTES = {
   ML_PREDICTION: (id: string) =>
     `/api/v1/specialist/referrals/${id}/ml-prediction`,
   RERUN_ML: (id: string) => `/api/v1/specialist/referrals/${id}/rerun-ml`,
+  ML_SEVERITY_OVERRIDE: (id: string) =>
+    `/api/v1/specialist/referrals/${id}/ml-severity-override`,
 } as const;
 
 export const SYSTEM_ADMIN_ROUTES = {

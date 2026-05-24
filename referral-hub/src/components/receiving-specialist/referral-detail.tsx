@@ -42,6 +42,7 @@ import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/apiError";
 import { useRouter } from "next/navigation";
+import { useMlRunState } from "@/hooks/useMlRunState";
 
 function formatBytes(bytes?: number) {
   if (!bytes || bytes <= 0) return "—";
@@ -105,12 +106,15 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
   } = useGetReferralByIdQuery(referralId, {
     pollingInterval: referralPollMs,
   });
+  const mlRunState = useMlRunState({
+    ml_status: referral?.ml_status,
+    ml_run_started_at: referral?.ml_run_started_at,
+    ml_successful_rerun_count: referral?.ml_successful_rerun_count,
+  });
 
   useEffect(() => {
-    setReferralPollMs(
-      referral?.ml_status?.toUpperCase() === "PENDING" ? 3000 : 0,
-    );
-  }, [referral?.ml_status]);
+    setReferralPollMs(mlRunState.shouldPollReferral ? 3000 : 0);
+  }, [mlRunState.shouldPollReferral]);
   const [acceptReferral, { isLoading: isAccepting }] =
     useAcceptReferralMutation();
   const [rejectReferral, { isLoading: isRejecting }] =
@@ -150,28 +154,30 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
       .join(" ")
     : null;
 
-  const lastProcessedId = useRef<string | null>(null);
-  const handleMarkRead = async () => {
-    if (lastProcessedId.current === referralId) return;
+  const lastReadKeyRef = useRef<string | null>(null);
+  const handleMarkRead = async (status: "FORWARDED" | "REDIRECTED") => {
+    const readKey = `${referralId}:${status}`;
+    if (lastReadKeyRef.current === readKey) return;
     try {
-      lastProcessedId.current = referralId;
+      lastReadKeyRef.current = readKey;
       await markReferralRead(referralId).unwrap();
-      toast.success("Referral marked as read.");
+      if (status === "FORWARDED") {
+        toast.success("Referral marked as read.");
+      }
     } catch (error) {
-      lastProcessedId.current = null;
+      lastReadKeyRef.current = null;
       toast.error(getApiErrorMessage(error, "Failed to mark referral as read."));
     }
   };
 
-  // console.log("referral status", referral?.status)
   useEffect(() => {
-    // Strictly trigger FORWARDED only and only once per referralId
+    const status = referral?.status;
     if (
-      referral?.status === "FORWARDED" &&
-      lastProcessedId.current !== referralId &&
+      (status === "FORWARDED" || status === "REDIRECTED") &&
+      lastReadKeyRef.current !== `${referralId}:${status}` &&
       !isMarkingRead
     ) {
-      handleMarkRead();
+      void handleMarkRead(status);
     }
   }, [referral?.status, referralId, isMarkingRead]);
 
@@ -328,6 +334,8 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
     Boolean(currentUser?.id) &&
     !idsMatch(referral.specialist_id, currentUser?.id);
   const canManageReferral = canTakeDecision && !assignedToAnotherSpecialist;
+  const isPendingSpecialistRead =
+    statusKey === "FORWARDED" || statusKey === "REDIRECTED";
   const createdAtLabel = referral.created_at
     ? format(new Date(referral.created_at), "PPp")
     : "—";
@@ -358,6 +366,21 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
             >
               {displayStatus}
             </Badge>
+            {referral.ml_severity_score != null ? (
+              <Badge
+                variant="outline"
+                className={
+                  referral.ml_status?.toUpperCase() === "MANUAL"
+                    ? "border-amber-300 bg-amber-50 text-amber-800 text-xs"
+                    : "border-blue-200 bg-blue-50 text-blue-700 text-xs"
+                }
+              >
+                Severity: {referral.ml_severity_score.toFixed(1)}
+                {referral.ml_status?.toUpperCase() === "MANUAL"
+                  ? " (Manually Overridden)"
+                  : ""}
+              </Badge>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground mt-2">
@@ -741,16 +764,18 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
               </div>
             </CardHeader>
             <CardContent className="p-5 space-y-5">
-              {referral?.status === "FORWARDED" && (
+              {isPendingSpecialistRead && (
                 <div className="flex flex-col items-center justify-center py-8 space-y-3">
                   <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
                   <p className="text-sm font-medium text-blue-600 animate-pulse">
-                    Initiating clinical review...
+                    {statusKey === "REDIRECTED"
+                      ? "Acknowledging redirected referral…"
+                      : "Initiating clinical review…"}
                   </p>
                 </div>
               )}
 
-              {referral.specialist_id && (
+              {referral.specialist_id && !isPendingSpecialistRead && (
                 <div
                   className={`flex items-start gap-2 rounded-md border p-3 text-xs ${
                     assignedToAnotherSpecialist && canTakeDecision
@@ -773,7 +798,7 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
                 </div>
               )}
 
-              {canManageReferral && (
+              {canManageReferral && !isPendingSpecialistRead && (
                 <div className="space-y-3">
                   {!canRedirect && (
                     <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700">
@@ -834,7 +859,7 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
                 </div>
               )}
 
-              {!canTakeDecision && referral.status !== "FORWARDED" && (
+              {!canTakeDecision && !isPendingSpecialistRead && (
                 <div className="flex flex-col items-center justify-center p-8 bg-muted/20 rounded-lg border border-dashed border-border">
                   <div className="text-sm font-medium text-muted-foreground mb-2">
                     Current Status

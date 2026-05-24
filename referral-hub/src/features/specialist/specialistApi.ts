@@ -9,6 +9,8 @@ import {
   RedirectReferralRequest,
   ReleaseReferralRequest,
   MlPredictionDetail,
+  MlSeverityOverrideRequest,
+  MlSeverityOverrideResponse,
   SpecialistReferralDetail,
 } from '@/types/specialist'
 import type { SpecialistReferralListItem } from '@/types/specialist'
@@ -70,12 +72,28 @@ function unwrapSpecialistReferralDetail(
       null,
     ml_status:
       pickString('ml_status', 'mlStatus', 'MLStatus') ?? detail.ml_status ?? 'PENDING',
+    ml_severity_score:
+      pickNumber('ml_severity_score', 'mlSeverityScore', 'MLSeverityScore') ??
+      detail.ml_severity_score ??
+      null,
+    triage_status:
+      pickString('triage_status', 'triageStatus', 'TriageStatus') ??
+      detail.triage_status ??
+      null,
     ml_successful_rerun_count:
       pickNumber(
         'ml_successful_rerun_count',
         'mlSuccessfulRerunCount',
         'MLSuccessfulRerunCount',
       ) ?? detail.ml_successful_rerun_count ?? 0,
+    ml_retry_count:
+      pickNumber('ml_retry_count', 'mlRetryCount', 'MLRetryCount') ??
+      detail.ml_retry_count ??
+      0,
+    ml_run_started_at:
+      pickString('ml_run_started_at', 'mlRunStartedAt', 'MLRunStartedAt') ??
+      detail.ml_run_started_at ??
+      null,
     ml_last_failed_at:
       pickString('ml_last_failed_at', 'mlLastFailedAt', 'MLLastFailedAt') ??
       detail.ml_last_failed_at ??
@@ -172,6 +190,24 @@ export const specialistApi = createApi({
       },
       providesTags: (_result, _error, id) => [{ type: 'MlPrediction', id }],
     }),
+    overrideMlSeverity: builder.mutation<
+      MlSeverityOverrideResponse,
+      { referralId: string; body: MlSeverityOverrideRequest }
+    >({
+      query: ({ referralId, body }) => ({
+        url: SPECIALIST_ROUTES.ML_SEVERITY_OVERRIDE(referralId),
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (raw: MlSeverityOverrideResponse | undefined) => ({
+        success: Boolean(raw?.success ?? true),
+        message: raw?.message ?? 'Severity score manually overridden successfully',
+      }),
+      invalidatesTags: (_result, _error, { referralId }) => [
+        { type: 'SpecialistReferral', id: referralId },
+        { type: 'MlPrediction', id: referralId },
+      ],
+    }),
     rerunMlPrediction: builder.mutation<{ success: boolean; message: string }, string>({
       query: (referralId) => ({
         url: SPECIALIST_ROUTES.RERUN_ML(referralId),
@@ -247,4 +283,5 @@ export const {
   useRedirectReferralMutation,
   useGetMlPredictionQuery,
   useRerunMlPredictionMutation,
+  useOverrideMlSeverityMutation,
 } = specialistApi

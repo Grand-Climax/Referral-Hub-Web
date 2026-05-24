@@ -23,9 +23,13 @@ import {
   ListChecks,
   Users,
   Sparkles,
-  LayoutGrid,
+  Activity,
+  MessageSquare,
+  Zap,
+  ShieldAlert,
+  CalendarDays,
+  UserCog,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAppSelector } from "@/lib/store/hooks";
@@ -41,7 +45,19 @@ interface NavItem {
   url: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: number;
+  primary?: boolean;
   items?: { title: string; url: string }[];
+}
+
+interface NavGroup {
+  group: string;
+  items: NavItem[];
+}
+
+type NavConfig = NavItem[] | NavGroup[];
+
+function isGroupedNav(nav: NavConfig): nav is NavGroup[] {
+  return nav.length > 0 && "group" in (nav[0] as object);
 }
 
 const NAV_BY_ROLE = {
@@ -90,10 +106,55 @@ const NAV_BY_ROLE = {
     { title: "Profile", url: "/receptionist/profile", icon: User },
   ],
   department_head: [
-    { title: "Dashboard",              url: "/department-head",                            icon: LayoutDashboard },
-    { title: "Specialist Availability", url: "/department-head/specialist-availability",   icon: Users },
-    { title: "Capacity Management",    url: "/department-head/capacity-management",        icon: LayoutGrid },
-  ],
+    {
+      group: "General",
+      items: [
+        { title: "Dashboard", url: "/department-head", icon: LayoutDashboard },
+        { title: "Activity", url: "/department-head/activity", icon: History },
+      ],
+    },
+    {
+      group: "Queue & Scheduling",
+      items: [
+        { title: "Triage Queue", url: "/department-head/triage-queue", icon: ClipboardList },
+        {
+          title: "Run Batch Schedule",
+          url: "/department-head/schedule/batch",
+          icon: Zap,
+          primary: true,
+        },
+        { title: "Daily Schedule", url: "/department-head/schedule", icon: CalendarDays },
+        {
+          title: "Patients of the Day",
+          url: "/department-head/schedule/patients",
+          icon: Users,
+        },
+      ],
+    },
+    {
+      group: "Capacity & Staff",
+      items: [
+        { title: "Capacity Calendar", url: "/department-head/capacity", icon: CalendarCheck },
+        {
+          title: "Capacity Overrides",
+          url: "/department-head/capacity/overrides",
+          icon: ShieldAlert,
+        },
+        { title: "Staff Management", url: "/department-head/staff", icon: UserCog },
+      ],
+    },
+    {
+      group: "Communication",
+      items: [
+        { title: "Notifications", url: "/department-head/notifications", icon: Bell },
+        { title: "Chat", url: "/department-head/messages", icon: MessageSquare },
+      ],
+    },
+    {
+      group: "Account",
+      items: [{ title: "Profile", url: "/department-head/profile", icon: User }],
+    },
+  ] as NavGroup[],
 };
 
 type RoleKey = keyof typeof NAV_BY_ROLE;
@@ -117,7 +178,10 @@ export function ReceivingHospitalSidebar() {
   const role = rawRole
     ? ROLE_MAP[rawRole.toUpperCase()] || ROLE_MAP[rawRole]
     : undefined;
-  const menuItems = (role ? NAV_BY_ROLE[role] : []) as NavItem[];
+  const nav = (role ? NAV_BY_ROLE[role] : []) as NavConfig;
+  const groupedNav: NavGroup[] = isGroupedNav(nav)
+    ? nav
+    : [{ group: "Navigation", items: nav as NavItem[] }];
 
   const { data: hospital, isLoading: isHospitalLoading } =
     useGetHospitalByIdQuery(userProfile?.hospital_id ?? "", {
@@ -138,22 +202,10 @@ export function ReceivingHospitalSidebar() {
   return (
     <Sidebar className="border-r border-border/60 bg-linear-to-b from-background via-background to-muted/20">
       <SidebarHeader className="border-b border-border/60 bg-linear-to-b from-primary/3 to-transparent p-4 pb-5">
-        <div className="flex items-center gap-3">
-          <div className="relative h-11 w-11 overflow-hidden rounded-2xl bg-primary/5 ring-1 ring-primary/10 shadow-sm">
-            <Image
-              src="/logo.png"
-              alt="MedRefer"
-              fill
-              className="object-cover object-center"
-              priority
-            />
-          </div>
-          <div className="leading-tight">
-            <p className="text-lg font-semibold tracking-tight text-foreground">
-              MedRefer
-            </p>
-          </div>
-        </div>
+        <Link href="/" className="flex shrink-0 items-center gap-2">
+          <Activity className="h-6 w-6 shrink-0 text-primary" />
+          <span className="text-lg font-bold text-foreground">Referral Hub</span>
+        </Link>
 
         <div className="mt-4 flex flex-col items-center justify-center gap-2 rounded-2xl border border-border/60 bg-background/80 p-3 text-center shadow-sm backdrop-blur-sm">
           <div className="flex items-center gap-2">
@@ -173,52 +225,66 @@ export function ReceivingHospitalSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="p-3 pt-5 gap-0">
-        <SidebarGroup>
-          <div className="px-2 pb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-            Navigation
-          </div>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-2">
-              {menuItems.map((item) => {
-                const isActive = item.items
-                  ? item.items.some((subItem) => pathname === subItem.url)
-                  : pathname === item.url;
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      className={`h-12 justify-between rounded-2xl border transition-all duration-200 ${
-                        isActive
-                          ? "border-primary/20 bg-primary/10 text-primary shadow-sm hover:bg-primary/15 hover:text-primary"
-                          : "border-transparent bg-transparent text-muted-foreground hover:border-border hover:bg-muted/60 hover:text-foreground"
-                      }`}
-                    >
-                      <Link href={item.url}>
-                        <div className="flex items-center gap-3">
-                          <span
-                            className={`flex h-8 w-8 items-center justify-center rounded-xl ${isActive ? "bg-background text-primary shadow-sm" : "bg-muted text-muted-foreground"}`}
-                          >
-                            <item.icon className="h-4 w-4" />
-                          </span>
-                          <span className="text-sm font-medium">
-                            {item.title}
-                          </span>
-                        </div>
-                        {item.badge && (
-                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
-                            {item.badge}
-                          </span>
-                        )}
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+      <SidebarContent className="p-3 pt-5 gap-1">
+        {groupedNav.map((section) => (
+          <SidebarGroup key={section.group}>
+            <div className="px-2 pb-2 pt-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              {section.group}
+            </div>
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-1.5">
+                {section.items.map((item) => {
+                  const isExact = pathname === item.url;
+                  const isActive = item.items
+                    ? item.items.some((sub) => pathname === sub.url)
+                    : isExact ||
+                      (item.url !== "/department-head" &&
+                        pathname.startsWith(item.url + "/"));
+
+                  const isPrimary = item.primary && !isActive;
+
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        className={`h-11 justify-between rounded-xl border transition-all duration-200 ${
+                          isActive
+                            ? "border-primary/20 bg-primary/10 text-primary shadow-sm hover:bg-primary/15 hover:text-primary"
+                            : isPrimary
+                            ? "border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary"
+                            : "border-transparent bg-transparent text-muted-foreground hover:border-border hover:bg-muted/60 hover:text-foreground"
+                        }`}
+                      >
+                        <Link href={item.url}>
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`flex h-7 w-7 items-center justify-center rounded-lg ${
+                                isActive
+                                  ? "bg-background text-primary shadow-sm"
+                                  : isPrimary
+                                  ? "bg-primary/10 text-primary"
+                                  : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              <item.icon className="h-4 w-4" />
+                            </span>
+                            <span className="text-sm font-medium">{item.title}</span>
+                          </div>
+                          {item.badge && (
+                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
+                              {item.badge}
+                            </span>
+                          )}
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter className="mt-auto border-t border-border/60 p-4">

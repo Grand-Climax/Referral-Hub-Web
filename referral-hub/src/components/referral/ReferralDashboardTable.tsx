@@ -11,34 +11,49 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, ChevronRight, FileText } from "lucide-react";
-import { ReferralListItem } from "@/types/referral-list";
+import {
+  formatReferralPatientName,
+  humanizeReferralValue,
+  type ReferralListItem,
+} from "@/types/referral-list";
 import { StatusBadge } from "@/components/StatusBadge";
+import { cn } from "@/lib/utils";
 
 interface ReferralDashboardTableProps {
-  /** Referral data to display */
   data?: ReferralListItem[];
-  /** Total count of records (for pagination) */
   total?: number;
-  /** Initial loading state */
   isLoading?: boolean;
-  /** Background re-fetching state */
   isFetching?: boolean;
-  /** Current 0-based page index */
   page: number;
-  /** Callback when page changes */
   onPageChange: (page: number) => void;
-  /** Override the page size (default 10) */
   pageSize?: number;
-  /** Link structure for the detail page. Defaults to doctor dashboard path. */
   detailHrefPrefix?: string;
 }
 
-/**
- * A compact version of the ReferralTable designed specifically for dashboard views.
- * It omits less critical columns like Department, ID, and Condition to save space.
- */
+function ConditionBadge({ condition }: { condition?: string }) {
+  if (!condition) return <span className="text-xs text-muted-foreground">—</span>;
+  const normalized = condition.toUpperCase();
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "text-[10px] font-medium capitalize",
+        normalized === "CRITICAL" &&
+          "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200",
+        normalized === "UNSTABLE" &&
+          "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200",
+        normalized === "STABLE" &&
+          "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200",
+      )}
+    >
+      {humanizeReferralValue(condition)}
+    </Badge>
+  );
+}
+
 export function ReferralDashboardTable({
   data = [],
   total = 0,
@@ -47,27 +62,32 @@ export function ReferralDashboardTable({
   page,
   onPageChange,
   pageSize = 10,
-  detailHrefPrefix = "/referring-doctor"
+  detailHrefPrefix = "/referring-doctor",
 }: ReferralDashboardTableProps) {
-  const rows       = data;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const loading    = isLoading || isFetching;
+  const loading = isLoading || isFetching;
+  const colSpan = 5;
 
   return (
-    <div className="flex flex-col h-[450px] min-h-0">
-      {/* ── Scrollable table area ─────────────────────────────────────── */}
-      <div className="flex-1 overflow-auto min-h-0">
+    <div className="flex h-[450px] min-h-0 flex-col">
+      <div className="min-h-0 flex-1 overflow-auto">
         <Table>
-          <TableHeader className="sticky top-0 z-10 bg-muted/40 backdrop-blur-sm border-b border-border/40">
-            <TableRow className="hover:bg-transparent border-b-0">
+          <TableHeader className="sticky top-0 z-10 border-b border-border/40 bg-muted/40 backdrop-blur-sm">
+            <TableRow className="border-b-0 hover:bg-transparent">
               <TableHead className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Patient
               </TableHead>
-              <TableHead className="hidden sm:table-cell px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-center">
+              <TableHead className="hidden px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground md:table-cell">
+                Diagnosis
+              </TableHead>
+              <TableHead className="hidden px-4 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:table-cell">
+                Condition
+              </TableHead>
+              <TableHead className="px-4 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Status
               </TableHead>
-              <TableHead className="hidden md:table-cell px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-right mr-4">
-                Date
+              <TableHead className="hidden px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-muted-foreground lg:table-cell">
+                Submitted
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -76,73 +96,130 @@ export function ReferralDashboardTable({
             {loading
               ? Array.from({ length: pageSize }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell className="px-4 py-3"><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell className="hidden sm:table-cell px-4 py-3 text-center"><Skeleton className="h-4 w-16 mx-auto" /></TableCell>
-                    <TableCell className="hidden md:table-cell px-4 py-3 text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
-                  </TableRow>
-                ))
-              : rows.length === 0
-              ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="py-12 text-center">
-                      <div className="flex flex-col items-center gap-2 text-muted-foreground opacity-50">
-                        <FileText className="h-6 w-6" />
-                        <p className="text-xs">No referrals found</p>
-                      </div>
+                    <TableCell className="px-4 py-3">
+                      <Skeleton className="h-4 w-36" />
+                    </TableCell>
+                    <TableCell className="hidden px-4 py-3 md:table-cell">
+                      <Skeleton className="h-4 w-48" />
+                    </TableCell>
+                    <TableCell className="hidden px-4 py-3 text-center sm:table-cell">
+                      <Skeleton className="mx-auto h-5 w-16" />
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-center">
+                      <Skeleton className="mx-auto h-5 w-20" />
+                    </TableCell>
+                    <TableCell className="hidden px-4 py-3 text-right lg:table-cell">
+                      <Skeleton className="ml-auto h-4 w-20" />
                     </TableCell>
                   </TableRow>
-                )
-              : rows.map((ref) => {
-                  const fullName = [ref.patient_first_name, ref.patient_last_name].filter(Boolean).join(" ");
-                  const dateStr  = ref.created_at
-                    ? formatDistanceToNow(new Date(ref.created_at), { addSuffix: true })
-                    : "—";
-
-                  return (
-                    <TableRow
-                      key={ref.id}
-                      className="group border-b border-border/30 transition-colors hover:bg-muted/40"
-                    >
-                      <TableCell className="p-0">
-                        <Link href={`${detailHrefPrefix}/${ref.id}`} className="flex flex-col px-4 py-2.5 h-full gap-0.5 min-w-0">
-                          <span className="text-[13px] font-medium text-foreground truncate max-w-[140px] md:max-w-none">
-                            {fullName || "Unknown"}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground truncate opacity-70">
-                            {ref.diagnosis || "No diagnosis"}
-                          </span>
-                        </Link>
-                      </TableCell>
-
-                      <TableCell className="hidden sm:table-cell p-0 text-center">
-                        <Link href={`${detailHrefPrefix}/${ref.id}`} className="flex items-center justify-center px-4 py-2.5 h-full">
-                          <StatusBadge status={ref.status} />
-                        </Link>
-                      </TableCell>
-
-                      <TableCell className="hidden md:table-cell p-0 text-right">
-                        <Link href={`${detailHrefPrefix}/${ref.id}`} className="flex items-center justify-end px-4 py-2.5 h-full text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
-                          {dateStr}
-                        </Link>
+                ))
+              : data.length === 0
+                ? (
+                    <TableRow>
+                      <TableCell colSpan={colSpan} className="py-12 text-center">
+                        <div className="flex flex-col items-center gap-2 text-muted-foreground opacity-50">
+                          <FileText className="h-6 w-6" />
+                          <p className="text-xs">No referrals found</p>
+                        </div>
                       </TableCell>
                     </TableRow>
-                  );
-                })}
+                  )
+                : data.map((ref) => {
+                    const patientName = formatReferralPatientName(ref);
+                    const submittedAt = ref.created_at
+                      ? formatDistanceToNow(new Date(ref.created_at), {
+                          addSuffix: true,
+                        })
+                      : "—";
+                    const detailHref = `${detailHrefPrefix}/${ref.id}`;
+
+                    return (
+                      <TableRow
+                        key={ref.id}
+                        className="group border-b border-border/30 transition-colors hover:bg-muted/40"
+                      >
+                        <TableCell className="p-0">
+                          <Link
+                            href={detailHref}
+                            className="flex min-w-0 flex-col gap-0.5 px-4 py-2.5"
+                          >
+                            <span className="truncate text-[13px] font-medium text-foreground">
+                              {patientName || "Unknown patient"}
+                            </span>
+                            <span className="truncate text-[10px] text-muted-foreground">
+                              {ref.patient_region || "Region not recorded"}
+                            </span>
+                            <span className="truncate text-[10px] text-muted-foreground md:hidden">
+                              {ref.icd_code
+                                ? `${ref.icd_code} · ${ref.diagnosis || "No diagnosis"}`
+                                : ref.diagnosis || "No diagnosis"}
+                            </span>
+                          </Link>
+                        </TableCell>
+
+                        <TableCell className="hidden p-0 md:table-cell">
+                          <Link
+                            href={detailHref}
+                            className="flex min-w-0 flex-col gap-1 px-4 py-2.5"
+                          >
+                            {ref.icd_code && (
+                              <Badge
+                                variant="secondary"
+                                className="w-fit font-mono text-[10px]"
+                              >
+                                {ref.icd_code}
+                              </Badge>
+                            )}
+                            <span className="line-clamp-2 text-xs text-muted-foreground">
+                              {ref.diagnosis || "No diagnosis recorded"}
+                            </span>
+                          </Link>
+                        </TableCell>
+
+                        <TableCell className="hidden p-0 sm:table-cell">
+                          <Link
+                            href={detailHref}
+                            className="flex items-center justify-center px-4 py-2.5"
+                          >
+                            <ConditionBadge condition={ref.condition_at_referral} />
+                          </Link>
+                        </TableCell>
+
+                        <TableCell className="p-0">
+                          <Link
+                            href={detailHref}
+                            className="flex items-center justify-center px-4 py-2.5"
+                          >
+                            <StatusBadge status={ref.status} />
+                          </Link>
+                        </TableCell>
+
+                        <TableCell className="hidden p-0 lg:table-cell">
+                          <Link
+                            href={detailHref}
+                            className="flex items-center justify-end px-4 py-2.5 text-[11px] tabular-nums whitespace-nowrap text-muted-foreground"
+                          >
+                            {submittedAt}
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
           </TableBody>
         </Table>
       </div>
 
-      {/* ── Minimal Pagination footer ─────────────────────────────────── */}
-      <div className="shrink-0 flex items-center justify-between border-t border-border/50 px-4 py-2 bg-muted/10">
-        <span className="text-[10px] text-muted-foreground tabular-nums">
-          Page {page + 1} of {totalPages}
+      <div className="flex shrink-0 items-center justify-between border-t border-border/50 bg-muted/10 px-4 py-2">
+        <span className="text-[10px] tabular-nums text-muted-foreground">
+          {total} referral{total === 1 ? "" : "s"} · Page {page + 1} of{" "}
+          {totalPages}
         </span>
 
         <div className="flex items-center gap-1.5">
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 w-7 p-0 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30"
+            className="h-7 w-7 rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
             onClick={() => onPageChange(Math.max(0, page - 1))}
             disabled={page === 0 || loading}
           >
@@ -152,7 +229,7 @@ export function ReferralDashboardTable({
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 w-7 p-0 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30"
+            className="h-7 w-7 rounded-md p-0 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
             onClick={() => onPageChange(page + 1)}
             disabled={page + 1 >= totalPages || loading}
           >

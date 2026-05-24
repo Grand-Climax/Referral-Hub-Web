@@ -56,9 +56,6 @@ export function DataTableToolbar<TData>({
       </div>
       <div className="flex items-center space-x-2">
         <DataTableViewOptions table={table} />
-        <Button size="sm" className="h-9">
-          Add Referral
-        </Button>
       </div>
     </div>
   );

@@ -12,11 +12,10 @@ interface PasswordInputProps
   label?: string;
 }
 
-export function PasswordInput({
-  label,
-  className,
-  ...props
-}: PasswordInputProps) {
+export const PasswordInput = React.forwardRef<
+  HTMLInputElement,
+  PasswordInputProps
+>(function PasswordInput({ label, className, ...props }, ref) {
   const [visible, setVisible] = useState(false);
 
   return (
@@ -28,6 +27,7 @@ export function PasswordInput({
       )}
       <div className="relative">
         <Input
+          ref={ref}
           type={visible ? "text" : "password"}
           className={cn("h-11 pr-10", className)}
           {...props}
@@ -43,5 +43,4 @@ export function PasswordInput({
       </div>
     </div>
   );
-}
-
+});

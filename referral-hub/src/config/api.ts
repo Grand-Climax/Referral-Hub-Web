@@ -6,12 +6,17 @@ export const AUTH_ROUTES = {
   LOGOUT: "/api/v1/auth/logout",
   REFRESH: "/api/v1/auth/refresh",
   ME: "/api/v1/users/me",
+  FORGOT_PASSWORD: "/api/v1/auth/forgot-password",
+  FORGOT_PASSWORD_VERIFY: "/api/v1/auth/forgot-password/verify",
+  RESET_PASSWORD: "/api/v1/auth/reset-password",
 } as const;
 
 /** Hospital-scoped user directory & profile (Bearer). */
 export const USER_ROUTES = {
   LIST: "/api/v1/users",
   ME: "/api/v1/users/me",
+  UPDATE_ME: "/api/v1/users/me",
+  UPDATE_PASSWORD: "/api/v1/users/me/password",
   BY_ID: (id: string) => `/api/v1/users/${id}`,
   PROFILE_IMAGE: "/api/v1/users/profile/image",
 } as const;
@@ -84,6 +89,11 @@ export const SPECIALIST_ROUTES = {
   RELEASE: (id: string) => `/api/v1/specialist/referrals/${id}/release`,
   REDIRECT: (id: string) => `/api/v1/specialist/referrals/${id}/redirect`,
   REDIRECT_OPTIONS: (id: string) => `/api/v1/specialist/referrals/${id}/redirect-options`,
+  ML_PREDICTION: (id: string) =>
+    `/api/v1/specialist/referrals/${id}/ml-prediction`,
+  RERUN_ML: (id: string) => `/api/v1/specialist/referrals/${id}/rerun-ml`,
+  ML_SEVERITY_OVERRIDE: (id: string) =>
+    `/api/v1/specialist/referrals/${id}/ml-severity-override`,
 } as const;
 
 export const SYSTEM_ADMIN_ROUTES = {
@@ -152,22 +162,42 @@ export const HOSPITAL_ADMIN_ROUTES = {
 } as const;
 
 export const DEPARTMENT_HEAD_ROUTES = {
-  // Capacity Override endpoints
+  // Dashboard
+  DASHBOARD_STATS: "/api/v1/department-head/dashboard/stats",
+  DASHBOARD_TRENDS: "/api/v1/department-head/dashboard/trends",
+
+  // Triage Queue
+  TRIAGE_QUEUE: "/api/v1/department-head/triage-queue",
+  TRIAGE_BUCKETS: "/api/v1/department-head/triage-queue/buckets",
+
+  // Capacity
+  CAPACITY_DETAIL: "/api/v1/department-head/capacity/detail",
+  CAPACITY_CALENDAR: "/api/v1/department-head/capacity/calendar",
+
+  // Capacity Overrides
   LIST_CAPACITY_OVERRIDES: "/api/v1/department-head/capacity/overrides",
+  OVERRIDES_BY_MONTH: "/api/v1/department-head/capacity/overrides/by-month",
+  OVERRIDE_BY_ID: (id: string) =>
+    `/api/v1/department-head/capacity/overrides/${id}`,
   CREATE_CAPACITY_OVERRIDE: "/api/v1/department-head/capacity/overrides",
   UPDATE_CAPACITY_OVERRIDE: (id: string) =>
     `/api/v1/department-head/capacity/overrides/${id}`,
   DELETE_CAPACITY_OVERRIDE: (id: string) =>
     `/api/v1/department-head/capacity/overrides/${id}`,
 
-  // Schedule endpoints
+  // Schedule
   VIEW_SCHEDULE: "/api/v1/department-head/schedule",
+  SCHEDULE_PATIENTS: "/api/v1/department-head/schedule/patients",
   RUN_BATCH_SCHEDULING: "/api/v1/department-head/schedule/batch",
   UPDATE_MAX_SLOTS: (id: string) =>
     `/api/v1/department-head/schedule/${id}/max-slots`,
-  
-  // Triage Queue endpoint (department head specific)
-  TRIAGE_QUEUE: "/api/v1/department-head/triage-queue",
+
+  // Staff
+  STAFF_SUMMARY: "/api/v1/department-head/staff/summary",
+  UPDATE_STAFF_CAPACITY: "/api/v1/department-head/staff-capacity",
+
+  // Activity
+  ACTIVITY: "/api/v1/department-head/activity",
 } as const;
 
 export const MOH_ROUTES = {

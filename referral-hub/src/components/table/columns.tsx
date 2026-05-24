@@ -29,6 +29,7 @@ import type { ReferralPatient } from "@/types/referral";
 import { Referral } from "@/types/referral";
 import { ReferralListItem } from "@/types/referral-list";
 import { SpecialistReferralListItem } from "@/types/specialist";
+import type { ReferralListsTableMeta } from "./types";
 
 type ReferralRow = Referral | ReferralListItem | SpecialistReferralListItem;
 
@@ -87,6 +88,37 @@ const humanize = (value: string) =>
     .replace(/_/g, " ")
     .toLowerCase()
     .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function getDepartmentLabel(
+  row: ReferralRow,
+  meta?: ReferralListsTableMeta,
+): string {
+  const original = row as ReferralListItem & {
+    department_id?: string;
+    target_dept_id?: string;
+  };
+
+  const departmentValue = original.department?.trim();
+  if (departmentValue && !UUID_RE.test(departmentValue)) {
+    return departmentValue;
+  }
+
+  const departmentId =
+    original.department_id ??
+    (departmentValue && UUID_RE.test(departmentValue) ? departmentValue : "") ??
+    original.target_dept_id ??
+    "";
+
+  if (!departmentId) return "—";
+
+  const mapped = meta?.departmentNames?.[departmentId];
+  if (mapped) return mapped;
+  if (meta?.departmentsLoading) return "Loading…";
+  return `${departmentId.slice(0, 8)}…`;
+}
 
 export const columns: ColumnDef<ReferralRow>[] = [
   {
@@ -159,13 +191,16 @@ export const columns: ColumnDef<ReferralRow>[] = [
     },
   },
   {
-    accessorKey: "target_dept_id",
+    id: "department",
+    accessorFn: (row) => getDepartmentLabel(row),
     header: "Department",
-    cell: ({ row }) => {
-      const specialty = (row.getValue("target_dept_id") as string) || (row.original as any).department;
+    cell: ({ row, table }) => {
+      const meta = table.options.meta as ReferralListsTableMeta | undefined;
+      const label = getDepartmentLabel(row.original, meta);
+
       return (
-        <Badge variant="outline" className="max-w-[130px] truncate border-primary/15 bg-primary/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary">
-          {specialty || "General"}
+        <Badge variant="outline" className="max-w-[160px] truncate border-primary/15 bg-primary/5 px-2.5 py-1 text-[10px] font-semibold normal-case tracking-normal text-primary">
+          {label}
         </Badge>
       );
     },

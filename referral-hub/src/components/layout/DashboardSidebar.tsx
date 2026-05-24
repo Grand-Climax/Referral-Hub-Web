@@ -37,9 +37,9 @@ import {
   MessageSquare,
   IdCard,
   ChevronRight,
+  Activity,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAppSelector } from "@/lib/store/hooks";
@@ -172,13 +172,18 @@ const NAV_BY_ROLE = {
   dept_head: [
     { title: "Dashboard", url: "/department-head", icon: LayoutDashboard },
     {
-      title: "Capacity Management",
-      url: "/department-head/capacity-management",
+      title: "Triage Queue",
+      url: "/department-head/triage-queue",
+      icon: Users,
+    },
+    {
+      title: "Capacity Calendar",
+      url: "/department-head/capacity",
       icon: CalendarCheck,
     },
     {
-      title: "Specialist Availability",
-      url: "/department-head/specialist-availability",
+      title: "Staff Management",
+      url: "/department-head/staff",
       icon: Users,
     },
     {
@@ -300,22 +305,15 @@ export function DashboardSidebar() {
     <Sidebar collapsible="icon">
       <SidebarContent className="gap-4">
         <SidebarHeader className="pt-4 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0">
-          <div className="flex items-center gap-3 px-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-            <div className="relative h-11 w-11 overflow-hidden rounded-2xl bg-primary/5 ring-1 ring-primary/10 shadow-sm">
-              <Image
-                src="/logo.png"
-                alt="MedRefer"
-                fill
-                className="object-cover object-center"
-                priority
-              />
-            </div>
-            <div className="leading-tight group-data-[collapsible=icon]:hidden">
-              <p className="text-lg font-semibold tracking-tight text-foreground">
-                MedRefer
-              </p>
-            </div>
-          </div>
+          <Link
+            href="/"
+            className="flex shrink-0 items-center gap-2 px-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+          >
+            <Activity className="h-6 w-6 shrink-0 text-primary" />
+            <span className="text-lg font-bold text-foreground group-data-[collapsible=icon]:hidden">
+              Referral Hub
+            </span>
+          </Link>
 
           <div className="rounded-2xl bg-background px-4 py-5 shadow-sm ring-1 ring-border group-data-[collapsible=icon]:mt-3 group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:shadow-none group-data-[collapsible=icon]:ring-0">
             <div className="flex flex-col items-center text-center">

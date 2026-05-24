@@ -1,597 +1,618 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { format } from 'date-fns';
+import {
+  LayoutDashboard,
+  Zap,
+  Users,
+  ShieldAlert,
+  ArrowRight,
+  TrendingUp,
+  AlertTriangle,
+  CheckCircle2,
+  Calendar,
+  Clock,
+  XCircle,
+  BarChart3,
+  Activity as ActivityIcon,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Filter,
-  ArrowRight,
-  ChevronLeft,
-  ChevronRight,
-  Activity,
-  AlertTriangle,
-  FileText,
-  Users,
-  Clock,
-  Circle,
-  Loader2,
-  ChevronDown,
-  ChevronUp,
-  Calendar,
-} from 'lucide-react';
-import { useGetTriageQueueQuery } from '@/features/department-head/departmentHeadApi';
-import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
-import { setFutureAvailability, cleanupOldSchedule, getSpecialistAvailabilityForDate } from '@/redux/slices/specialistAvailabilitySlice';
-import { OffDutyDialog } from './OffDutyDialog';
-import { format, addDays } from 'date-fns';
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+} from 'recharts';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+import {
+  useGetDashboardStatsQuery,
+  useGetDashboardTrendsQuery,
+  useGetPriorityBucketsQuery,
+  useGetActivityQuery,
+} from '@/features/department-head/departmentHeadApi';
+import type {
+  DashboardStats,
+  TrendEntry,
+  ActivityEntry,
+  TopWaiting,
+} from '@/types/department-head';
 
-type UrgencyLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+// ─── Color tables ─────────────────────────────────────────────────────────────
 
-const PAGE_SIZE = 10;
-
-// ─── Urgency helpers ───────────────────────────────────────────────────────────
-
-const URGENCY_STYLES: Record<UrgencyLevel, { badge: string; bar: string }> = {
-  CRITICAL: { badge: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300', bar: 'bg-rose-500' },
-  HIGH: { badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300', bar: 'bg-amber-500' },
-  MEDIUM: { badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300', bar: 'bg-blue-500' },
-  LOW: { badge: 'bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-300', bar: 'bg-slate-400' },
+const STATUS_COLORS: Record<string, string> = {
+  ACCEPTED: '#3b82f6',
+  SCHEDULED: '#8b5cf6',
+  COMPLETED: '#10b981',
+  UNDER_SPECIALIST_REVIEW: '#f59e0b',
+  FORWARDED: '#6366f1',
+  REJECTED_BY_SPECIALIST: '#ef4444',
+  REJECTED: '#ef4444',
+  CANCELLED: '#9ca3af',
 };
 
-function UrgencyBadge({ level }: { level?: UrgencyLevel | string }) {
-  // Safety check: default to LOW if level is undefined or invalid
-  const safeLevel: UrgencyLevel = 
-    level && typeof level === 'string' && level in URGENCY_STYLES 
-      ? (level as UrgencyLevel)
-      : 'LOW';
-  
-  const styles = URGENCY_STYLES[safeLevel];
-  
+// ─── Capacity Today Card ──────────────────────────────────────────────────────
+
+function CapacityTodayCard({ stats }: { stats: DashboardStats }) {
+  const cap = stats.today_capacity;
+  if (!cap) {
+    return (
+      <Card className="border bg-card shadow-sm">
+        <CardContent className="p-5">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Today&apos;s Capacity
+          </p>
+          <p className="mt-4 text-sm text-muted-foreground">
+            No capacity computed for today
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+  const pct = cap.max_slots > 0 ? (cap.booked_slots / cap.max_slots) * 100 : 0;
+  const barColor =
+    pct >= 100 ? 'bg-destructive' : pct >= 80 ? 'bg-amber-500' : 'bg-primary';
+
   return (
-    <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wide uppercase ${styles.badge}`}>
-      {safeLevel}
-    </span>
+    <Link href="/department-head/capacity">
+      <Card className="border bg-card shadow-sm hover:shadow-md transition-shadow cursor-pointer h-full">
+        <CardContent className="p-5">
+          <div className="flex items-start justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+              Today&apos;s Capacity
+            </p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <LayoutDashboard className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2 flex-wrap">
+            <span className="text-4xl font-extrabold tabular-nums text-foreground">
+              {cap.booked_slots}
+            </span>
+            <span className="text-lg font-semibold text-muted-foreground">
+              / {cap.max_slots}
+            </span>
+            {cap.overbook_limit > 0 && (
+              <Badge variant="outline" className="text-[10px]">
+                +{cap.overbook_limit} overbook
+              </Badge>
+            )}
+          </div>
+          <div className="mt-3 h-2 w-full rounded-full bg-muted overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${barColor}`}
+              style={{ width: `${Math.min(pct, 100)}%` }}
+            />
+          </div>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            {pct.toFixed(0)}% utilized
+            {cap.is_full && (
+              <span className="ml-2 text-destructive font-semibold">• Full</span>
+            )}
+            {cap.has_override && (
+              <span className="ml-2 text-amber-600 font-semibold">• Override</span>
+            )}
+          </p>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
-function MlScoreBar({ score }: { score?: number }) {
-  // Safety check: default to 0 if score is undefined or invalid
-  const safeScore = typeof score === 'number' && !isNaN(score) ? score : 0;
-  const pct = (safeScore / 10) * 100;
-  const level: UrgencyLevel = safeScore >= 8 ? 'CRITICAL' : safeScore >= 6 ? 'HIGH' : safeScore >= 4 ? 'MEDIUM' : 'LOW';
+// ─── Waiting Queue Card ───────────────────────────────────────────────────────
+
+function WaitingQueueCard({ stats }: { stats: DashboardStats }) {
+  if (stats.waiting_queue_size === 0) {
+    return (
+      <Link href="/department-head/triage-queue">
+        <Card className="border bg-card shadow-sm hover:shadow-md transition-shadow cursor-pointer h-full">
+          <CardContent className="p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+              Waiting Queue
+            </p>
+            <div className="mt-4 flex items-center gap-2 text-emerald-600">
+              <CheckCircle2 className="h-5 w-5" />
+              <p className="text-sm font-semibold">No waiting patients</p>
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
+    );
+  }
   return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
-        <div
-          className={`h-full rounded-full ${URGENCY_STYLES[level].bar} transition-all`}
-          style={{ width: `${pct}%` }}
-        />
+    <Link href="/department-head/triage-queue">
+      <Card className="border bg-card shadow-sm hover:shadow-md transition-shadow cursor-pointer h-full">
+        <CardContent className="p-5">
+          <div className="flex items-start justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+              Waiting Queue
+            </p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-900/30">
+              <Clock className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-4xl font-extrabold tabular-nums text-foreground">
+              {stats.waiting_queue_size}
+            </span>
+            <span className="text-sm text-muted-foreground">patients</span>
+          </div>
+          {stats.oldest_waiting_days > 0 && (
+            <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-3 w-3" />
+              Oldest: {stats.oldest_waiting_days}d waiting
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
+
+// ─── Run Batch Card ───────────────────────────────────────────────────────────
+
+function RunBatchCard({ stats }: { stats: DashboardStats }) {
+  const hasWaiting = stats.waiting_queue_size > 0;
+  return (
+    <Card className="border bg-card shadow-sm h-full">
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Batch Scheduling
+          </p>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Zap className="h-4 w-4" />
+          </div>
+        </div>
+        <p className="mt-3 text-sm text-muted-foreground">
+          {hasWaiting
+            ? `${stats.waiting_queue_size} patients waiting for scheduling`
+            : 'Queue is clear — nothing to schedule'}
+        </p>
+        <Link href="/department-head/schedule/batch">
+          <Button
+            className="mt-4 w-full gap-2 font-semibold"
+            disabled={!hasWaiting}
+          >
+            <Zap className="h-4 w-4" />
+            Run Batch Schedule
+          </Button>
+        </Link>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Mini KPI Card ────────────────────────────────────────────────────────────
+
+function KpiCard({
+  title,
+  value,
+  href,
+  accent,
+  icon: Icon,
+  emptyLabel,
+}: {
+  title: string;
+  value: number;
+  href: string;
+  accent?: 'red' | 'green';
+  icon: React.ComponentType<{ className?: string }>;
+  emptyLabel?: string;
+}) {
+  const isEmpty = value === 0;
+  const valueColor =
+    accent === 'red' && value > 0
+      ? 'text-destructive'
+      : accent === 'green'
+      ? 'text-emerald-600'
+      : 'text-foreground';
+
+  return (
+    <Link href={href}>
+      <Card className="border bg-card shadow-sm hover:shadow-md transition-shadow cursor-pointer h-full">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between mb-2">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground leading-tight">
+              {title}
+            </p>
+            <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+          </div>
+          {isEmpty && emptyLabel ? (
+            <div className="flex items-center gap-1.5 text-emerald-600">
+              <CheckCircle2 className="h-4 w-4" />
+              <span className="text-xs font-semibold">{emptyLabel}</span>
+            </div>
+          ) : (
+            <p className={`text-3xl font-extrabold tabular-nums ${valueColor}`}>
+              {value}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
+
+// ─── Status Breakdown Chart ───────────────────────────────────────────────────
+
+function StatusBreakdownChart({ stats }: { stats: DashboardStats }) {
+  const data = (stats.status_counts || [])
+    .filter((s) => s.count > 0)
+    .map((s) => ({
+      name: s.status.replace(/_/g, ' '),
+      count: s.count,
+      fill: STATUS_COLORS[s.status] || '#9ca3af',
+    }));
+
+  if (data.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+        <BarChart3 className="h-10 w-10 opacity-30 mb-2" />
+        <p className="text-sm">No referral data</p>
       </div>
-      <span className="text-sm font-bold tabular-nums text-foreground">{safeScore.toFixed(1)}</span>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart
+        data={data}
+        layout="vertical"
+        margin={{ left: 0, right: 16, top: 0, bottom: 0 }}
+      >
+        <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <XAxis type="number" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+        <YAxis
+          type="category"
+          dataKey="name"
+          width={160}
+          tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+        />
+        <Tooltip
+          contentStyle={{
+            background: 'hsl(var(--popover))',
+            border: '1px solid hsl(var(--border))',
+            borderRadius: 8,
+            fontSize: 12,
+          }}
+          cursor={{ fill: 'hsl(var(--muted))' }}
+        />
+        <Bar dataKey="count" radius={[0, 4, 4, 0]} fill="#3b82f6" />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ─── Trends Chart ─────────────────────────────────────────────────────────────
+
+function TrendsChart({ data }: { data: TrendEntry[] }) {
+  const chartData = data.map((d) => ({
+    date: format(new Date(d.date), 'MMM d'),
+    booked: d.booked_slots,
+    max: d.max_slots,
+    utilization: Math.round(d.utilization * 100),
+  }));
+
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+        <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+        <Tooltip
+          contentStyle={{
+            background: 'hsl(var(--popover))',
+            border: '1px solid hsl(var(--border))',
+            borderRadius: 8,
+            fontSize: 12,
+          }}
+        />
+        <Line
+          type="monotone"
+          dataKey="max"
+          stroke="hsl(var(--muted-foreground))"
+          strokeDasharray="4 2"
+          dot={false}
+        />
+        <Line
+          type="monotone"
+          dataKey="booked"
+          stroke="hsl(var(--primary))"
+          strokeWidth={2}
+          dot={false}
+          activeDot={{ r: 4 }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ─── Activity Row ─────────────────────────────────────────────────────────────
+
+function ActivityRow({ entry }: { entry: ActivityEntry }) {
+  const when = format(new Date(entry.timestamp), 'MMM d, HH:mm');
+  return (
+    <div className="flex items-start gap-3 py-2.5 border-b border-border last:border-0">
+      <div className="mt-0.5 h-7 w-7 shrink-0 rounded-lg flex items-center justify-center bg-muted">
+        <ActivityIcon className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-foreground leading-snug">{entry.summary}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {entry.actor_name} · {when}
+        </p>
+      </div>
     </div>
   );
 }
 
-// ─── Stat Cards ────────────────────────────────────────────────────────────────
+// ─── Top Waiting List ─────────────────────────────────────────────────────────
 
-function ActiveReferralsCard({ count, avgWait }: { count: number; avgWait: number }) {
+function TopWaitingRow({ item }: { item: TopWaiting }) {
   return (
-    <Card className="border bg-card shadow-sm">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Active Referrals</p>
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">
-            <FileText className="h-4 w-4" />
-          </div>
+    <Link href={`/department-head/triage-queue/${item.referral_id}`}>
+      <div className="flex items-center gap-3 py-2.5 hover:bg-muted/40 rounded-lg px-2 transition-colors cursor-pointer">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-foreground truncate">
+            {item.patient_name}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {item.waiting_days}d waiting
+          </p>
         </div>
-        <div className="mt-3 flex items-baseline gap-3">
-          <span className="text-4xl font-extrabold tabular-nums text-foreground">{count}</span>
-          <span className="text-sm font-semibold text-primary">Waiting Review</span>
+        <div className="text-right shrink-0">
+          <p className="text-sm font-bold text-foreground tabular-nums">
+            {item.composite_score.toFixed(1)}
+          </p>
+          <p className="text-[10px] text-muted-foreground">score</p>
         </div>
-        <div className="mt-3 h-0.5 w-full rounded-full bg-primary/20">
-          <div className="h-0.5 rounded-full bg-primary" style={{ width: '60%' }} />
-        </div>
-        <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Clock className="h-3 w-3" />
-          Average wait time: {avgWait} mins
-        </p>
-      </CardContent>
-    </Card>
+        <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+      </div>
+    </Link>
   );
 }
 
-function HighSeverityCard({ count }: { count: number }) {
-  return (
-    <Card className="border bg-card shadow-sm">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">High-Severity</p>
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-300">
-            <AlertTriangle className="h-4 w-4" />
-          </div>
-        </div>
-        <div className="mt-3 flex items-baseline gap-3">
-          <span className="text-4xl font-extrabold tabular-nums text-rose-600 dark:text-rose-400">
-            {String(count).padStart(2, '0')}
-          </span>
-          <span className="text-sm font-semibold text-rose-600 dark:text-rose-400">Critical Triage</span>
-        </div>
-        <div className="mt-4">
-          <span className="inline-flex items-center gap-1.5 rounded-md bg-rose-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
-            <Circle className="h-2 w-2 fill-rose-500 text-rose-500" />
-            Immediate Action
-          </span>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function SpecialistsCard({ totalSpecialists, availableCount }: { totalSpecialists: number; availableCount: number }) {
-  return (
-    <Card className="border bg-card shadow-sm">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Specialists</p>
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300">
-            <Users className="h-4 w-4" />
-          </div>
-        </div>
-        <div className="mt-3 flex items-baseline gap-3">
-          <span className="text-4xl font-extrabold tabular-nums text-foreground">
-            {String(totalSpecialists).padStart(2, '0')}
-          </span>
-          <span className="text-sm font-semibold text-muted-foreground">On Duty</span>
-        </div>
-        <div className="mt-3 flex -space-x-2">
-          {['SS', 'AC', 'MT'].map((fb) => (
-            <Avatar key={fb} className="h-7 w-7 border-2 border-background ring-1 ring-border">
-              <AvatarFallback className="text-[10px] font-semibold bg-primary/10 text-primary">{fb}</AvatarFallback>
-            </Avatar>
-          ))}
-          <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] font-semibold text-muted-foreground ring-1 ring-border">
-            +{Math.max(0, totalSpecialists - 3)}
-          </div>
-        </div>
-        <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-          <Circle className="h-2 w-2 fill-emerald-500 text-emerald-500" />
-          {availableCount} Available
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ─── Main Component ────────────────────────────────────────────────────────────
+// ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function DeptHeadDashboard() {
-  const dispatch = useAppDispatch();
-  
-  // Get tomorrow's date (can only modify future dates)
-  const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
-  const [selectedDate, setSelectedDate] = useState(tomorrow);
-  
-  // Get specialists for the selected date
-  const specialists = useAppSelector((state) => 
-    getSpecialistAvailabilityForDate(state, selectedDate)
+  const {
+    data: stats,
+    isLoading: isStatsLoading,
+    isError: isStatsError,
+  } = useGetDashboardStatsQuery(undefined, { pollingInterval: 60_000 });
+
+  const { data: trends = [], isLoading: isTrendsLoading } =
+    useGetDashboardTrendsQuery(14, { pollingInterval: 60_000 });
+
+  const { data: buckets } = useGetPriorityBucketsQuery(undefined, {
+    pollingInterval: 90_000,
+  });
+
+  const { data: activityResult } = useGetActivityQuery(
+    { limit: 5 },
+    { pollingInterval: 90_000 }
   );
-  
-  const [currentPage, setCurrentPage] = useState(0);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [showAllSpecialists, setShowAllSpecialists] = useState(false);
-  const [offDutyDialog, setOffDutyDialog] = useState<{ 
-    open: boolean; 
-    specialistId: string; 
-    specialistName: string;
-    date: string;
-  }>({
-    open: false,
-    specialistId: '',
-    specialistName: '',
-    date: tomorrow,
-  });
+  const activityEntries = activityResult?.data ?? [];
 
-  // Clean up old schedule entries on mount
-  useEffect(() => {
-    dispatch(cleanupOldSchedule());
-  }, [dispatch]);
+  const today = format(new Date(), 'EEEE, MMMM d, yyyy');
 
-  // Fetch triage queue from API
-  // Endpoint: /api/v1/department-head/triage-queue
-  const { data: triageQueue = [], isLoading, error } = useGetTriageQueueQuery({
-    limit: 100, // Get more records for pagination
-    offset: 0,
-  });
-
-  // Calculate stats from real data
-  const activeCount = triageQueue.length;
-  const highSevCount = triageQueue.filter(
-    (p) => p.urgency_level === 'CRITICAL' || p.urgency_level === 'HIGH'
-  ).length;
-  const avgWait = 14; // TODO: Calculate from real data when available
-
-  // Specialist stats
-  const totalSpecialists = specialists.length;
-  const availableSpecialists = specialists.filter((s) => s.available);
-  const availableCount = availableSpecialists.length;
-
-  // Show first 3 specialists by default, or all if expanded
-  const displayedSpecialists = showAllSpecialists ? specialists : specialists.slice(0, 3);
-
-  const totalPages = Math.ceil(triageQueue.length / PAGE_SIZE);
-  const displayed = triageQueue.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
-
-  const criticalCase = triageQueue.find((p) => p.urgency_level === 'CRITICAL');
-
-  const handleToggleSpecialist = (id: string, currentlyAvailable: boolean, name: string) => {
-    if (currentlyAvailable) {
-      // Turning off - show dialog for reason
-      setOffDutyDialog({ 
-        open: true, 
-        specialistId: id, 
-        specialistName: name,
-        date: selectedDate,
-      });
-    } else {
-      // Turning on - no reason needed
-      dispatch(setFutureAvailability({ 
-        specialistId: id, 
-        date: selectedDate,
-        available: true 
-      }));
-    }
-  };
-
-  const handleConfirmOffDuty = (reason: string) => {
-    dispatch(
-      setFutureAvailability({
-        specialistId: offDutyDialog.specialistId,
-        date: offDutyDialog.date,
-        available: false,
-        reason,
-      })
-    );
-  };
-
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
-  const isToday = selectedDate === format(new Date(), 'yyyy-MM-dd');
-
-  return (
-    <div className="max-w-[1400px] mx-auto space-y-6">
-
-      {/* Stat Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-        <ActiveReferralsCard count={activeCount} avgWait={avgWait} />
-        <HighSeverityCard count={highSevCount} />
-        <SpecialistsCard totalSpecialists={totalSpecialists} availableCount={availableCount} />
+  if (isStatsLoading) {
+    return (
+      <div className="max-w-[1400px] mx-auto space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Skeleton className="h-32 rounded-xl" />
+          <Skeleton className="h-32 rounded-xl" />
+          <Skeleton className="h-32 rounded-xl" />
+        </div>
+        <Skeleton className="h-72 rounded-xl" />
       </div>
+    );
+  }
 
-      {/* Two-column layout: Triage Queue + Right Panel */}
-      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[1fr_320px]">
-
-        {/* ── Triage Queue ────────────────────────────────────────────────────── */}
-        <Card className="border bg-card shadow-sm">
-          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-4 px-6 border-b border-border">
+  if (isStatsError || !stats) {
+    return (
+      <div className="max-w-[1400px] mx-auto">
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="p-8 flex flex-col items-center gap-4 text-center">
+            <XCircle className="h-12 w-12 text-destructive" />
             <div>
-              <CardTitle className="text-base font-bold text-foreground">Triage Queue</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Real-time incoming referrals prioritized by ML severity.
+              <p className="font-semibold text-foreground">
+                Could not load dashboard
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Check your connection or contact support.
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9 gap-2 text-sm border-border"
-              onClick={() => setFilterOpen(!filterOpen)}
-            >
-              <Filter className="h-4 w-4" />
-              Filter Queue
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Retry
             </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-[1400px] mx-auto space-y-5">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Department Head Dashboard
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{today}</p>
+        </div>
+        <Link href="/department-head/schedule/batch">
+          <Button className="gap-2 font-semibold">
+            <Zap className="h-4 w-4" />
+            Run Batch Schedule
+          </Button>
+        </Link>
+      </div>
+
+      {/* Row 1: 3 main cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <CapacityTodayCard stats={stats} />
+        <WaitingQueueCard stats={stats} />
+        <RunBatchCard stats={stats} />
+      </div>
+
+      {/* Row 2: 4 mini KPIs */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard
+          title="Scheduled Today"
+          value={stats.scheduled_today}
+          href={`/department-head/schedule/patients?date=${format(new Date(), 'yyyy-MM-dd')}`}
+          icon={Calendar}
+        />
+        <KpiCard
+          title="Next 7 Days"
+          value={stats.scheduled_next_7_days}
+          href="/department-head/capacity"
+          icon={TrendingUp}
+        />
+        <KpiCard
+          title="Missed Last 7 Days"
+          value={stats.missed_last_7_days}
+          href="/department-head/schedule"
+          accent="red"
+          emptyLabel="None missed"
+          icon={XCircle}
+        />
+        <KpiCard
+          title="Active Staff"
+          value={stats.active_staff}
+          href="/department-head/staff"
+          icon={Users}
+        />
+      </div>
+
+      {/* Row 3: Active overrides + status breakdown */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <KpiCard
+          title="Active Overrides"
+          value={stats.active_overrides}
+          href="/department-head/capacity/overrides"
+          emptyLabel="None active"
+          icon={ShieldAlert}
+        />
+        <div className="sm:col-span-3">
+          <Card className="border bg-card shadow-sm h-full">
+            <CardHeader className="py-3 px-5 border-b border-border">
+              <CardTitle className="text-sm font-semibold">
+                Referral Status Breakdown
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-5">
+              <StatusBreakdownChart stats={stats} />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Row 4: Trends chart */}
+      <Card className="border bg-card shadow-sm">
+        <CardHeader className="py-3 px-5 border-b border-border">
+          <CardTitle className="text-sm font-semibold">
+            Capacity Utilization — Last 14 Days
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-5">
+          {isTrendsLoading ? (
+            <Skeleton className="h-52 w-full" />
+          ) : trends.length > 0 ? (
+            <TrendsChart data={trends} />
+          ) : (
+            <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
+              No trend data available
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Row 5: Activity + Top Waiting */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="border bg-card shadow-sm">
+          <CardHeader className="py-3 px-5 border-b border-border flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-semibold">Recent Activity</CardTitle>
+            <Link
+              href="/department-head/activity"
+              className="text-xs text-primary hover:underline"
+            >
+              View all
+            </Link>
           </CardHeader>
-
-          <CardContent className="p-0">
-            {/* Loading State */}
-            {isLoading && (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <span className="ml-3 text-sm text-muted-foreground">Loading triage queue...</span>
+          <CardContent className="p-4">
+            {activityEntries.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                <ActivityIcon className="h-8 w-8 opacity-30 mb-2" />
+                <p className="text-sm">Quiet so far</p>
               </div>
-            )}
-
-            {/* Error State */}
-            {error && (
-              <div className="flex flex-col items-center justify-center py-12 px-6">
-                <AlertTriangle className="h-8 w-8 text-amber-500" />
-                <span className="mt-3 text-sm font-medium text-foreground">Triage Queue Unavailable</span>
-                <p className="mt-1 text-xs text-muted-foreground text-center max-w-md">
-                  Failed to load triage queue. Please try again later or contact support if the issue persists.
-                </p>
+            ) : (
+              <div>
+                {activityEntries.map((e) => (
+                  <ActivityRow key={e.id} entry={e} />
+                ))}
               </div>
-            )}
-
-            {/* Empty State */}
-            {!isLoading && !error && triageQueue.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12">
-                <FileText className="h-12 w-12 text-muted-foreground/50" />
-                <p className="mt-3 text-sm font-medium text-foreground">No patients in triage queue</p>
-                <p className="text-xs text-muted-foreground mt-1">New referrals will appear here</p>
-              </div>
-            )}
-
-            {/* Table */}
-            {!isLoading && !error && triageQueue.length > 0 && (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border bg-muted/30">
-                        <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">ID</th>
-                        <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Patient</th>
-                        <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Urgency</th>
-                        <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">ML Score</th>
-                        <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Facility</th>
-                        <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {displayed.map((patient) => (
-                        <tr
-                          key={patient.id}
-                          className={`transition-colors hover:bg-muted/40 ${patient.urgency_level === 'CRITICAL' ? 'bg-rose-50/40 dark:bg-rose-950/20' : ''
-                            }`}
-                        >
-                          <td className="px-6 py-4 text-xs font-mono font-medium text-muted-foreground whitespace-nowrap">
-                            {patient.id}
-                          </td>
-                          <td className="px-4 py-4">
-                            <p className="font-semibold text-foreground leading-tight">{patient.patient_name}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {patient.patient_age}y • {patient.patient_sex}
-                            </p>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <UrgencyBadge level={patient.urgency_level} />
-                          </td>
-                          <td className="px-4 py-4">
-                            <MlScoreBar score={patient.severity_score} />
-                          </td>
-                          <td className="px-4 py-4 text-sm text-foreground whitespace-nowrap">
-                            {patient.referring_facility}
-                          </td>
-                          <td className="px-4 py-4">
-                            <span className="text-sm font-medium text-foreground">
-                              {patient.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Pagination */}
-                <div className="flex items-center justify-between border-t border-border px-6 py-3 text-xs text-muted-foreground">
-                  <span>Showing {displayed.length} of {triageQueue.length} active queue items</span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                      disabled={currentPage === 0}
-                      className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
-                    >
-                      <ChevronLeft className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
-                      disabled={currentPage >= totalPages - 1}
-                      className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
-                    >
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </>
             )}
           </CardContent>
         </Card>
 
-        {/* ── Right Panel ──────────────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-4">
-
-          {/* Command Center */}
-          <Card className="border bg-card shadow-sm">
-            <CardHeader className="pb-3 pt-4 px-5">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Command Center</p>
-            </CardHeader>
-            <CardContent className="px-5 pb-5">
-              <Button
-                className="w-full gap-2 bg-primary hover:bg-primary/90 text-primary-foreground h-11 text-sm font-semibold shadow-sm"
-                onClick={() => criticalCase && alert(`Reviewing ${criticalCase.id} – ${criticalCase.patient_name}`)}
-                disabled={!criticalCase}
-              >
-                Review Next Critical Case
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-              {criticalCase ? (
-                <p className="mt-2.5 text-center text-xs text-muted-foreground">
-                  Next: <span className="font-semibold text-foreground">{criticalCase.patient_name}</span>
-                </p>
-              ) : (
-                <p className="mt-2.5 text-center text-xs text-muted-foreground">
-                  No critical cases in queue
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Duty Specialists */}
-          <Card className="border bg-card shadow-sm">
-            <CardHeader className="pb-3 pt-4 px-5">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Duty Specialists</p>
-                <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                  </span>
-                  Live
-                </span>
+        <Card className="border bg-card shadow-sm">
+          <CardHeader className="py-3 px-5 border-b border-border flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-semibold">Top Waiting Patients</CardTitle>
+            <Link
+              href="/department-head/triage-queue"
+              className="text-xs text-primary hover:underline"
+            >
+              View queue
+            </Link>
+          </CardHeader>
+          <CardContent className="p-4">
+            {!buckets?.top_waiting || buckets.top_waiting.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                <CheckCircle2 className="h-8 w-8 opacity-30 mb-2" />
+                <p className="text-sm">Queue is clear</p>
               </div>
-              
-              {/* Date Selector */}
-              <div className="flex items-center gap-2 mt-2">
-                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                <select
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="flex-1 h-8 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value={tomorrow}>Tomorrow - {format(addDays(new Date(), 1), 'MMM dd')}</option>
-                  <option value={format(addDays(new Date(), 2), 'yyyy-MM-dd')}>
-                    {format(addDays(new Date(), 2), 'EEE, MMM dd')}
-                  </option>
-                  <option value={format(addDays(new Date(), 3), 'yyyy-MM-dd')}>
-                    {format(addDays(new Date(), 3), 'EEE, MMM dd')}
-                  </option>
-                  <option value={format(addDays(new Date(), 4), 'yyyy-MM-dd')}>
-                    {format(addDays(new Date(), 4), 'EEE, MMM dd')}
-                  </option>
-                  <option value={format(addDays(new Date(), 5), 'yyyy-MM-dd')}>
-                    {format(addDays(new Date(), 5), 'EEE, MMM dd')}
-                  </option>
-                  <option value={format(addDays(new Date(), 6), 'yyyy-MM-dd')}>
-                    {format(addDays(new Date(), 6), 'EEE, MMM dd')}
-                  </option>
-                  <option value={format(addDays(new Date(), 7), 'yyyy-MM-dd')}>
-                    {format(addDays(new Date(), 7), 'EEE, MMM dd')}
-                  </option>
-                </select>
+            ) : (
+              <div>
+                {buckets.top_waiting.slice(0, 5).map((item) => (
+                  <TopWaitingRow key={item.referral_id} item={item} />
+                ))}
               </div>
-              
-              {isToday && (
-                <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-2 flex items-center gap-1">
-                  <AlertTriangle className="h-3 w-3" />
-                  Cannot modify today's schedule
-                </p>
-              )}
-            </CardHeader>
-            <CardContent className="px-5 pb-5 space-y-3">
-              {displayedSpecialists.map((spec) => (
-                <div key={spec.id} className="flex items-center gap-3">
-                  <Avatar className="h-9 w-9 border border-border shrink-0">
-                    <AvatarImage src="/user.png" alt={spec.name} />
-                    <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">
-                      {getInitials(spec.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">{spec.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Load: {spec.currentLoad}/{spec.maxLoad}
-                    </p>
-                  </div>
-                  {/* Toggle - disabled for today */}
-                  <button
-                    onClick={() => !isToday && handleToggleSpecialist(spec.id, spec.available, spec.name)}
-                    aria-label={`Toggle ${spec.name} availability`}
-                    disabled={isToday}
-                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                      isToday 
-                        ? 'cursor-not-allowed opacity-50 bg-muted-foreground/20' 
-                        : `cursor-pointer ${spec.available ? 'bg-primary' : 'bg-muted-foreground/30'}`
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition-transform ${
-                        spec.available ? 'translate-x-4' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
-              ))}
-              
-              {/* Show More/Less Button */}
-              {specialists.length > 3 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full mt-2 text-xs"
-                  onClick={() => setShowAllSpecialists(!showAllSpecialists)}
-                >
-                  {showAllSpecialists ? (
-                    <>
-                      <ChevronUp className="h-3 w-3 mr-1" />
-                      Show Less
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="h-3 w-3 mr-1" />
-                      Show More ({specialists.length - 3} more)
-                    </>
-                  )}
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* System Health */}
-          <Card className="border bg-foreground dark:bg-card shadow-sm">
-            <CardContent className="p-5">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground dark:text-muted-foreground mb-3">
-                System Health
-              </p>
-              <div className="flex items-center gap-2 mb-2">
-                <Activity className="h-4 w-4 text-emerald-400 shrink-0" />
-                <p className="text-base font-bold text-background dark:text-foreground leading-snug">
-                  ML Triage Engine is operating at 98.4% precision.
-                </p>
-              </div>
-              <p className="mt-3 flex items-center gap-1.5 text-xs text-emerald-400">
-                <Circle className="h-2 w-2 fill-emerald-400 text-emerald-400" />
-                Models recalibrated 2h ago
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Quick Stats strip */}
-          <div className="grid grid-cols-2 gap-3">
-            <Card className="border bg-card shadow-sm">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-extrabold tabular-nums text-primary">{highSevCount}</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">Critical Today</p>
-              </CardContent>
-            </Card>
-            <Card className="border bg-card shadow-sm">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-extrabold tabular-nums text-amber-500">
-                  {availableCount}/{totalSpecialists}
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">Available</p>
-              </CardContent>
-            </Card>
-          </div>
-
-        </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
-
-      {/* Off Duty Dialog */}
-      <OffDutyDialog
-        open={offDutyDialog.open}
-        onOpenChange={(open) => setOffDutyDialog({ ...offDutyDialog, open })}
-        specialistName={offDutyDialog.specialistName}
-        date={selectedDate}
-        onConfirm={handleConfirmOffDuty}
-      />
     </div>
   );
 }

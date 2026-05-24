@@ -1,25 +1,65 @@
+export type ReceptionistArrivalStatus =
+  | "EXPECTED"
+  | "PENDING"
+  | "ARRIVED"
+  | "ADMITTED"
+  | "MISSED";
+
+export type ReceptionistMissReason =
+  | "PATIENT_NO_SHOW"
+  | "PATIENT_CONTACTED_RESCHEDULE"
+  | "HOSPITAL_CANCELLED"
+  | "HOSPITAL_CAPACITY_ISSUE";
+
+export interface ReceptionistDoctorInfo {
+  id: string;
+  first_name: string;
+  last_name: string;
+}
+
 export interface ReceptionistReferral {
   id: string;
+  referral_id: string;
+  status: string;
+  urgency: string;
+  arrival_status?: ReceptionistArrivalStatus;
   patient_first_name: string;
   patient_last_name: string;
   patient_middle_name?: string;
+  patient_region?: string;
   dob?: string;
-  referral_id: string;
-  status: string;
-  arrival_status?: "PENDING" | "ARRIVED" | "MISSED";
   scheduled_date?: string;
   scheduled_time?: string;
+  appointment_date?: string;
   eta?: string;
   arrival_time?: string;
-  source_facility: string;
+  source_facility?: string;
   referring_hospital_name?: string;
-  urgency: string;
   department_name?: string;
   assigned_doctor_id?: string;
   assigned_doctor_name?: string;
   reason?: string;
   clinical_summary?: string;
-  [key: string]: any;
+  created_at?: string;
+  updated_at?: string;
+  patient_id?: string;
+}
+
+export interface ReceptionistReferralDetail extends ReceptionistReferral {
+  patient?: {
+    first_name?: string;
+    middle_name?: string;
+    last_name?: string;
+    date_of_birth?: string;
+  };
+  sender_hospital?: {
+    name?: string;
+  };
+  referral_form?: {
+    reason_for_referral?: string;
+    clinical_summary?: string;
+    urgency_level?: string;
+  };
 }
 
 export interface ReceptionistScheduleItem {
@@ -28,17 +68,33 @@ export interface ReceptionistScheduleItem {
   patient_first_name: string;
   patient_last_name: string;
   patient_middle_name?: string;
-  scheduled_date: string;
-  scheduled_time: string;
-  department_name: string;
+  scheduled_date?: string;
+  scheduled_time?: string;
+  appointment_date?: string;
+  department_name?: string;
   urgency: string;
-  arrival_status: "PENDING" | "ARRIVED" | "MISSED";
+  arrival_status: ReceptionistArrivalStatus;
   source_facility?: string;
-  [key: string]: any;
+  assigned_doctor_id?: string;
+  assigned_doctor_name?: string;
+}
+
+export interface ReceptionistOfflineDataResponse {
+  doctors: ReceptionistDoctorInfo[];
+  schedule: ReceptionistScheduleItem[];
 }
 
 export interface AssignDoctorPayload {
   doctor_id: string;
+  reason?: string;
+}
+
+export interface MarkMissedPayload {
+  miss_reason: ReceptionistMissReason;
+}
+
+export interface RevokeDoctorPayload {
+  reason: string;
 }
 
 export interface ReceptionistPaginatedResponse<T> {
@@ -46,13 +102,21 @@ export interface ReceptionistPaginatedResponse<T> {
   page: number;
   limit: number;
   total: number;
+  message?: string;
+  success?: boolean;
 }
 
 export interface ReceptionistQueryParams {
   page?: number;
   limit?: number;
+  page_size?: number;
   status?: string;
-  arrival_status?: "PENDING" | "ARRIVED" | "MISSED";
+  arrival_status?: ReceptionistArrivalStatus;
   urgency?: string;
   department_id?: string;
+  region?: string;
+  patient_id?: string;
+  national_id?: string;
+  sort_by?: string;
+  sort_order?: "asc" | "desc";
 }

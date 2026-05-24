@@ -95,12 +95,16 @@ export const SYSTEM_ADMIN_ROUTES = {
 } as const;
 
 export const RECEPTIONIST_ROUTES = {
+  DOCTORS: "/api/v1/receptionist/doctors",
   LIST: "/api/v1/receptionist/referrals",
-  SCHEDULE: "/api/v1/receptionist/referrals/schedule",
+  MISSED: "/api/v1/receptionist/referrals/missed",
+  OFFLINE_DATA: "/api/v1/receptionist/referrals/offline-data",
+  UPCOMING: "/api/v1/receptionist/referrals/upcoming",
   GET_BY_ID: (id: string) => `/api/v1/receptionist/referrals/${id}`,
   ARRIVE: (id: string) => `/api/v1/receptionist/referrals/${id}/arrive`,
   ASSIGN_DOCTOR: (id: string) => `/api/v1/receptionist/referrals/${id}/assign-doctor`,
   MISS: (id: string) => `/api/v1/receptionist/referrals/${id}/miss`,
+  REVOKE_DOCTOR: (id: string) => `/api/v1/receptionist/referrals/${id}/revoke-doctor`,
 } as const;
 
 export const HOSPITAL_ADMIN_ROUTES = {

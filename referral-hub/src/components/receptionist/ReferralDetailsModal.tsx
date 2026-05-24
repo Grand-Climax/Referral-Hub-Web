@@ -42,7 +42,7 @@ export function ReferralDetailsModal({ open, onOpenChange, referralId }: Referra
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Referral Details</DialogTitle>
         </DialogHeader>
@@ -67,7 +67,7 @@ export function ReferralDetailsModal({ open, onOpenChange, referralId }: Referra
                   <User className="h-4 w-4 text-slate-500" />
                   <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Patient Information</h3>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Full Name</p>
                     <p className="text-sm font-bold text-slate-900">
@@ -87,7 +87,7 @@ export function ReferralDetailsModal({ open, onOpenChange, referralId }: Referra
                   <FileText className="h-4 w-4 text-slate-500" />
                   <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Referral Information</h3>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Referral ID</p>
                     <p className="text-sm font-bold text-slate-900 font-mono">{data.referral_id || data.id}</p>
@@ -118,7 +118,7 @@ export function ReferralDetailsModal({ open, onOpenChange, referralId }: Referra
                     <Calendar className="h-4 w-4 text-slate-500" />
                     <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Scheduling</h3>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {data.scheduled_date && (
                       <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Scheduled Date</p>
@@ -147,7 +147,7 @@ export function ReferralDetailsModal({ open, onOpenChange, referralId }: Referra
                   <Building2 className="h-4 w-4 text-slate-500" />
                   <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Facility Information</h3>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Source Facility</p>
                     <p className="text-sm font-bold text-slate-900">{data.source_facility || data.referring_hospital_name || "N/A"}</p>

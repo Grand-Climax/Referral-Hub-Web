@@ -27,10 +27,10 @@ export function NextArrival() {
   if (isLoading) {
     return (
       <Card className="border-none shadow-md overflow-hidden bg-white">
-        <CardHeader className="py-6 px-6 pb-2">
+        <CardHeader className="py-5 sm:py-6 px-4 sm:px-6 pb-2">
           <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Next Arrival</CardTitle>
         </CardHeader>
-        <CardContent className="px-6 pb-8 flex flex-col items-center text-center justify-center min-h-[200px]">
+        <CardContent className="px-4 sm:px-6 pb-6 sm:pb-8 flex flex-col items-center text-center justify-center min-h-[180px] sm:min-h-[200px]">
           <Loader2 className="h-8 w-8 animate-spin text-slate-300" />
         </CardContent>
       </Card>
@@ -44,10 +44,10 @@ export function NextArrival() {
   
   return (
     <Card className="border-none shadow-md overflow-hidden bg-white">
-      <CardHeader className="py-6 px-6 pb-2">
+      <CardHeader className="py-5 sm:py-6 px-4 sm:px-6 pb-2">
         <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Next Arrival</CardTitle>
       </CardHeader>
-      <CardContent className="px-6 pb-8 flex flex-col items-center text-center">
+      <CardContent className="px-4 sm:px-6 pb-6 sm:pb-8 flex flex-col items-center text-center">
         {nextArrival ? (
           <>
             <div className="relative mb-4">
@@ -85,9 +85,11 @@ export function NextArrival() {
                 <p className="text-xs font-bold text-green-700">✓ Checked In</p>
                 <p className="text-[10px] text-green-600 mt-1">Patient has arrived</p>
               </div>
-            ) : nextArrival.arrival_status === "ARRIVED" ? (
+            ) : nextArrival.arrival_status === "ARRIVED" || nextArrival.arrival_status === "ADMITTED" ? (
               <div className="w-full p-3 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-xs font-bold text-green-700">✓ Already Arrived</p>
+                <p className="text-xs font-bold text-green-700">
+                  ✓ {nextArrival.arrival_status === "ADMITTED" ? "Already Admitted" : "Already Arrived"}
+                </p>
               </div>
             ) : (
               <Button 

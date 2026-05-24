@@ -11,13 +11,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MoreVertical, Loader2 } from "lucide-react";
-import { useGetScheduleQuery, useMarkPatientArrivalMutation, useMarkMissedMutation } from "@/features/receptionist/receptionistApi";
+import {
+  useGetScheduleQuery,
+  useMarkPatientArrivalMutation,
+  useMarkMissedMutation,
+  useRevokeDoctorMutation,
+} from "@/features/receptionist/receptionistApi";
 import { useState } from "react";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/apiError";
 import { AssignDoctorModal } from "./AssignDoctorModal";
 import { ReferralDetailsModal } from "./ReferralDetailsModal";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import type { ReceptionistMissReason } from "@/types/receptionist";
 
 export function AppointmentTable() {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -27,6 +33,7 @@ export function AppointmentTable() {
   const { data: schedule, isLoading, error } = useGetScheduleQuery();
   const [markArrival, { isLoading: isMarking }] = useMarkPatientArrivalMutation();
   const [markMissed] = useMarkMissedMutation();
+  const [revokeDoctor, { isLoading: isRevokingDoctor }] = useRevokeDoctorMutation();
 
   const handleCheckIn = async (id: string) => {
     try {
@@ -37,19 +44,40 @@ export function AppointmentTable() {
     }
   };
 
-  const handleMarkMissed = async (id: string) => {
+  const handleMarkMissed = async (
+    id: string,
+    reason: ReceptionistMissReason = "PATIENT_NO_SHOW",
+  ) => {
     try {
-      await markMissed(id).unwrap();
+      await markMissed({ id, miss_reason: reason }).unwrap();
       toast.success("Patient marked as missed");
     } catch (err: any) {
       toast.error(getApiErrorMessage(err, "Failed to mark patient as missed"));
     }
   };
 
-  const formatDate = (dateStr: string) => {
+  const handleRevokeDoctor = async (id: string) => {
+    try {
+      await revokeDoctor({
+        id,
+        reason: "Reassigned by receptionist",
+      }).unwrap();
+      toast.success("Doctor assignment revoked");
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, "Failed to revoke doctor assignment"));
+    }
+  };
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return "N/A";
     try {
       const date = new Date(dateStr);
-      return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+      if (Number.isNaN(date.getTime())) return "N/A";
+      return date.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+      });
     } catch {
       return dateStr;
     }
@@ -60,22 +88,23 @@ export function AppointmentTable() {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-      <div className="p-8 border-b border-slate-50">
+      <div className="p-4 sm:p-8 border-b border-slate-50">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">Scheduled Patients</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight mb-1">Scheduled Patients</h2>
           <p className="text-sm text-slate-500 font-medium font-inter">Operational schedule for the next 48 hours</p>
         </div>
       </div>
 
-      <Table>
+      <div className="overflow-x-auto">
+      <Table className="min-w-[820px]">
         <TableHeader className="bg-slate-50/50">
           <TableRow className="border-none">
-            <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6 px-8">Patient Details</TableHead>
+            <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6 px-4 sm:px-8">Patient Details</TableHead>
             <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6">Appointment</TableHead>
-            <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6">Department</TableHead>
-            <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6 text-center">Urgency</TableHead>
+            <TableHead className="hidden md:table-cell text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6">Department</TableHead>
+            <TableHead className="hidden sm:table-cell text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6 text-center">Urgency</TableHead>
             <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6">Status</TableHead>
-            <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6 text-right px-8">Actions</TableHead>
+            <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6 text-right px-4 sm:px-8">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -114,6 +143,9 @@ export function AppointmentTable() {
               if (appt.arrival_status === "ARRIVED") {
                 statusColor = "bg-green-500";
                 statusText = "Arrived";
+              } else if (appt.arrival_status === "ADMITTED") {
+                statusColor = "bg-emerald-600";
+                statusText = "Admitted";
               } else if (appt.arrival_status === "MISSED") {
                 statusColor = "bg-red-500";
                 statusText = "Missed";
@@ -121,7 +153,7 @@ export function AppointmentTable() {
               
               return (
                 <TableRow key={appt.id} className="border-slate-50 hover:bg-slate-50/50 transition-colors group">
-                  <TableCell className="py-6 px-8">
+                  <TableCell className="py-4 sm:py-6 px-4 sm:px-8">
                     <div className="flex items-center gap-4">
                       <Avatar className="h-10 w-10 rounded-lg bg-slate-100">
                         <AvatarFallback className="text-[10px] font-bold text-slate-500 bg-slate-100 rounded-lg">{initials}</AvatarFallback>
@@ -138,10 +170,10 @@ export function AppointmentTable() {
                       <p className="text-[10px] font-medium text-slate-400">{formatDate(appt.scheduled_date)}</p>
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden md:table-cell">
                     <p className="text-sm font-medium text-slate-600">{appt.department_name || "N/A"}</p>
                   </TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="hidden sm:table-cell text-center">
                     <span className={`px-2 py-1 rounded text-[10px] font-bold tracking-tight ${urgencyColor}`}>
                       {appt.urgency || "ROUTINE"}
                     </span>
@@ -152,10 +184,11 @@ export function AppointmentTable() {
                       <p className="text-sm font-medium text-slate-600">{statusText}</p>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right px-8 flex justify-end items-center gap-2">
-                    {appt.arrival_status === "ARRIVED" ? (
+                  <TableCell className="text-right px-4 sm:px-8">
+                    <div className="flex justify-end items-center gap-2">
+                    {appt.arrival_status === "ARRIVED" || appt.arrival_status === "ADMITTED" ? (
                       <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest">
-                        ARRIVED
+                        {appt.arrival_status === "ADMITTED" ? "ADMITTED" : "ARRIVED"}
                       </span>
                     ) : appt.arrival_status === "MISSED" ? (
                       <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">
@@ -164,7 +197,7 @@ export function AppointmentTable() {
                     ) : (
                       <button 
                         onClick={() => handleCheckIn(appt.id)}
-                        disabled={isMarking}
+                        disabled={isMarking || isRevokingDoctor}
                         className="text-[10px] font-bold text-primary hover:text-primary/80 uppercase tracking-widest transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         CHECK-IN
@@ -195,9 +228,17 @@ export function AppointmentTable() {
                             Assign Doctor
                           </DropdownMenuItem>
                         )}
+                        {appt.arrival_status === "ARRIVED" && appt.assigned_doctor_id && (
+                          <DropdownMenuItem
+                            onClick={() => handleRevokeDoctor(appt.id)}
+                            className="text-amber-600"
+                          >
+                            Revoke Doctor
+                          </DropdownMenuItem>
+                        )}
                         {appt.arrival_status === "PENDING" && (
                           <DropdownMenuItem 
-                            onClick={() => handleMarkMissed(appt.id)}
+                            onClick={() => handleMarkMissed(appt.id, "PATIENT_NO_SHOW")}
                             className="text-red-600"
                           >
                             Mark as Missed
@@ -205,6 +246,7 @@ export function AppointmentTable() {
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    </div>
                   </TableCell>
                 </TableRow>
               );
@@ -212,9 +254,10 @@ export function AppointmentTable() {
           )}
         </TableBody>
       </Table>
+      </div>
 
-      <div className="p-4 border-t border-slate-50 flex items-center justify-between bg-white px-8 text-slate-400">
-        <p className="text-[10px] font-medium">Showing {appointments.length} scheduled patients • Next 48 hours</p>
+      <div className="p-4 border-t border-slate-50 flex items-center justify-center sm:justify-between bg-white px-4 sm:px-8 text-slate-400">
+        <p className="text-[10px] font-medium text-center sm:text-left">Showing {appointments.length} scheduled patients • Next 48 hours</p>
       </div>
 
       <AssignDoctorModal 

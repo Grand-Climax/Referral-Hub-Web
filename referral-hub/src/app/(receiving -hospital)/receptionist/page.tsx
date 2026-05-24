@@ -4,7 +4,7 @@ import { ExpectedPatientsTable } from "@/components/receptionist/ExpectedPatient
 
 const ReceptionistDashboard = () => {
   return (
-    <div className="container mx-auto max-w-[1600px] px-6 py-8 space-y-8">
+    <div className="container mx-auto max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8 space-y-6 sm:space-y-8">
       {/* Top Section: Stats Cards */}
       <StatsCards />
 

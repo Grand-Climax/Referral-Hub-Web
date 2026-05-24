@@ -5,8 +5,8 @@ import { NextArrival } from "@/components/receptionist/NextArrival";
 
 const ScheduledPatientsPage = () => {
   return (
-    <div className="container mx-auto max-w-[1600px] py-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+    <div className="container mx-auto max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 sm:gap-8">
         {/* Main Content Area: Tabs, Filters, and Table */}
         <div className="xl:col-span-9 space-y-8">
           <AppointmentTable />

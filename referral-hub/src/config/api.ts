@@ -169,6 +169,9 @@ export const DEPARTMENT_HEAD_ROUTES = {
   // Triage Queue
   TRIAGE_QUEUE: "/api/v1/department-head/triage-queue",
   TRIAGE_BUCKETS: "/api/v1/department-head/triage-queue/buckets",
+  /** Detail endpoint — `{id}` is the **referral_id**, never `queue_id`. */
+  TRIAGE_DETAIL: (referralId: string) =>
+    `/api/v1/department-head/triage-queue/${referralId}`,
 
   // Capacity
   CAPACITY_DETAIL: "/api/v1/department-head/capacity/detail",

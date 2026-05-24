@@ -2,7 +2,15 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { format, getDaysInMonth, startOfMonth, getDay, addMonths, subMonths } from 'date-fns';
+import {
+  format,
+  getDaysInMonth,
+  startOfMonth,
+  getDay,
+  addMonths,
+  subMonths,
+  isBefore,
+} from 'date-fns';
 import {
   ChevronLeft,
   ChevronRight,
@@ -122,12 +130,15 @@ function CalendarCell({
   day,
   entry,
   isToday,
+  isPast,
   onClick,
   isSelected,
 }: {
   day: number;
   entry?: CalendarDayEntry;
   isToday: boolean;
+  /** Past days are read-only — capacity changes only apply to today onward. */
+  isPast: boolean;
   onClick: () => void;
   isSelected: boolean;
 }) {
@@ -148,10 +159,26 @@ function CalendarCell({
 
   return (
     <button
-      onClick={onClick}
-      className={`relative rounded-xl border border-border p-2 text-left hover:bg-muted/50 transition-colors min-h-[72px] ${bgColor} ${ringClass}`}
+      type="button"
+      onClick={isPast ? undefined : onClick}
+      disabled={isPast}
+      aria-disabled={isPast}
+      title={isPast ? 'Past dates are read-only' : undefined}
+      className={`relative rounded-xl border border-border p-2 text-left transition-colors min-h-[72px] ${bgColor} ${ringClass} ${
+        isPast
+          ? 'cursor-not-allowed bg-muted/30 opacity-50'
+          : 'hover:bg-muted/50'
+      }`}
     >
-      <span className={`text-sm font-bold ${isToday ? 'text-primary' : 'text-foreground'}`}>
+      <span
+        className={`text-sm font-bold ${
+          isPast
+            ? 'text-muted-foreground line-through decoration-muted-foreground/50'
+            : isToday
+              ? 'text-primary'
+              : 'text-foreground'
+        }`}
+      >
         {day}
       </span>
 
@@ -201,6 +228,13 @@ export default function CapacityCalendarPage() {
   const firstDayOfWeek = getDay(startOfMonth(viewDate));
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
+  // Disallow navigating into months that are entirely in the past so the
+  // calendar stays scoped to "today forward". String comparison on
+  // YYYY-MM-DD is correct here.
+  const currentMonthStart = startOfMonth(new Date());
+  const viewMonthStart = startOfMonth(viewDate);
+  const canGoBack = isBefore(currentMonthStart, viewMonthStart);
+
   const cells: (number | null)[] = [
     ...Array.from({ length: firstDayOfWeek }, () => null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
@@ -232,8 +266,12 @@ export default function CapacityCalendarPage() {
 
       <div className="flex items-center gap-4">
         <button
-          onClick={() => setViewDate((d) => subMonths(d, 1))}
-          className="rounded-md p-1.5 hover:bg-muted border border-border"
+          type="button"
+          onClick={() => canGoBack && setViewDate((d) => subMonths(d, 1))}
+          disabled={!canGoBack}
+          aria-disabled={!canGoBack}
+          title={canGoBack ? 'Previous month' : 'Past months are read-only'}
+          className="rounded-md p-1.5 border border-border transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
@@ -241,6 +279,7 @@ export default function CapacityCalendarPage() {
           {format(viewDate, 'MMMM yyyy')}
         </h2>
         <button
+          type="button"
           onClick={() => setViewDate((d) => addMonths(d, 1))}
           className="rounded-md p-1.5 hover:bg-muted border border-border"
         >
@@ -293,12 +332,15 @@ export default function CapacityCalendarPage() {
             {cells.map((day, i) => {
               if (!day) return <div key={i} />;
               const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              // YYYY-MM-DD strings compare lexicographically, so this is safe.
+              const isPast = dateStr < todayStr;
               return (
                 <CalendarCell
                   key={dateStr}
                   day={day}
                   entry={dayMap.get(dateStr)}
                   isToday={dateStr === todayStr}
+                  isPast={isPast}
                   isSelected={dateStr === selectedDate}
                   onClick={() =>
                     setSelectedDate(selectedDate === dateStr ? null : dateStr)

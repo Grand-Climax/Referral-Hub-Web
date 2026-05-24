@@ -36,9 +36,12 @@ import { getApiErrorMessage } from '@/lib/apiError';
 
 function OverrideRow({
   override,
+  todayStr,
   onDelete,
 }: {
   override: CapacityOverride;
+  /** YYYY-MM-DD for "today" — passed in so all rows in a render share one value. */
+  todayStr: string;
   onDelete: (o: CapacityOverride) => void;
 }) {
   const targetDate = format(new Date(override.target_date), 'EEEE, MMMM d, yyyy');
@@ -46,13 +49,32 @@ function OverrideRow({
     ? format(new Date(override.created_at), 'MMM d, yyyy')
     : '—';
   const isActive = override.is_active !== false;
+  // Past overrides are immutable history — server enforces the same rule,
+  // but disabling the button avoids a 4xx and a confusing toast.
+  const isPast = override.target_date < todayStr;
+  const canRevoke = isActive && !isPast;
 
   return (
-    <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+    <tr
+      className={`border-b border-border transition-colors ${
+        isPast ? 'opacity-70' : 'hover:bg-muted/30'
+      }`}
+    >
       <td className="px-4 py-3.5">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-          <span className="text-sm font-semibold text-foreground">{targetDate}</span>
+          <span
+            className={`text-sm font-semibold ${
+              isPast ? 'text-muted-foreground' : 'text-foreground'
+            }`}
+          >
+            {targetDate}
+          </span>
+          {isPast && (
+            <Badge variant="outline" className="text-[10px] font-normal">
+              Past
+            </Badge>
+          )}
         </div>
       </td>
       <td className="px-4 py-3.5">
@@ -78,7 +100,7 @@ function OverrideRow({
       </td>
       <td className="px-4 py-3.5 text-xs text-muted-foreground">{createdAt}</td>
       <td className="px-4 py-3.5">
-        {isActive && (
+        {canRevoke ? (
           <Button
             variant="ghost"
             size="sm"
@@ -88,7 +110,11 @@ function OverrideRow({
             <Trash2 className="h-3.5 w-3.5" />
             Revoke
           </Button>
-        )}
+        ) : isActive && isPast ? (
+          <span className="text-[11px] text-muted-foreground italic">
+            Read-only (past)
+          </span>
+        ) : null}
       </td>
     </tr>
   );
@@ -141,8 +167,11 @@ function DeleteModal({
 
 export default function CapacityOverridesPage() {
   const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const todayStr = format(now, 'yyyy-MM-dd');
+  const [year, setYear] = useState(currentYear);
+  const [month, setMonth] = useState(currentMonth);
   const [toDelete, setToDelete] = useState<CapacityOverride | null>(null);
 
   const { data: overrides = [], isLoading, isError } = useGetOverridesByMonthQuery({
@@ -153,7 +182,14 @@ export default function CapacityOverridesPage() {
 
   const monthLabel = format(new Date(year, month - 1), 'MMMM yyyy');
 
+  // Disallow navigating into months that have already finished — overrides
+  // there are immutable history anyway, and we want a single "today onward"
+  // mental model across the whole capacity surface.
+  const canGoBack =
+    year > currentYear || (year === currentYear && month > currentMonth);
+
   const prevMonth = () => {
+    if (!canGoBack) return;
     if (month === 1) {
       setMonth(12);
       setYear((y) => y - 1);
@@ -211,8 +247,12 @@ export default function CapacityOverridesPage() {
 
       <div className="flex items-center gap-3">
         <button
+          type="button"
           onClick={prevMonth}
-          className="rounded-md p-1.5 hover:bg-muted border border-border"
+          disabled={!canGoBack}
+          aria-disabled={!canGoBack}
+          title={canGoBack ? 'Previous month' : 'Past months are read-only'}
+          className="rounded-md p-1.5 border border-border transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
@@ -220,6 +260,7 @@ export default function CapacityOverridesPage() {
           {monthLabel}
         </span>
         <button
+          type="button"
           onClick={nextMonth}
           className="rounded-md p-1.5 hover:bg-muted border border-border"
         >
@@ -278,7 +319,12 @@ export default function CapacityOverridesPage() {
                 </thead>
                 <tbody>
                   {overrides.map((o) => (
-                    <OverrideRow key={o.id} override={o} onDelete={setToDelete} />
+                    <OverrideRow
+                      key={o.id}
+                      override={o}
+                      todayStr={todayStr}
+                      onDelete={setToDelete}
+                    />
                   ))}
                 </tbody>
               </table>

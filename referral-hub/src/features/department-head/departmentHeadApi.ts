@@ -8,16 +8,16 @@ import type {
   DailySchedule,
   BatchSchedulingResponse,
   ApiSuccessResponse,
-  TriagePatient,
-  TriageQueueResponse,
+  TriageListItem,
+  TriageListEnvelope,
+  TriageQueueFilters,
+  TriageDetailDeptHead,
   PriorityBuckets,
   DashboardStats,
   TrendEntry,
   CalendarDayEntry,
   CapacityDetail,
-  StaffSummary,
   ScheduledPatient,
-  ActivityEntry,
   DailyCapacityBaseline,
   UpdateDailyCapacityBaselineRequest,
 } from "@/types/department-head";
@@ -46,8 +46,6 @@ export const departmentHeadApi = createApi({
     "CapacityOverride",
     "Schedule",
     "TriageQueue",
-    "Staff",
-    "Activity",
     "DailyCapacityBaseline",
   ],
   endpoints: (builder) => ({
@@ -70,21 +68,86 @@ export const departmentHeadApi = createApi({
 
     // ─── Triage Queue ─────────────────────────────────────────────────────────
 
-    getTriageQueue: builder.query<
-      { data: TriagePatient[]; total: number },
-      { page?: number; page_size?: number } | void
-    >({
-      query: (params) => ({
-        url: DEPARTMENT_HEAD_ROUTES.TRIAGE_QUEUE,
-        params: params || { page: 1, page_size: 20 },
-      }),
-      transformResponse: (raw: TriageQueueResponse | TriagePatient[]) => {
-        if (Array.isArray(raw)) return { data: raw, total: raw.length };
-        if (raw && "data" in raw)
-          return { data: raw.data ?? [], total: raw.total ?? 0 };
-        return { data: [], total: 0 };
+    /**
+     * Department-head triage list (§3 of the guide).
+     *
+     * Builds the query string carefully because the backend expects csv
+     * for list params (`arrival_status=EXPECTED,MISSED`) — RTK-Query's
+     * default `params` object would repeat the key instead. We pre-build
+     * the URL with `URLSearchParams` to stay on-spec.
+     *
+     * Forward-compat: per the guide the server silently drops unknown
+     * enums and clamps numeric overrides, so we don't need client-side
+     * validation here beyond what the FE itself enforces.
+     */
+    getTriageQueue: builder.query<TriageListEnvelope, TriageQueueFilters | void>({
+      query: (filters) => {
+        const f = filters ?? {};
+        const sp = new URLSearchParams();
+        sp.set("page", String(f.page ?? 1));
+        sp.set("limit", String(f.limit ?? 20));
+        if (f.department_id) sp.set("department_id", f.department_id);
+        if (f.arrival_status?.length)
+          sp.set("arrival_status", f.arrival_status.join(","));
+        if (f.referral_status?.length)
+          sp.set("referral_status", f.referral_status.join(","));
+        if (typeof f.has_doctor_assigned === "boolean")
+          sp.set("has_doctor_assigned", String(f.has_doctor_assigned));
+        if (f.patient_id) sp.set("patient_id", f.patient_id);
+        if (f.national_id) sp.set("national_id", f.national_id);
+        if (f.sort_by) sp.set("sort_by", f.sort_by);
+        if (f.sort_order) sp.set("sort_order", f.sort_order);
+        if (f.include_terminal) sp.set("include_terminal", "true");
+        return `${DEPARTMENT_HEAD_ROUTES.TRIAGE_QUEUE}?${sp.toString()}`;
+      },
+      transformResponse: (raw: unknown): TriageListEnvelope => {
+        // Be tolerant: handle both `{ success, data, ... }` envelope and a
+        // raw array (older backend builds, or 304-style cached responses).
+        if (Array.isArray(raw)) {
+          return {
+            success: true,
+            data: raw as TriageListItem[],
+            total: raw.length,
+            page: 1,
+            limit: raw.length,
+            has_more: false,
+          };
+        }
+        const r = (raw ?? {}) as Partial<TriageListEnvelope> & {
+          data?: TriageListItem[];
+        };
+        return {
+          success: r.success ?? true,
+          data: r.data ?? [],
+          total: r.total ?? r.data?.length ?? 0,
+          page: r.page ?? 1,
+          limit: r.limit ?? 20,
+          has_more: r.has_more ?? false,
+        };
       },
       providesTags: ["TriageQueue"],
+    }),
+
+    /**
+     * Dept-head triage detail (§5.3). `referralId` MUST be the referral_id
+     * (the field the server returns as `referral_id` on each list row),
+     * never the `queue_id` — see the migration checklist at the top of the
+     * guide. Returns `null` on 404 so the UI can render a friendly empty
+     * state instead of a generic error card.
+     */
+    getTriageDetail: builder.query<TriageDetailDeptHead | null, string>({
+      query: (referralId) => DEPARTMENT_HEAD_ROUTES.TRIAGE_DETAIL(referralId),
+      transformResponse: (raw: unknown): TriageDetailDeptHead | null => {
+        if (!raw) return null;
+        const r = raw as Record<string, unknown>;
+        if (r.data && typeof r.data === "object") {
+          return r.data as TriageDetailDeptHead;
+        }
+        return raw as TriageDetailDeptHead;
+      },
+      providesTags: (_r, _e, referralId) => [
+        { type: "TriageQueue", id: referralId },
+      ],
     }),
 
     getPriorityBuckets: builder.query<PriorityBuckets, void>({
@@ -226,24 +289,6 @@ export const departmentHeadApi = createApi({
       invalidatesTags: ["Schedule", "DashboardStats", "TriageQueue"],
     }),
 
-    // ─── Staff ────────────────────────────────────────────────────────────────
-
-    getStaffSummary: builder.query<StaffSummary, void>({
-      query: () => DEPARTMENT_HEAD_ROUTES.STAFF_SUMMARY,
-      transformResponse: (raw: unknown) =>
-        unwrapData<StaffSummary>(raw, {} as StaffSummary),
-      providesTags: ["Staff"],
-    }),
-
-    updateStaffCapacity: builder.mutation<ApiSuccessResponse, { value: number }>({
-      query: (body) => ({
-        url: DEPARTMENT_HEAD_ROUTES.UPDATE_STAFF_CAPACITY,
-        method: "PUT",
-        body,
-      }),
-      invalidatesTags: ["Staff", "DashboardStats"],
-    }),
-
     // ─── Daily Capacity Baseline ──────────────────────────────────────────────
 
     getDailyCapacity: builder.query<DailyCapacityBaseline, void>({
@@ -288,26 +333,6 @@ export const departmentHeadApi = createApi({
         "DashboardStats",
       ],
     }),
-
-    // ─── Activity ─────────────────────────────────────────────────────────────
-
-    getActivity: builder.query<
-      { data: ActivityEntry[]; total: number },
-      { limit?: number; start_date?: string; end_date?: string } | void
-    >({
-      query: (params) => ({
-        url: DEPARTMENT_HEAD_ROUTES.ACTIVITY,
-        params: params || { limit: 20 },
-      }),
-      transformResponse: (raw: unknown) => {
-        if (Array.isArray(raw)) return { data: raw as ActivityEntry[], total: raw.length };
-        const r = raw as Record<string, unknown>;
-        if (r.data && Array.isArray(r.data))
-          return { data: r.data as ActivityEntry[], total: (r.total as number) ?? r.data.length };
-        return { data: [], total: 0 };
-      },
-      providesTags: ["Activity"],
-    }),
   }),
 });
 
@@ -315,6 +340,7 @@ export const {
   useGetDashboardStatsQuery,
   useGetDashboardTrendsQuery,
   useGetTriageQueueQuery,
+  useGetTriageDetailQuery,
   useGetPriorityBucketsQuery,
   useGetCapacityCalendarQuery,
   useGetCapacityDetailQuery,
@@ -327,9 +353,6 @@ export const {
   useGetScheduleQuery,
   useGetSchedulePatientsQuery,
   useRunBatchSchedulingMutation,
-  useGetStaffSummaryQuery,
-  useUpdateStaffCapacityMutation,
-  useGetActivityQuery,
   useGetDailyCapacityQuery,
   useUpdateDailyCapacityMutation,
 } = departmentHeadApi;

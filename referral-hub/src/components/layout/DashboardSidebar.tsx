@@ -39,7 +39,6 @@ import {
   ChevronRight,
   Activity,
   Sliders,
-  UserCog,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
@@ -174,11 +173,6 @@ const NAV_BY_ROLE = {
   dept_head: [
     { title: "Dashboard", url: "/department-head", icon: LayoutDashboard },
     {
-      title: "Activity",
-      url: "/department-head/activity",
-      icon: History,
-    },
-    {
       title: "Triage Queue",
       url: "/department-head/triage-queue",
       icon: ClipboardList,
@@ -202,11 +196,6 @@ const NAV_BY_ROLE = {
         { title: "Overrides", url: "/department-head/capacity/overrides" },
         { title: "Settings", url: "/department-head/capacity/settings" },
       ],
-    },
-    {
-      title: "Staff Management",
-      url: "/department-head/staff",
-      icon: UserCog,
     },
     {
       title: "Notifications",
@@ -390,25 +379,26 @@ export function DashboardSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
               {(() => {
-                // Pre-compute longest matching URL across all (sub-)items so
-                // only the most specific route lights up. Parents stay open
-                // when any of their children match.
+                // Pre-compute the longest matching pathname so only the
+                // most specific route lights up. Parents stay open when
+                // any of their children match (prefix match handles deep
+                // routes like `/triage-queue/<id>`).
+                const matches = (url: string): boolean =>
+                  pathname === url || pathname.startsWith(url + "/");
                 const allUrls: string[] = [];
                 for (const item of menuItems) {
                   allUrls.push(item.url);
                   if (item.items) for (const s of item.items) allUrls.push(s.url);
                 }
                 const bestMatch = allUrls
-                  .filter((u) => pathname === u || pathname.startsWith(u + "/"))
+                  .filter(matches)
                   .sort((a, b) => b.length - a.length)[0];
 
                 return menuItems.map((item) => {
                   const Icon = item.icon;
                   const isItselfBest = item.url === bestMatch;
                   const hasChildMatch = Boolean(
-                    item.items?.some(
-                      (s) => pathname === s.url || pathname.startsWith(s.url + "/"),
-                    ),
+                    item.items?.some((s) => matches(s.url)),
                   );
                   const isExpanded = isItselfBest || hasChildMatch;
 

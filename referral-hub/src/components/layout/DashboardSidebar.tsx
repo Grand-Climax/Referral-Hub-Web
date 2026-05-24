@@ -172,13 +172,18 @@ const NAV_BY_ROLE = {
   dept_head: [
     { title: "Dashboard", url: "/department-head", icon: LayoutDashboard },
     {
-      title: "Capacity Management",
-      url: "/department-head/capacity-management",
+      title: "Triage Queue",
+      url: "/department-head/triage-queue",
+      icon: Users,
+    },
+    {
+      title: "Capacity Calendar",
+      url: "/department-head/capacity",
       icon: CalendarCheck,
     },
     {
-      title: "Specialist Availability",
-      url: "/department-head/specialist-availability",
+      title: "Staff Management",
+      url: "/department-head/staff",
       icon: Users,
     },
     {

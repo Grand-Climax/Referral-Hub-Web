@@ -1,77 +1,147 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { baseQueryWithReauth } from "@/lib/baseQuery";
 import { DEPARTMENT_HEAD_ROUTES } from "@/config/api";
-import {
+import type {
   CapacityOverride,
-  CapacityOverridesResponse,
   CreateCapacityOverrideRequest,
   UpdateCapacityOverrideRequest,
   DailySchedule,
-  ScheduleResponse,
-  UpdateMaxSlotsRequest,
   BatchSchedulingResponse,
   ApiSuccessResponse,
   TriagePatient,
   TriageQueueResponse,
+  PriorityBuckets,
+  DashboardStats,
+  TrendEntry,
+  CalendarDayEntry,
+  CapacityDetail,
+  StaffSummary,
+  ScheduledPatient,
+  ActivityEntry,
 } from "@/types/department-head";
 
-/**
- * Department Head API
- * 
- * This API service handles all department head operations including:
- * - Capacity override management (CRUD operations)
- * - Schedule viewing and management
- * - Batch scheduling automation
- * 
- * All endpoints require DEPT_HEAD role authentication.
- */
+function unwrapArray<T>(response: unknown): T[] {
+  if (!response) return [];
+  if (Array.isArray(response)) return response as T[];
+  const r = response as Record<string, unknown>;
+  if (r.data && Array.isArray(r.data)) return r.data as T[];
+  if (typeof r === "object") return Object.values(r) as T[];
+  return [];
+}
+
+function unwrapData<T>(response: unknown, fallback: T): T {
+  if (!response) return fallback;
+  const r = response as Record<string, unknown>;
+  if (r.data !== undefined && r.data !== null) return r.data as T;
+  return response as T;
+}
+
 export const departmentHeadApi = createApi({
   reducerPath: "departmentHeadApi",
   baseQuery: baseQueryWithReauth,
-  tagTypes: ["CapacityOverride", "Schedule"],
+  tagTypes: [
+    "DashboardStats",
+    "CapacityOverride",
+    "Schedule",
+    "TriageQueue",
+    "Staff",
+    "Activity",
+  ],
   endpoints: (builder) => ({
-    // ─── Capacity Override Endpoints ────────────────────────────────────────
+    // ─── Dashboard ────────────────────────────────────────────────────────────
 
-    /**
-     * GET /api/v1/department-head/capacity/overrides
-     * 
-     * Fetches all active and upcoming capacity overrides for the department.
-     * 
-     * @returns List of capacity overrides
-     */
+    getDashboardStats: builder.query<DashboardStats, void>({
+      query: () => DEPARTMENT_HEAD_ROUTES.DASHBOARD_STATS,
+      transformResponse: (raw: unknown) =>
+        unwrapData<DashboardStats>(raw, {} as DashboardStats),
+      providesTags: ["DashboardStats"],
+    }),
+
+    getDashboardTrends: builder.query<TrendEntry[], number>({
+      query: (days = 14) => ({
+        url: DEPARTMENT_HEAD_ROUTES.DASHBOARD_TRENDS,
+        params: { days },
+      }),
+      transformResponse: (raw: unknown) => unwrapArray<TrendEntry>(raw),
+    }),
+
+    // ─── Triage Queue ─────────────────────────────────────────────────────────
+
+    getTriageQueue: builder.query<
+      { data: TriagePatient[]; total: number },
+      { page?: number; page_size?: number } | void
+    >({
+      query: (params) => ({
+        url: DEPARTMENT_HEAD_ROUTES.TRIAGE_QUEUE,
+        params: params || { page: 1, page_size: 20 },
+      }),
+      transformResponse: (raw: TriageQueueResponse | TriagePatient[]) => {
+        if (Array.isArray(raw)) return { data: raw, total: raw.length };
+        if (raw && "data" in raw)
+          return { data: raw.data ?? [], total: raw.total ?? 0 };
+        return { data: [], total: 0 };
+      },
+      providesTags: ["TriageQueue"],
+    }),
+
+    getPriorityBuckets: builder.query<PriorityBuckets, void>({
+      query: () => DEPARTMENT_HEAD_ROUTES.TRIAGE_BUCKETS,
+      transformResponse: (raw: unknown) =>
+        unwrapData<PriorityBuckets>(raw, {} as PriorityBuckets),
+      providesTags: ["TriageQueue"],
+    }),
+
+    // ─── Capacity Calendar ────────────────────────────────────────────────────
+
+    getCapacityCalendar: builder.query<
+      CalendarDayEntry[],
+      { year: number; month: number }
+    >({
+      query: ({ year, month }) => ({
+        url: DEPARTMENT_HEAD_ROUTES.CAPACITY_CALENDAR,
+        params: { year, month },
+      }),
+      transformResponse: (raw: unknown) => unwrapArray<CalendarDayEntry>(raw),
+      providesTags: ["Schedule"],
+    }),
+
+    getCapacityDetail: builder.query<CapacityDetail, string>({
+      query: (date) => ({
+        url: DEPARTMENT_HEAD_ROUTES.CAPACITY_DETAIL,
+        params: { date },
+      }),
+      transformResponse: (raw: unknown) =>
+        unwrapData<CapacityDetail>(raw, {} as CapacityDetail),
+      providesTags: ["Schedule"],
+    }),
+
+    // ─── Capacity Overrides ───────────────────────────────────────────────────
+
     getCapacityOverrides: builder.query<CapacityOverride[], void>({
       query: () => DEPARTMENT_HEAD_ROUTES.LIST_CAPACITY_OVERRIDES,
-      transformResponse: (response: CapacityOverridesResponse | any) => {
-        // Handle different response formats from backend
-        if (Array.isArray(response)) {
-          return response;
-        }
-        if (response.data && Array.isArray(response.data)) {
-          return response.data;
-        }
-        // If response is an object with keys, convert to array
-        if (typeof response === "object" && !response.data) {
-          return Object.values(response);
-        }
-        return [];
-      },
+      transformResponse: (raw: unknown) => unwrapArray<CapacityOverride>(raw),
       providesTags: ["CapacityOverride"],
     }),
 
-    /**
-     * POST /api/v1/department-head/capacity/overrides
-     * 
-     * Creates a new capacity override for a specific date.
-     * Side Effect: Automatically synchronizes the daily schedule for that date.
-     * 
-     * @param data - Override details (target_date, new_limit, reason)
-     * @returns Success message
-     * 
-     * Common Errors:
-     * - 400: Date in past
-     * - 401: Unauthorized
-     * - 500: Internal Server Error
-     */
+    getOverridesByMonth: builder.query<
+      CapacityOverride[],
+      { year: number; month?: number }
+    >({
+      query: ({ year, month }) => ({
+        url: DEPARTMENT_HEAD_ROUTES.OVERRIDES_BY_MONTH,
+        params: { year, ...(month !== undefined ? { month } : {}) },
+      }),
+      transformResponse: (raw: unknown) => unwrapArray<CapacityOverride>(raw),
+      providesTags: ["CapacityOverride"],
+    }),
+
+    getOverrideById: builder.query<CapacityOverride, string>({
+      query: (id) => DEPARTMENT_HEAD_ROUTES.OVERRIDE_BY_ID(id),
+      transformResponse: (raw: unknown) =>
+        unwrapData<CapacityOverride>(raw, {} as CapacityOverride),
+      providesTags: (_r, _e, id) => [{ type: "CapacityOverride", id }],
+    }),
+
     createCapacityOverride: builder.mutation<
       ApiSuccessResponse,
       CreateCapacityOverrideRequest
@@ -81,23 +151,9 @@ export const departmentHeadApi = createApi({
         method: "POST",
         body: data,
       }),
-      invalidatesTags: ["CapacityOverride", "Schedule"],
+      invalidatesTags: ["CapacityOverride", "Schedule", "DashboardStats"],
     }),
 
-    /**
-     * PUT /api/v1/department-head/capacity/overrides/{id}
-     * 
-     * Updates an existing capacity override's limit and reason.
-     * 
-     * @param id - Override ID
-     * @param data - Update details (new_limit, reason)
-     * @returns Success message
-     * 
-     * Common Errors:
-     * - 400: Invalid ID or input
-     * - 401: Unauthorized
-     * - 500: Internal Server Error
-     */
     updateCapacityOverride: builder.mutation<
       ApiSuccessResponse,
       { id: string } & UpdateCapacityOverrideRequest
@@ -110,174 +166,120 @@ export const departmentHeadApi = createApi({
       invalidatesTags: ["CapacityOverride", "Schedule"],
     }),
 
-    /**
-     * DELETE /api/v1/department-head/capacity/overrides/{id}
-     * 
-     * Removes a capacity override, reverting the daily schedule to standard limits.
-     * 
-     * @param id - Override ID
-     * @returns Success message
-     * 
-     * Common Errors:
-     * - 400: Invalid ID
-     * - 401: Unauthorized
-     * - 500: Internal Server Error
-     */
     deleteCapacityOverride: builder.mutation<ApiSuccessResponse, string>({
       query: (id) => ({
         url: DEPARTMENT_HEAD_ROUTES.DELETE_CAPACITY_OVERRIDE(id),
         method: "DELETE",
       }),
-      invalidatesTags: ["CapacityOverride", "Schedule"],
+      invalidatesTags: ["CapacityOverride", "Schedule", "DashboardStats"],
     }),
 
-    // ─── Schedule Endpoints ─────────────────────────────────────────────────
+    // ─── Schedule ─────────────────────────────────────────────────────────────
 
-    /**
-     * GET /api/v1/department-head/schedule
-     * 
-     * Returns daily schedule records for the department.
-     * Default: Next 30 days if no date range provided.
-     * 
-     * @param start_date - Start date (YYYY-MM-DD) - optional
-     * @param end_date - End date (YYYY-MM-DD) - optional
-     * @returns List of daily schedules
-     * 
-     * Common Errors:
-     * - 401: Unauthorized
-     * - 500: Internal Server Error
-     */
     getSchedule: builder.query<
-      DailySchedule[],
-      { start_date?: string; end_date?: string } | void
+      DailySchedule | DailySchedule[] | null,
+      { date?: string; start_date?: string; end_date?: string } | void
     >({
       query: (params) => ({
         url: DEPARTMENT_HEAD_ROUTES.VIEW_SCHEDULE,
         params: params || {},
       }),
-      transformResponse: (response: ScheduleResponse | any) => {
-        // Handle different response formats from backend
-        if (Array.isArray(response)) {
-          return response;
-        }
-        if (response.data && Array.isArray(response.data)) {
-          return response.data;
-        }
-        // If response is an object with keys, convert to array
-        if (typeof response === "object" && !response.data) {
-          return Object.values(response);
-        }
-        return [];
+      transformResponse: (raw: unknown): DailySchedule | DailySchedule[] | null => {
+        if (!raw) return null;
+        const r = raw as Record<string, unknown>;
+        if (Array.isArray(r.data)) return r.data as DailySchedule[];
+        if (r.data === null) return null;
+        if (r.data && typeof r.data === "object") return r.data as DailySchedule;
+        if (Array.isArray(raw)) return raw as DailySchedule[];
+        return null;
       },
       providesTags: ["Schedule"],
     }),
 
-    /**
-     * POST /api/v1/department-head/schedule/batch
-     * 
-     * Triggers the automated batch scheduling process for all WAITING referrals
-     * in priority order.
-     * 
-     * Prerequisites: Reads all WAITING entries for the department.
-     * State Transition: Assigns appointment dates to referrals and creates status history records.
-     * Gatekeepers: Respects buffer days and never overbooks.
-     * 
-     * @returns Scheduling result with count of scheduled referrals
-     * 
-     * Common Errors:
-     * - 401: Unauthorized
-     * - 500: Internal Server Error
-     */
-    runBatchScheduling: builder.mutation<BatchSchedulingResponse, void>({
-      query: () => ({
+    getSchedulePatients: builder.query<ScheduledPatient[], string>({
+      query: (date) => ({
+        url: DEPARTMENT_HEAD_ROUTES.SCHEDULE_PATIENTS,
+        params: { date },
+      }),
+      transformResponse: (raw: unknown) => unwrapArray<ScheduledPatient>(raw),
+      providesTags: ["Schedule"],
+    }),
+
+    runBatchScheduling: builder.mutation<
+      BatchSchedulingResponse,
+      { send_notifications?: boolean } | void
+    >({
+      query: (body) => ({
         url: DEPARTMENT_HEAD_ROUTES.RUN_BATCH_SCHEDULING,
         method: "POST",
+        body: body || { send_notifications: true },
       }),
-      invalidatesTags: ["Schedule"],
+      transformResponse: (raw: unknown): BatchSchedulingResponse => {
+        const r = raw as Record<string, unknown>;
+        if (r.data && typeof r.data === "object")
+          return r.data as BatchSchedulingResponse;
+        return r as BatchSchedulingResponse;
+      },
+      invalidatesTags: ["Schedule", "DashboardStats", "TriageQueue"],
     }),
 
-    /**
-     * PUT /api/v1/department-head/schedule/{id}/max-slots
-     * 
-     * Manually adjusts the maximum slots for a specific day.
-     * 
-     * @param id - Schedule ID
-     * @param max_slots - New maximum slots value (must be >= 1)
-     * @returns Success message
-     * 
-     * Common Errors:
-     * - 400: Invalid schedule ID or input
-     * - 401: Unauthorized
-     * - 500: Internal Server Error
-     */
-    updateMaxSlots: builder.mutation<
-      ApiSuccessResponse,
-      { id: string } & UpdateMaxSlotsRequest
-    >({
-      query: ({ id, ...data }) => ({
-        url: DEPARTMENT_HEAD_ROUTES.UPDATE_MAX_SLOTS(id),
+    // ─── Staff ────────────────────────────────────────────────────────────────
+
+    getStaffSummary: builder.query<StaffSummary, void>({
+      query: () => DEPARTMENT_HEAD_ROUTES.STAFF_SUMMARY,
+      transformResponse: (raw: unknown) =>
+        unwrapData<StaffSummary>(raw, {} as StaffSummary),
+      providesTags: ["Staff"],
+    }),
+
+    updateStaffCapacity: builder.mutation<ApiSuccessResponse, { value: number }>({
+      query: (body) => ({
+        url: DEPARTMENT_HEAD_ROUTES.UPDATE_STAFF_CAPACITY,
         method: "PUT",
-        body: data,
+        body,
       }),
-      invalidatesTags: ["Schedule"],
+      invalidatesTags: ["Staff", "DashboardStats"],
     }),
 
-    // ─── Triage Queue Endpoint ──────────────────────────────────────────────
+    // ─── Activity ─────────────────────────────────────────────────────────────
 
-    /**
-     * GET /api/v1/triage
-     * 
-     * Returns a prioritized list of patients waiting for triage.
-     * Sorting: Severity score descending, waiting time ascending.
-     * 
-     * @param limit - Pagination limit (default: 10)
-     * @param offset - Pagination offset (default: 0)
-     * @returns List of triage patients
-     * 
-     * Common Errors:
-     * - 401: Unauthorized
-     * - 500: Internal Server Error
-     */
-    getTriageQueue: builder.query<
-      TriagePatient[],
-      { limit?: number; offset?: number } | void
+    getActivity: builder.query<
+      { data: ActivityEntry[]; total: number },
+      { limit?: number; start_date?: string; end_date?: string } | void
     >({
       query: (params) => ({
-        url: DEPARTMENT_HEAD_ROUTES.TRIAGE_QUEUE,
-        params: params || { limit: 10, offset: 0 },
+        url: DEPARTMENT_HEAD_ROUTES.ACTIVITY,
+        params: params || { limit: 20 },
       }),
-      transformResponse: (response: TriageQueueResponse | any) => {
-        // Handle different response formats from backend
-        if (Array.isArray(response)) {
-          return response;
-        }
-        if (response.data && Array.isArray(response.data)) {
-          return response.data;
-        }
-        // If response is an object with keys, convert to array
-        if (typeof response === "object" && !response.data) {
-          return Object.values(response);
-        }
-        return [];
+      transformResponse: (raw: unknown) => {
+        if (Array.isArray(raw)) return { data: raw as ActivityEntry[], total: raw.length };
+        const r = raw as Record<string, unknown>;
+        if (r.data && Array.isArray(r.data))
+          return { data: r.data as ActivityEntry[], total: (r.total as number) ?? r.data.length };
+        return { data: [], total: 0 };
       },
-      providesTags: ["Schedule"], // Using Schedule tag since it's related to patient flow
+      providesTags: ["Activity"],
     }),
   }),
 });
 
-// Export hooks for usage in components
 export const {
-  // Capacity Override hooks
+  useGetDashboardStatsQuery,
+  useGetDashboardTrendsQuery,
+  useGetTriageQueueQuery,
+  useGetPriorityBucketsQuery,
+  useGetCapacityCalendarQuery,
+  useGetCapacityDetailQuery,
   useGetCapacityOverridesQuery,
+  useGetOverridesByMonthQuery,
+  useGetOverrideByIdQuery,
   useCreateCapacityOverrideMutation,
   useUpdateCapacityOverrideMutation,
   useDeleteCapacityOverrideMutation,
-
-  // Schedule hooks
   useGetScheduleQuery,
+  useGetSchedulePatientsQuery,
   useRunBatchSchedulingMutation,
-  useUpdateMaxSlotsMutation,
-  
-  // Triage Queue hook
-  useGetTriageQueueQuery,
+  useGetStaffSummaryQuery,
+  useUpdateStaffCapacityMutation,
+  useGetActivityQuery,
 } = departmentHeadApi;

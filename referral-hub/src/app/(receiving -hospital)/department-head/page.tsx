@@ -2,7 +2,7 @@ import DeptHeadDashboard from '@/components/department-head/DeptHeadDashboard';
 
 export const metadata = {
   title: 'Department Head Dashboard – Referral Hub',
-  description: 'Department-level referral intake, triage queue and specialist coordination.',
+  description: 'Department capacity, queue health, and scheduling overview.',
 };
 
 export default function DepartmentHeadPage() {

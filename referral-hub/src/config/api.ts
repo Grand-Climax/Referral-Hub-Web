@@ -195,13 +195,6 @@ export const DEPARTMENT_HEAD_ROUTES = {
   RUN_BATCH_SCHEDULING: "/api/v1/department-head/schedule/batch",
   UPDATE_MAX_SLOTS: (id: string) =>
     `/api/v1/department-head/schedule/${id}/max-slots`,
-
-  // Staff
-  STAFF_SUMMARY: "/api/v1/department-head/staff/summary",
-  UPDATE_STAFF_CAPACITY: "/api/v1/department-head/staff-capacity",
-
-  // Activity
-  ACTIVITY: "/api/v1/department-head/activity",
 } as const;
 
 export const MOH_ROUTES = {

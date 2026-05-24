@@ -17,9 +17,7 @@ import type {
   TrendEntry,
   CalendarDayEntry,
   CapacityDetail,
-  StaffSummary,
   ScheduledPatient,
-  ActivityEntry,
   DailyCapacityBaseline,
   UpdateDailyCapacityBaselineRequest,
 } from "@/types/department-head";
@@ -48,8 +46,6 @@ export const departmentHeadApi = createApi({
     "CapacityOverride",
     "Schedule",
     "TriageQueue",
-    "Staff",
-    "Activity",
     "DailyCapacityBaseline",
   ],
   endpoints: (builder) => ({
@@ -293,24 +289,6 @@ export const departmentHeadApi = createApi({
       invalidatesTags: ["Schedule", "DashboardStats", "TriageQueue"],
     }),
 
-    // ─── Staff ────────────────────────────────────────────────────────────────
-
-    getStaffSummary: builder.query<StaffSummary, void>({
-      query: () => DEPARTMENT_HEAD_ROUTES.STAFF_SUMMARY,
-      transformResponse: (raw: unknown) =>
-        unwrapData<StaffSummary>(raw, {} as StaffSummary),
-      providesTags: ["Staff"],
-    }),
-
-    updateStaffCapacity: builder.mutation<ApiSuccessResponse, { value: number }>({
-      query: (body) => ({
-        url: DEPARTMENT_HEAD_ROUTES.UPDATE_STAFF_CAPACITY,
-        method: "PUT",
-        body,
-      }),
-      invalidatesTags: ["Staff", "DashboardStats"],
-    }),
-
     // ─── Daily Capacity Baseline ──────────────────────────────────────────────
 
     getDailyCapacity: builder.query<DailyCapacityBaseline, void>({
@@ -355,26 +333,6 @@ export const departmentHeadApi = createApi({
         "DashboardStats",
       ],
     }),
-
-    // ─── Activity ─────────────────────────────────────────────────────────────
-
-    getActivity: builder.query<
-      { data: ActivityEntry[]; total: number },
-      { limit?: number; start_date?: string; end_date?: string } | void
-    >({
-      query: (params) => ({
-        url: DEPARTMENT_HEAD_ROUTES.ACTIVITY,
-        params: params || { limit: 20 },
-      }),
-      transformResponse: (raw: unknown) => {
-        if (Array.isArray(raw)) return { data: raw as ActivityEntry[], total: raw.length };
-        const r = raw as Record<string, unknown>;
-        if (r.data && Array.isArray(r.data))
-          return { data: r.data as ActivityEntry[], total: (r.total as number) ?? r.data.length };
-        return { data: [], total: 0 };
-      },
-      providesTags: ["Activity"],
-    }),
   }),
 });
 
@@ -395,9 +353,6 @@ export const {
   useGetScheduleQuery,
   useGetSchedulePatientsQuery,
   useRunBatchSchedulingMutation,
-  useGetStaffSummaryQuery,
-  useUpdateStaffCapacityMutation,
-  useGetActivityQuery,
   useGetDailyCapacityQuery,
   useUpdateDailyCapacityMutation,
 } = departmentHeadApi;

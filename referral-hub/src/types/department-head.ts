@@ -287,33 +287,6 @@ export interface CapacityDetail {
   has_override: boolean;
 }
 
-// ─── Staff Types ──────────────────────────────────────────────────────────────
-
-export interface StaffMember {
-  id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  role: string;
-  is_active: boolean;
-  profile_image?: string;
-}
-
-export interface StaffCounts {
-  active: number;
-  inactive: number;
-  total: number;
-}
-
-export interface StaffSummary {
-  department: string;
-  doctors: StaffCounts;
-  receptionists: StaffCounts;
-  doctors_assigned_today: number;
-  staff_capacity_hint: number;
-  members: StaffMember[];
-}
-
 // ─── Scheduled Patients ───────────────────────────────────────────────────────
 
 export interface ScheduledPatient {
@@ -332,26 +305,6 @@ export interface ScheduledPatient {
       first_name: string;
       last_name: string;
     };
-  };
-}
-
-// ─── Activity Feed Types ──────────────────────────────────────────────────────
-
-export interface ActivityEntry {
-  id: string;
-  timestamp: string;
-  action_type: string;
-  actor_id: string;
-  actor_name: string;
-  actor_role: string;
-  summary: string;
-  new_value?: {
-    result?: {
-      scheduled_count?: number;
-      skipped_count?: number;
-    };
-    referral_id?: string;
-    [key: string]: unknown;
   };
 }
 

@@ -124,6 +124,12 @@ export const authApi = createApi({
                 url: AUTH_ROUTES.ME,
                 method: 'GET',
             }),
+            transformResponse: (raw: UserProfile | { data?: UserProfile }) => {
+                if (raw && typeof raw === 'object' && 'data' in raw && raw.data) {
+                    return raw.data
+                }
+                return raw as UserProfile
+            },
             providesTags: [{ type: 'Auth', id: 'CURRENT_USER' }],
         }),
         getUserById: builder.query<UserProfile, string>({

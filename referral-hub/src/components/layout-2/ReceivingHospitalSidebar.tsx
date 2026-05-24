@@ -24,8 +24,8 @@ import {
   Users,
   Sparkles,
   LayoutGrid,
+  Activity,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAppSelector } from "@/lib/store/hooks";
@@ -138,22 +138,10 @@ export function ReceivingHospitalSidebar() {
   return (
     <Sidebar className="border-r border-border/60 bg-linear-to-b from-background via-background to-muted/20">
       <SidebarHeader className="border-b border-border/60 bg-linear-to-b from-primary/3 to-transparent p-4 pb-5">
-        <div className="flex items-center gap-3">
-          <div className="relative h-11 w-11 overflow-hidden rounded-2xl bg-primary/5 ring-1 ring-primary/10 shadow-sm">
-            <Image
-              src="/logo.png"
-              alt="MedRefer"
-              fill
-              className="object-cover object-center"
-              priority
-            />
-          </div>
-          <div className="leading-tight">
-            <p className="text-lg font-semibold tracking-tight text-foreground">
-              MedRefer
-            </p>
-          </div>
-        </div>
+        <Link href="/" className="flex shrink-0 items-center gap-2">
+          <Activity className="h-6 w-6 shrink-0 text-primary" />
+          <span className="text-lg font-bold text-foreground">Referral Hub</span>
+        </Link>
 
         <div className="mt-4 flex flex-col items-center justify-center gap-2 rounded-2xl border border-border/60 bg-background/80 p-3 text-center shadow-sm backdrop-blur-sm">
           <div className="flex items-center gap-2">

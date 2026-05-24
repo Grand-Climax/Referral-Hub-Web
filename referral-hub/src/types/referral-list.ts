@@ -36,6 +36,7 @@ export interface ReferralListItem {
   created_at: string;
   updated_at: string;
   ml_status: ReferralListMlStatus | string;
+  ml_severity_score?: number | null;
 }
 
 export interface ReferralListPaginatedResponse {

@@ -32,8 +32,16 @@ export interface SpecialistReferralDetail {
   status: ReferralListStatus;
   triage_status?: string | null;
   waiting_hours_weight: number;
-  ml_status: string;
+  ml_status: ReferralMlStatus;
   ml_retry_count: number;
+  ml_severity_score?: number | null;
+  ml_last_error?: string | null;
+  ml_successful_rerun_count?: number;
+  ml_run_started_at?: string | null;
+  ml_last_failed_at?: string | null;
+  ml_severity_tier?: MlSeverityTier | null;
+  ml_explanations?: string[] | null;
+  ml_model_version?: string | null;
   patient_identity_verified?: boolean;
   clinical_history_attached?: boolean;
   vitals_included?: boolean;
@@ -92,4 +100,54 @@ export interface RedirectReferralRequest {
 export interface ReleaseReferralRequest {
   id: string;
   reason: string;
+}
+
+export type MlTriggerReason = "INITIAL" | "RESUBMIT" | "RERUN" | string;
+
+export type MlSeverityTier = "LOW" | "MODERATE" | "HIGH" | "CRITICAL" | string;
+
+export type ReferralMlStatus =
+  | "PENDING"
+  | "SUCCESS"
+  | "FAILED"
+  | "SKIPPED"
+  | "MANUAL"
+  | string;
+
+export interface MlPredictionExplanation {
+  top_features?: string[];
+  [key: string]: unknown;
+}
+
+export interface MlPredictionDetail {
+  id: string;
+  referral_id: string;
+  trigger_reason: MlTriggerReason;
+  output_score: number;
+  severity_tier?: MlSeverityTier | null;
+  confidence_level?: number | null;
+  explanation?: MlPredictionExplanation | null;
+  model_version: string;
+  processing_time_ms?: number | null;
+  predicted_at: string;
+  is_overridden: boolean;
+  overridden_score?: number | null;
+  overridden_by?: string | null;
+  override_justification?: string | null;
+}
+
+export interface MlPredictionResponse {
+  success: boolean;
+  message: string;
+  data: MlPredictionDetail;
+}
+
+export interface MlSeverityOverrideRequest {
+  score: number;
+  justification: string;
+}
+
+export interface MlSeverityOverrideResponse {
+  success: boolean;
+  message: string;
 }

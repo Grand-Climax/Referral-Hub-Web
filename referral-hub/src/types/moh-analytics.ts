@@ -78,12 +78,20 @@ export interface ExportReportResponse {
   success: boolean;
 }
 
+export type MohGranularity = "day" | "week" | "month";
+
+export type MohTierLevel =
+  | "PRIMARY"
+  | "SECONDARY"
+  | "SPECIALIZED"
+  | "TERTIARY";
+
 // Query parameters for MOH endpoints
 export interface MohQueryParams {
   from?: string; // YYYY-MM-DD
   to?: string; // YYYY-MM-DD
   region?: string;
   hospital_id?: string;
-  tier_level?: string;
-  granularity?: 'day' | 'week' | 'month';
+  tier_level?: MohTierLevel | string;
+  granularity?: MohGranularity;
 }

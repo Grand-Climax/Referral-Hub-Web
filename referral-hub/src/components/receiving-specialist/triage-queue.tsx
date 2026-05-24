@@ -1,267 +1,725 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import { MOCK_REFERRALS } from "@/data/mock";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { format, parseISO, isValid } from 'date-fns';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Eye, Filter, Download, Search } from "lucide-react";
-import { ReferralTable } from "@/components/referral/ReferralTable";
-import Link from "next/link";
-import { Referral } from "@/types/referral";
-import { ReferralListItem } from "@/types/referral-list";
+  AlertTriangle,
+  ArrowDownUp,
+  ArrowRight,
+  Building2,
+  CalendarClock,
+  ChevronLeft,
+  ChevronRight,
+  Clock4,
+  Hospital,
+  ListFilter,
+  Loader2,
+  RefreshCw,
+  Search,
+  ShieldAlert,
+  Stethoscope,
+  X,
+} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
-type SortField =
-  | "time"
-  | "name"
-  | "specialty"
-  | "status"
-  | "diagnosis"
-  | "priority";
-type SortOrder = "asc" | "desc";
+import { useGetSpecialistTriageQueueQuery } from '@/features/specialist/specialistApi';
+import type {
+  ArrivalStatus,
+  Condition,
+  ReferralStatusEnum,
+  TriageListItem,
+  TriageQueueFilters,
+  TriageSortBy,
+  TriageSortOrder,
+} from '@/types/specialist-triage';
 
-const severityScoreMap: Record<NonNullable<Referral["severity"]>, number> = {
-  critical: 95,
-  high: 75,
-  medium: 55,
-  low: 35,
+// ─── Visual cookbook (matches §8.5 of FRONTEND_TRIAGE_QUEUE.md) ───────────────
+
+function scoreChip(score: number) {
+  if (score >= 80)
+    return {
+      cls: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900',
+      label: 'Critical',
+    };
+  if (score >= 60)
+    return {
+      cls: 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-900',
+      label: 'High',
+    };
+  if (score >= 40)
+    return {
+      cls: 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900',
+      label: 'Medium',
+    };
+  return {
+    cls: 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900',
+    label: 'Low',
+  };
+}
+
+const CONDITION_PILL: Record<Condition | '', string> = {
+  critical: 'bg-red-600 text-white',
+  urgent: 'bg-orange-500 text-white',
+  stable: 'bg-emerald-500 text-white',
+  '': 'bg-slate-300 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
 };
 
-const getPatientFullName = (ref: Referral) => {
-  const first = ref.patient?.first_name ?? "";
-  const middle = ref.patient?.middle_name ?? "";
-  const last = ref.patient?.last_name ?? "";
-  return [first, middle, last].filter(Boolean).join(" ").trim();
+const ARRIVAL_BADGE: Record<ArrivalStatus, { cls: string; label: string; emoji: string }> = {
+  EXPECTED: {
+    cls: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
+    label: 'Expected',
+    emoji: '◷',
+  },
+  ARRIVED: {
+    cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+    label: 'Arrived',
+    emoji: '✓',
+  },
+  ADMITTED: {
+    cls: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
+    label: 'Admitted',
+    emoji: '🏥',
+  },
+  MISSED: {
+    cls: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+    label: 'Missed',
+    emoji: '⚠',
+  },
 };
 
-const getDiagnosis = (ref: Referral) => {
-  const primaryDiagnosis =
-    ref.diagnoses?.find((dx) => dx.is_primary) ?? ref.diagnoses?.[0];
-  return primaryDiagnosis?.code_info?.description ?? "Unspecified Diagnosis";
+const REFERRAL_BADGE: Record<ReferralStatusEnum, string> = {
+  ACCEPTED:
+    'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300',
+  SCHEDULED:
+    'bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300',
 };
 
-const getPriorityScore = (ref: Referral) => {
-  if (!ref.severity) {
-    return 0;
+const ARRIVAL_FALLBACK = {
+  cls: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+  label: 'Unknown',
+  emoji: '·',
+} as const;
+
+// ─── Chip components ─────────────────────────────────────────────────────────
+
+function ScoreChip({ score }: { score: number }) {
+  const cfg = scoreChip(score);
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold tabular-nums ${cfg.cls}`}
+      aria-label={`Composite score: ${score.toFixed(1)}, ${cfg.label}`}
+      title={cfg.label}
+    >
+      {score.toFixed(1)}
+    </span>
+  );
+}
+
+function ConditionPill({ condition }: { condition?: Condition | '' | null }) {
+  const key = (condition ?? '') as Condition | '';
+  if (!key) return <span className="text-muted-foreground text-xs">—</span>;
+  const cls = CONDITION_PILL[key] ?? CONDITION_PILL[''];
+  return (
+    <span
+      className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${cls}`}
+    >
+      {key}
+    </span>
+  );
+}
+
+function ArrivalBadge({ status }: { status?: ArrivalStatus | string | null }) {
+  const cfg = (status && ARRIVAL_BADGE[status as ArrivalStatus]) || ARRIVAL_FALLBACK;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold ${cfg.cls}`}
+    >
+      <span aria-hidden>{cfg.emoji}</span>
+      {cfg.label}
+    </span>
+  );
+}
+
+function ReferralBadge({ status }: { status?: ReferralStatusEnum | string | null }) {
+  if (!status) return <span className="text-muted-foreground text-xs">—</span>;
+  const cls =
+    REFERRAL_BADGE[status as ReferralStatusEnum] ??
+    'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+  return (
+    <span
+      className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${cls}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function safeFormat(value?: string | null, pattern = 'MMM d, HH:mm') {
+  if (!value) return '—';
+  const d = parseISO(value);
+  return isValid(d) ? format(d, pattern) : '—';
+}
+
+const ARRIVAL_OPTIONS: { value: ArrivalStatus; label: string }[] = [
+  { value: 'EXPECTED', label: 'Expected' },
+  { value: 'ARRIVED', label: 'Arrived' },
+  { value: 'ADMITTED', label: 'Admitted' },
+  { value: 'MISSED', label: 'Missed' },
+];
+
+// ─── URL <-> filter state plumbing ──────────────────────────────────────────
+
+function readFiltersFromSearchParams(sp: URLSearchParams): TriageQueueFilters {
+  const arrivalRaw = sp.get('arrival_status');
+  const referralRaw = sp.get('referral_status');
+  const hasDoc = sp.get('has_doctor_assigned');
+  const sortBy = sp.get('sort_by') as TriageSortBy | null;
+  const sortOrder = sp.get('sort_order') as TriageSortOrder | null;
+
+  const filters: TriageQueueFilters = {
+    page: Number(sp.get('page') ?? '1') || 1,
+    limit: Number(sp.get('limit') ?? '20') || 20,
+  };
+  if (arrivalRaw) {
+    filters.arrival_status = arrivalRaw.split(',').filter(Boolean) as ArrivalStatus[];
   }
-  return severityScoreMap[ref.severity];
-};
+  if (referralRaw) {
+    filters.referral_status = referralRaw.split(',').filter(Boolean) as ReferralStatusEnum[];
+  }
+  if (hasDoc === 'true' || hasDoc === 'false') {
+    filters.has_doctor_assigned = hasDoc === 'true';
+  }
+  const nationalId = sp.get('national_id');
+  if (nationalId) filters.national_id = nationalId;
+  if (sortBy === 'composite_score' || sortBy === 'appointment_date' || sortBy === 'created_at') {
+    filters.sort_by = sortBy;
+  }
+  if (sortOrder === 'asc' || sortOrder === 'desc') {
+    filters.sort_order = sortOrder;
+  }
+  if (sp.get('include_terminal') === 'true') filters.include_terminal = true;
+  return filters;
+}
 
-const toListItem = (ref: Referral): ReferralListItem => ({
-  id: ref.id,
-  status: ref.status,
-  department: ref.target_dept_id,
-  condition_at_referral: ref.referral_form?.condition_at_referral ?? "STABLE",
-  diagnosis: getDiagnosis(ref),
-  icd_code: ref.diagnoses?.[0]?.icd_code ?? "N/A",
-  patient_first_name: ref.patient?.first_name ?? "Unknown",
-  patient_middle_name: ref.patient?.middle_name ?? "",
-  patient_last_name: ref.patient?.last_name ?? "Patient",
-  created_at: ref.created_at,
-  updated_at: ref.updated_at,
-  patient_region: ref.patient?.home_region ?? "N/A",
-  ml_status: ref.ml_status ?? "PENDING",
-});
+function filtersToSearchParams(f: TriageQueueFilters): URLSearchParams {
+  const sp = new URLSearchParams();
+  if (f.page && f.page > 1) sp.set('page', String(f.page));
+  if (f.limit && f.limit !== 20) sp.set('limit', String(f.limit));
+  if (f.arrival_status?.length) sp.set('arrival_status', f.arrival_status.join(','));
+  if (f.referral_status?.length) sp.set('referral_status', f.referral_status.join(','));
+  if (typeof f.has_doctor_assigned === 'boolean')
+    sp.set('has_doctor_assigned', String(f.has_doctor_assigned));
+  if (f.national_id) sp.set('national_id', f.national_id);
+  if (f.sort_by) sp.set('sort_by', f.sort_by);
+  if (f.sort_order) sp.set('sort_order', f.sort_order);
+  if (f.include_terminal) sp.set('include_terminal', 'true');
+  return sp;
+}
+
+// ─── Main component ─────────────────────────────────────────────────────────
 
 export function TriageQueue() {
-  const [searchQuery, setSearchQuery] = useState("");
-  // Triage queue defaults to priority sort descending (highest score first)
-  const [sortField, setSortField] = useState<SortField>("priority");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
-  const [page, setPage] = useState(0);
-  const pageSize = 8;
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // Only show pending or redirected requests in active triage queue
-  const referrals = MOCK_REFERRALS.filter(
-    (r) => r.status === "PENDING" || r.status === "SUBMITTED",
+  // Derive the active filter set from the URL on every render so deep-links
+  // and shareable filtered views just work.
+  const filters = useMemo(
+    () => readFiltersFromSearchParams(new URLSearchParams(searchParams.toString())),
+    [searchParams],
   );
 
-  const filteredAndSortedReferrals = useMemo(() => {
-    let result = [...referrals];
+  // Local input state for the national-ID search — debounced before pushing
+  // to the URL so typing doesn't refetch on every keystroke.
+  const [nationalIdInput, setNationalIdInput] = useState(filters.national_id ?? '');
 
-    // Search Filtering
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (ref) =>
-          getPatientFullName(ref).toLowerCase().includes(query) ||
-          ref.target_dept_id.toLowerCase().includes(query) ||
-          getDiagnosis(ref).toLowerCase().includes(query) ||
-          ref.sender_hospital_id.toLowerCase().includes(query),
-      );
-    }
+  useEffect(() => {
+    setNationalIdInput(filters.national_id ?? '');
+  }, [filters.national_id]);
 
-    // Sorting
-    result.sort((a, b) => {
-      let comparison = 0;
-      switch (sortField) {
-        case "time":
-          comparison =
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-          break;
-        case "name":
-          comparison = getPatientFullName(a).localeCompare(
-            getPatientFullName(b),
-          );
-          break;
-        case "specialty":
-          comparison = a.target_dept_id.localeCompare(b.target_dept_id);
-          break;
-        case "status":
-          comparison = a.status.localeCompare(b.status);
-          break;
-        case "diagnosis":
-          comparison = getDiagnosis(a).localeCompare(getDiagnosis(b));
-          break;
-        case "priority":
-          comparison = getPriorityScore(a) - getPriorityScore(b);
-          break;
-      }
-      return sortOrder === "asc" ? comparison : -comparison;
-    });
-
-    return result;
-  }, [referrals, searchQuery, sortField, sortOrder]);
-
-  const tableData = useMemo(
-    () => filteredAndSortedReferrals.map(toListItem),
-    [filteredAndSortedReferrals],
+  const updateFilters = useCallback(
+    (patch: Partial<TriageQueueFilters>, options?: { resetPage?: boolean }) => {
+      const merged: TriageQueueFilters = {
+        ...filters,
+        ...patch,
+        page: options?.resetPage ? 1 : (patch.page ?? filters.page),
+      };
+      if (merged.arrival_status && merged.arrival_status.length === 0)
+        delete merged.arrival_status;
+      if (merged.referral_status && merged.referral_status.length === 0)
+        delete merged.referral_status;
+      const sp = filtersToSearchParams(merged);
+      router.replace(`?${sp.toString()}`, { scroll: false });
+    },
+    [filters, router],
   );
-  const pagedData = useMemo(() => {
-    const start = page * pageSize;
-    return tableData.slice(start, start + pageSize);
-  }, [page, pageSize, tableData]);
 
   useEffect(() => {
-    setPage(0);
-  }, [searchQuery, sortField, sortOrder]);
+    if ((nationalIdInput || '') === (filters.national_id || '')) return;
+    const t = window.setTimeout(() => {
+      updateFilters({ national_id: nationalIdInput || undefined }, { resetPage: true });
+    }, 300);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nationalIdInput]);
 
-  useEffect(() => {
-    const maxPage = Math.max(0, Math.ceil(tableData.length / pageSize) - 1);
-    if (page > maxPage) {
-      setPage(maxPage);
-    }
-  }, [page, pageSize, tableData.length]);
+  const {
+    data: envelope,
+    isLoading,
+    isFetching,
+    isError,
+    refetch,
+  } = useGetSpecialistTriageQueueQuery(filters, { pollingInterval: 90_000 });
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortOrder("desc"); // Default to desc when changing to support highest priority first
-    }
+  const patients = envelope?.data ?? [];
+  const total = envelope?.total ?? 0;
+  const page = filters.page ?? 1;
+  const limit = filters.limit ?? 20;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const hasMore = envelope?.has_more ?? false;
+
+  // Best-effort counts from the visible page — gives the user a sense of
+  // distribution without an extra server call. Real totals live behind the
+  // dept-head's `priority-buckets` endpoint, which isn't exposed to specialists.
+  const counts = useMemo(() => {
+    return patients.reduce(
+      (acc, p) => {
+        if (p.referral_status === 'ACCEPTED') acc.waiting++;
+        if (p.referral_status === 'SCHEDULED') acc.scheduled++;
+        if (p.arrival_status === 'MISSED') acc.missed++;
+        return acc;
+      },
+      { waiting: 0, scheduled: 0, missed: 0 },
+    );
+  }, [patients]);
+
+  const activeArrivals = filters.arrival_status ?? [];
+  const toggleArrival = (status: ArrivalStatus) => {
+    const next = activeArrivals.includes(status)
+      ? activeArrivals.filter((s) => s !== status)
+      : [...activeArrivals, status];
+    updateFilters({ arrival_status: next }, { resetPage: true });
   };
 
+  const clearAllFilters = () => {
+    router.replace('?', { scroll: false });
+    setNationalIdInput('');
+  };
+
+  const hasAnyFilter =
+    (filters.arrival_status?.length ?? 0) > 0 ||
+    (filters.referral_status?.length ?? 0) > 0 ||
+    typeof filters.has_doctor_assigned === 'boolean' ||
+    !!filters.national_id ||
+    !!filters.sort_by ||
+    !!filters.include_terminal;
+
   return (
-    <div className="space-y-6 max-w-350 mx-auto pb-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight mb-1">Triage Queue</h1>
-        <p className="text-muted-foreground">
-          Manage and prioritize incoming patient referrals.
-        </p>
+    <div className="max-w-[1400px] mx-auto space-y-5 pb-8">
+      {/* ─── Page header ────────────────────────────────────────────── */}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Triage Queue
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Schedule, override, or rescue patients waiting in your specialty.{' '}
+            <span className="text-foreground/80 font-medium">
+              {total} total · {counts.waiting} waiting · {counts.scheduled} scheduled ·{' '}
+              {counts.missed} missed
+            </span>
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          onClick={() => refetch()}
+          disabled={isFetching}
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
-      <Card className="border bg-card shadow-sm">
-        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-4 px-6 border-b border-border">
-          <div>
-            <CardTitle className="text-lg font-bold">
-              Active Referrals ({filteredAndSortedReferrals.length})
-            </CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              Sorted by Machine Learning risk assessment
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-64">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search patient, specialty, hospital..."
-                className="pl-8 h-9 bg-background"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 gap-2 text-sm font-medium border-border"
-                >
-                  <Filter className="h-4 w-4" />
-                  Filter / Sort
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem
-                  onClick={() => handleSort("priority")}
-                  className="font-medium"
-                >
-                  Sort by Priority{" "}
-                  {sortField === "priority" &&
-                    (sortOrder === "asc" ? "↑" : "↓")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSort("time")}>
-                  Sort by Time{" "}
-                  {sortField === "time" && (sortOrder === "asc" ? "↑" : "↓")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSort("name")}>
-                  Sort by Patient Name{" "}
-                  {sortField === "name" && (sortOrder === "asc" ? "↑" : "↓")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSort("specialty")}>
-                  Sort by Specialty{" "}
-                  {sortField === "specialty" &&
-                    (sortOrder === "asc" ? "↑" : "↓")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSort("diagnosis")}>
-                  Sort by Diagnosis{" "}
-                  {sortField === "diagnosis" &&
-                    (sortOrder === "asc" ? "↑" : "↓")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button
-              size="sm"
-              className="h-9 gap-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <ReferralTable
-            data={pagedData}
-            total={tableData.length}
-            page={page}
-            onPageChange={setPage}
-            pageSize={pageSize}
-            detailHrefPrefix="/receiving-specialist"
-            actionSlot={(ref) => (
-              <Link href={`/receiving-specialist/${ref.id}`}>
-                <Button
+      {/* ─── Sticky filter bar ──────────────────────────────────────── */}
+      <Card className="border bg-card shadow-sm sticky top-2 z-10 backdrop-blur-sm">
+        <CardContent className="p-3 flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mr-1">
+              Arrival
+            </span>
+            {ARRIVAL_OPTIONS.map((opt) => {
+              const isOn = activeArrivals.includes(opt.value);
+              return (
+                <button
+                  key={opt.value}
                   type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="text-foreground hover:bg-muted font-medium gap-2 px-3 w-auto"
-                  aria-label={`Review referral ${ref.id}`}
+                  onClick={() => toggleArrival(opt.value)}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${
+                    isOn
+                      ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                      : 'bg-background text-foreground border-border hover:bg-muted'
+                  }`}
                 >
-                  <Eye className="h-4 w-4" />
-                  <span className="text-xs hidden md:inline">Review</span>
+                  <span aria-hidden>{ARRIVAL_BADGE[opt.value].emoji}</span>
+                  {opt.label}
+                </button>
+              );
+            })}
+
+            <span className="mx-1 h-5 w-px bg-border" aria-hidden />
+
+            <Select
+              value={filters.referral_status?.[0] ?? 'ALL'}
+              onValueChange={(value) =>
+                updateFilters(
+                  {
+                    referral_status:
+                      value === 'ALL' ? undefined : [value as ReferralStatusEnum],
+                  },
+                  { resetPage: true },
+                )
+              }
+            >
+              <SelectTrigger className="h-8 w-[150px] text-xs">
+                <SelectValue placeholder="Referral status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All referrals</SelectItem>
+                <SelectItem value="ACCEPTED">Accepted</SelectItem>
+                <SelectItem value="SCHEDULED">Scheduled</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={
+                typeof filters.has_doctor_assigned === 'boolean'
+                  ? filters.has_doctor_assigned
+                    ? 'YES'
+                    : 'NO'
+                  : 'ALL'
+              }
+              onValueChange={(value) =>
+                updateFilters(
+                  {
+                    has_doctor_assigned:
+                      value === 'YES' ? true : value === 'NO' ? false : undefined,
+                  },
+                  { resetPage: true },
+                )
+              }
+            >
+              <SelectTrigger className="h-8 w-[150px] text-xs">
+                <SelectValue placeholder="Assigned doctor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Any doctor</SelectItem>
+                <SelectItem value="YES">Has doctor</SelectItem>
+                <SelectItem value="NO">Unassigned</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={`${filters.sort_by ?? 'composite_score'}:${filters.sort_order ?? 'desc'}`}
+              onValueChange={(value) => {
+                const [sb, so] = value.split(':') as [TriageSortBy, TriageSortOrder];
+                updateFilters({ sort_by: sb, sort_order: so }, { resetPage: true });
+              }}
+            >
+              <SelectTrigger className="h-8 w-[200px] text-xs">
+                <ArrowDownUp className="h-3 w-3 mr-1.5 opacity-60" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="composite_score:desc">Score (highest first)</SelectItem>
+                <SelectItem value="composite_score:asc">Score (lowest first)</SelectItem>
+                <SelectItem value="appointment_date:asc">Appointment (soonest)</SelectItem>
+                <SelectItem value="appointment_date:desc">Appointment (latest)</SelectItem>
+                <SelectItem value="created_at:desc">Newest referrals</SelectItem>
+                <SelectItem value="created_at:asc">Oldest referrals</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <span className="mx-1 h-5 w-px bg-border" aria-hidden />
+
+            <button
+              type="button"
+              onClick={() =>
+                updateFilters(
+                  { include_terminal: filters.include_terminal ? undefined : true },
+                  { resetPage: true },
+                )
+              }
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium transition-all ${
+                filters.include_terminal
+                  ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300'
+                  : 'bg-background text-muted-foreground border-border hover:bg-muted'
+              }`}
+              title="Include terminal statuses (COMPLETED, DECEASED, REJECTED…)"
+            >
+              <ShieldAlert className="h-3 w-3" />
+              Audit view
+            </button>
+
+            <div className="ml-auto flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  value={nationalIdInput}
+                  onChange={(e) => setNationalIdInput(e.target.value)}
+                  placeholder="Search national ID"
+                  className="h-8 w-[200px] pl-8 text-xs"
+                />
+                {nationalIdInput && (
+                  <button
+                    type="button"
+                    onClick={() => setNationalIdInput('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+
+              {hasAnyFilter && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearAllFilters}
+                  className="h-8 text-xs gap-1.5"
+                >
+                  <X className="h-3 w-3" />
+                  Clear filters
                 </Button>
-              </Link>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ─── Queue table ────────────────────────────────────────────── */}
+      <Card className="border bg-card shadow-sm">
+        <CardHeader className="py-4 px-5 border-b border-border flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base font-semibold">Queue</CardTitle>
+            {total > 0 && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total}
+              </p>
             )}
-          />
+          </div>
+          {isFetching && !isLoading && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
+        </CardHeader>
+
+        <CardContent className="p-0">
+          {isLoading && (
+            <div className="space-y-1 p-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-14 w-full rounded-lg" />
+              ))}
+            </div>
+          )}
+
+          {isError && (
+            <div className="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
+              <AlertTriangle className="h-8 w-8 text-amber-500" />
+              <p className="text-sm font-medium text-foreground">
+                Failed to load triage queue
+              </p>
+              <Button variant="outline" size="sm" onClick={() => refetch()}>
+                Retry
+              </Button>
+            </div>
+          )}
+
+          {!isLoading && !isError && patients.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
+              <ListFilter className="h-10 w-10 opacity-30" />
+              <p className="text-sm font-medium text-foreground">
+                {hasAnyFilter ? 'No results match your filters.' : 'Queue is empty.'}
+              </p>
+              {hasAnyFilter ? (
+                <Button variant="outline" size="sm" onClick={clearAllFilters}>
+                  Clear filters
+                </Button>
+              ) : (
+                <p className="text-xs">
+                  No patients waiting in triage right now — enjoy the moment.
+                </p>
+              )}
+            </div>
+          )}
+
+          {!isLoading && !isError && patients.length > 0 && (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm" role="table">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30">
+                      {[
+                        'Score',
+                        'Patient',
+                        'Condition',
+                        'Referral',
+                        'Arrival',
+                        'Appointment',
+                        'Doctor',
+                        '',
+                      ].map((h) => (
+                        <th
+                          key={h}
+                          className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap"
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {patients.map((p) => (
+                      <TriageRow key={p.referral_id} patient={p} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-border px-5 py-3 text-xs text-muted-foreground">
+                <span>
+                  Page {page} of {totalPages} · {total} total
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => updateFilters({ page: Math.max(1, page - 1) })}
+                    disabled={page <= 1}
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background disabled:opacity-40 hover:bg-muted"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => updateFilters({ page: page + 1 })}
+                    disabled={!hasMore && page >= totalPages}
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background disabled:opacity-40 hover:bg-muted"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// ─── Row ─────────────────────────────────────────────────────────────────────
+
+/**
+ * One row in the queue. The CTA label adapts to the row's status so the
+ * specialist sees the next sensible action at a glance:
+ *  • ACCEPTED  → "Schedule"
+ *  • SCHEDULED → "Open"
+ *  • MISSED    → "Rescue"  (regardless of referral_status)
+ * The actual gating happens server-side via `available_actions` in the
+ * detail page — this label is just a hint.
+ */
+function TriageRow({ patient }: { patient: TriageListItem }) {
+  const isMissed = patient.arrival_status === 'MISSED';
+  const ctaLabel = isMissed
+    ? 'Rescue'
+    : patient.referral_status === 'ACCEPTED'
+      ? 'Schedule'
+      : 'Open';
+  const ctaClass = isMissed
+    ? 'text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/40'
+    : patient.referral_status === 'ACCEPTED'
+      ? 'text-indigo-700 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-950/40'
+      : '';
+
+  return (
+    <tr className="transition-colors hover:bg-muted/40">
+      <td className="px-4 py-3.5">
+        <ScoreChip score={patient.composite_score ?? 0} />
+      </td>
+      <td className="px-4 py-3.5">
+        <div className="font-semibold text-foreground">{patient.patient_name}</div>
+        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <Building2 className="h-3 w-3" />
+          {patient.department_name || '—'}
+          {patient.queue_id ? (
+            <span
+              className="ml-2 cursor-help font-mono text-[10px] opacity-60"
+              title={`Audit ID: ${patient.queue_id}`}
+            >
+              #{patient.queue_id.slice(0, 6)}
+            </span>
+          ) : null}
+        </div>
+      </td>
+      <td className="px-4 py-3.5">
+        <ConditionPill condition={patient.condition_at_referral} />
+      </td>
+      <td className="px-4 py-3.5">
+        <ReferralBadge status={patient.referral_status} />
+      </td>
+      <td className="px-4 py-3.5">
+        <ArrivalBadge status={patient.arrival_status} />
+      </td>
+      <td className="px-4 py-3.5 text-sm text-foreground">
+        {patient.appointment_date ? (
+          <span className="inline-flex items-center gap-1 text-foreground">
+            <Clock4 className="h-3 w-3 text-muted-foreground" />
+            {safeFormat(patient.appointment_date, 'MMM d · HH:mm')}
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-muted-foreground">
+            <CalendarClock className="h-3 w-3" />
+            Not scheduled
+          </span>
+        )}
+      </td>
+      <td className="px-4 py-3.5 text-xs">
+        {patient.has_doctor_assigned ? (
+          <Badge variant="outline" className="gap-1 font-normal">
+            <Stethoscope className="h-3 w-3" />
+            {patient.assigned_doctor_name ?? 'Assigned'}
+          </Badge>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-muted-foreground">
+            <Hospital className="h-3 w-3" />
+            Unassigned
+          </span>
+        )}
+      </td>
+      <td className="px-4 py-3.5 text-right">
+        <Link href={`/receiving-specialist/traige-queue/${patient.referral_id}`}>
+          <Button variant="ghost" size="sm" className={`h-7 gap-1 text-xs ${ctaClass}`}>
+            {ctaLabel}
+            <ArrowRight className="h-3 w-3" />
+          </Button>
+        </Link>
+      </td>
+    </tr>
   );
 }

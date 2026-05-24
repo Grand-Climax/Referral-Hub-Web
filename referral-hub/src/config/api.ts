@@ -94,6 +94,21 @@ export const SPECIALIST_ROUTES = {
   RERUN_ML: (id: string) => `/api/v1/specialist/referrals/${id}/rerun-ml`,
   ML_SEVERITY_OVERRIDE: (id: string) =>
     `/api/v1/specialist/referrals/${id}/ml-severity-override`,
+
+  // Triage queue (post-acceptance scheduling workspace)
+  TRIAGE_QUEUE: "/api/v1/specialist/referrals/triage-queue",
+  TRIAGE_DETAIL: (referralId: string) =>
+    `/api/v1/specialist/referrals/${referralId}/triage-detail`,
+  SCHEDULE_OPTIONS: (referralId: string) =>
+    `/api/v1/specialist/referrals/${referralId}/schedule-options`,
+  /** Routine schedule. Body: { appointment_date: RFC3339, notes? } */
+  SCHEDULE: (referralId: string) =>
+    `/api/v1/specialist/referrals/${referralId}/schedule`,
+  /** Emergency override. Body: { appointment_date: "YYYY-MM-DD", justification } */
+  EMERGENCY_SCHEDULE: (referralId: string) =>
+    `/api/v1/specialist/referrals/${referralId}/emergency-schedule`,
+  RETURN_TO_TRIAGE: (referralId: string) =>
+    `/api/v1/specialist/referrals/${referralId}/return-to-triage`,
 } as const;
 
 export const SYSTEM_ADMIN_ROUTES = {

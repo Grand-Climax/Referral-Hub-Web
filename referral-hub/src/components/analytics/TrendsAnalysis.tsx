@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   AreaChart,
   Area,
@@ -9,12 +9,13 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from "recharts";
 import {
   Calendar,
   ChevronRight,
   AlertTriangle,
-  BrainCircuit,
+  TrendingUp,
   Activity,
   Zap,
   FlaskConical,
@@ -31,96 +32,138 @@ import {
 import {
   useGetReferralTrendsQuery,
   useGetDashboardSummaryQuery,
+  useGetDiseaseHotspotsQuery,
 } from "@/features/analytics/mohAnalyticsApi";
-import type { MohQueryParams } from "@/types/moh-analytics";
+import {
+  buildMohQueryParams,
+  getMohDateRange,
+  mergeRegionOptions,
+  safePercent,
+  uniqueDepartmentsFromHotspots,
+  type MohGranularity,
+} from "@/lib/mohAnalytics";
+import {
+  mohCard,
+  mohCardPad,
+  mohChartGridStroke,
+  mohChartTickFill,
+  mohHeading,
+  mohMetricTile,
+  mohPageShell,
+  mohSubheading,
+} from "@/lib/mohAnalyticsUi";
+import { MohAnalyticsFilters } from "@/components/analytics/MohAnalyticsFilters";
+import { MohQueryState } from "@/components/analytics/MohAnalyticsStates";
+import type { MohDashboardSummary } from "@/types/moh-analytics";
 
-const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const months = [
+  "JAN",
+  "FEB",
+  "MAR",
+  "APR",
+  "MAY",
+  "JUN",
+  "JUL",
+  "AUG",
+  "SEP",
+  "OCT",
+  "NOV",
+  "DEC",
+];
 
-// --- Sub-components (Local) ---
-
-const MetricCard = ({ label, value, subValue, trend, trendColor, isLoading }: any) => {
+const MetricCard = ({
+  label,
+  value,
+  isLoading,
+}: {
+  label: string;
+  value: string;
+  isLoading?: boolean;
+}) => {
   if (isLoading) {
     return (
-      <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/50 animate-pulse">
-        <div className="h-3 bg-slate-200 rounded w-20 mb-2"></div>
-        <div className="h-6 bg-slate-200 rounded w-16"></div>
+      <div className={cn(mohMetricTile, "animate-pulse")}>
+        <div className="h-3 bg-muted rounded w-20 mb-2" />
+        <div className="h-6 bg-muted rounded w-16" />
       </div>
     );
   }
 
   return (
-    <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/50 flex flex-col justify-between">
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-      <p className="text-xl font-black text-slate-900">{value}</p>
-      {trend && (
-        <p className={cn("text-[10px] font-bold mt-1", trendColor)}>
-          {trend} {subValue}
-        </p>
-      )}
+    <div className={cn(mohMetricTile)}>
+      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">
+        {label}
+      </p>
+      <p className="text-xl font-black text-foreground">{value}</p>
     </div>
   );
 };
 
-const AlertsList = ({ summaryData }: { summaryData?: any }) => (
+const AlertsList = ({ summaryData }: { summaryData?: MohDashboardSummary }) => (
   <div className="space-y-3">
-    <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3 flex gap-3 items-start">
+    <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 flex gap-3 items-start">
       <div className="h-2 w-2 rounded-full bg-blue-500 mt-1.5 shrink-0" />
-      <div>
-        <p className="text-xs font-bold text-blue-900 leading-tight">
-          Referral volume trending {summaryData && summaryData.total_referrals > 1000 ? 'upward' : 'stable'} across all regions.
-        </p>
-      </div>
+      <p className="text-xs font-bold text-foreground leading-tight">
+        Referral volume is{" "}
+        {(summaryData?.total_referrals ?? 0) > 1000 ? "elevated" : "within typical range"}{" "}
+        for the selected period.
+      </p>
     </div>
-    <div className="bg-green-50/50 border border-green-100 rounded-xl p-3 flex gap-3 items-start">
+    <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 flex gap-3 items-start">
       <div className="h-2 w-2 rounded-full bg-green-500 mt-1.5 shrink-0" />
-      <div>
-        <p className="text-xs font-bold text-green-900 leading-tight">
-          Acceptance rate at {summaryData?.acceptance_rate_percentage?.toFixed(1) || 0}% - within normal range.
-        </p>
-      </div>
+      <p className="text-xs font-bold text-foreground leading-tight">
+        Acceptance rate at {summaryData?.acceptance_rate_percentage?.toFixed(1) || 0}%
+        nationally.
+      </p>
     </div>
   </div>
 );
 
-const HeatmapGrid = ({ seasonalityMatrix }: { seasonalityMatrix: { year: string; data: number[] }[] }) => {
+function HeatmapGrid({
+  seasonalityMatrix,
+}: {
+  seasonalityMatrix: { year: string; data: number[] }[];
+}) {
   if (seasonalityMatrix.length === 0) {
     return (
-      <div className="flex items-center justify-center h-32 text-xs text-slate-400">
-        Insufficient data for seasonality analysis
+      <div className="flex items-center justify-center h-32 text-xs text-muted-foreground">
+        Insufficient monthly data for seasonality (use monthly granularity).
       </div>
     );
   }
 
-  const maxValue = Math.max(...seasonalityMatrix.flatMap(row => row.data));
-  
+  const maxValue = Math.max(...seasonalityMatrix.flatMap((row) => row.data), 1);
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-13 gap-1">
         <div className="col-span-1" />
-        {months.map(m => (
-          <div key={m} className="text-[9px] font-bold text-slate-400 text-center">{m}</div>
+        {months.map((m) => (
+          <div key={m} className="text-[9px] font-bold text-muted-foreground text-center">
+            {m}
+          </div>
         ))}
       </div>
-      {seasonalityMatrix.map((row, idx) => (
-        <div key={idx} className="grid grid-cols-13 gap-1 h-8 items-center">
-          <div className="text-[10px] font-bold text-slate-500">{row.year}</div>
+      {seasonalityMatrix.map((row) => (
+        <div key={row.year} className="grid grid-cols-13 gap-1 h-8 items-center">
+          <div className="text-[10px] font-bold text-muted-foreground">{row.year}</div>
           {row.data.map((val, i) => {
-            const intensity = maxValue > 0 ? (val / maxValue) * 100 : 0;
-            let color = "bg-blue-100";
-            if (intensity > 25) color = "bg-blue-300";
-            if (intensity > 50) color = "bg-blue-600";
-            if (intensity > 75) color = "bg-blue-900";
-            
+            const intensity = safePercent(val, maxValue);
+            let color = "bg-blue-500/15";
+            if (intensity > 25) color = "bg-blue-500/35";
+            if (intensity > 50) color = "bg-blue-500/60";
+            if (intensity > 75) color = "bg-blue-500/90";
+
             return (
-              <div 
-                key={i} 
+              <div
+                key={`${row.year}-${i}`}
                 className={cn(
-                  "h-full rounded-sm transition-all hover:ring-2 hover:ring-primary/20 cursor-help relative group", 
-                  color
+                  "h-full rounded-sm transition-all hover:ring-2 hover:ring-primary/20 cursor-help relative group",
+                  color,
                 )}
                 title={`${months[i]} ${row.year}: ${val} referrals`}
               >
-                <div className="absolute hidden group-hover:block bg-slate-900 text-white text-[9px] px-2 py-1 rounded shadow-lg -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap z-50">
+                <div className="absolute hidden group-hover:block bg-popover text-popover-foreground border border-border text-[9px] px-2 py-1 rounded shadow-lg -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap z-50">
                   {val} referrals
                 </div>
               </div>
@@ -128,467 +171,442 @@ const HeatmapGrid = ({ seasonalityMatrix }: { seasonalityMatrix: { year: string;
           })}
         </div>
       ))}
-      <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-50">
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded-sm bg-blue-100" />
-          <span className="text-[10px] font-bold text-slate-400">Low</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded-sm bg-blue-900" />
-          <span className="text-[10px] font-bold text-slate-400">Peak</span>
-        </div>
-        <p className="text-[10px] text-slate-400 italic ml-auto">Referral volume patterns based on historical data</p>
-      </div>
     </div>
   );
-};
-
-// --- Main Component ---
+}
 
 export function TrendsAnalysis() {
-  const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('month');
-  
-  // Get last 12 months of data
-  const getDateRange = () => {
-    const to = new Date().toISOString().split('T')[0];
-    const from = new Date();
-    from.setFullYear(from.getFullYear() - 1);
-    return { from: from.toISOString().split('T')[0], to };
-  };
+  const [granularity, setGranularity] = useState<MohGranularity>("month");
+  const [region, setRegion] = useState("all");
+  const [departmentFilter, setDepartmentFilter] = useState("all");
 
-  const { from, to } = getDateRange();
-  const queryParams: MohQueryParams = { from, to, granularity };
+  const range = getMohDateRange("year");
+  const queryParams = buildMohQueryParams({
+    from: range.from,
+    to: range.to,
+    region,
+    granularity,
+  });
 
-  const { data: trendsData, isLoading: trendsLoading } = useGetReferralTrendsQuery(queryParams);
-  const { data: summaryData, isLoading: summaryLoading } = useGetDashboardSummaryQuery(queryParams);
+  const monthlyParams = buildMohQueryParams({
+    from: range.from,
+    to: range.to,
+    region,
+    granularity: "month",
+  });
 
-  const longitudinalData = trendsData?.data?.map(item => ({
-    name: item.period,
-    actual: item.total_referrals,
-    baseline: item.total_referrals * 0.9, // Mock baseline as 90% of actual
-  })) || [];
+  const {
+    data: trendsData,
+    isLoading: trendsLoading,
+    isError: trendsError,
+    refetch: refetchTrends,
+  } = useGetReferralTrendsQuery(queryParams);
+
+  const { data: monthlyTrendsData } = useGetReferralTrendsQuery(monthlyParams);
+
+  const {
+    data: summaryData,
+    isLoading: summaryLoading,
+    isError: summaryError,
+    refetch: refetchSummary,
+  } = useGetDashboardSummaryQuery(queryParams);
+
+  const { data: hotspotsData } = useGetDiseaseHotspotsQuery(queryParams);
+
+  const departmentOptions = useMemo(() => {
+    const all = hotspotsData?.data?.map((h) => h.department_name) ?? [];
+    return uniqueDepartmentsFromHotspots(all);
+  }, [hotspotsData]);
+
+  const regionOptions = useMemo(
+    () =>
+      mergeRegionOptions(hotspotsData?.data?.map((h) => h.region) ?? []),
+    [hotspotsData],
+  );
+
+  const filteredHotspots = useMemo(() => {
+    const rows = hotspotsData?.data ?? [];
+    if (departmentFilter === "all") return rows;
+    return rows.filter((h) => h.department_name === departmentFilter);
+  }, [hotspotsData, departmentFilter]);
+
+  const longitudinalData =
+    trendsData?.data?.map((item) => ({
+      name: item.period,
+      total: item.total_referrals,
+      accepted: item.accepted_referrals,
+      rejected: item.rejected_referrals,
+      emergency: item.emergency_referrals,
+    })) ?? [];
 
   const totalReferrals = summaryData?.total_referrals || 0;
-  const peakVolume = Math.max(...(trendsData?.data?.map(d => d.total_referrals) || [0]));
+  const peakVolume = Math.max(
+    ...(trendsData?.data?.map((d) => d.total_referrals) || [0]),
+  );
   const avgTurnaround = summaryData?.average_turnaround_hours || 0;
 
-  // Calculate seasonality from real trends data
-  const calculateSeasonality = () => {
-    if (!trendsData?.data || trendsData.data.length === 0) return [];
-    
-    // Group by month across years
-    const monthlyData: { [key: string]: number[] } = {};
-    
-    trendsData.data.forEach(item => {
+  const seasonalityMatrix = useMemo(() => {
+    const source = monthlyTrendsData?.data ?? [];
+    if (source.length === 0) return [];
+
+    const monthlyData: Record<string, number[]> = {};
+
+    source.forEach((item) => {
       const date = new Date(item.period);
+      if (Number.isNaN(date.getTime())) return;
       const month = date.getMonth();
-      const year = date.getFullYear();
-      
+      const year = String(date.getFullYear());
       if (!monthlyData[year]) {
         monthlyData[year] = new Array(12).fill(0);
       }
-      monthlyData[year][month] = item.total_referrals;
+      monthlyData[year][month] += item.total_referrals;
     });
-    
+
     return Object.entries(monthlyData)
       .map(([year, data]) => ({ year, data }))
-      .sort((a, b) => parseInt(b.year) - parseInt(a.year))
+      .sort((a, b) => parseInt(b.year, 10) - parseInt(a.year, 10))
       .slice(0, 2);
-  };
+  }, [monthlyTrendsData]);
 
-  const seasonalityMatrix = calculateSeasonality();
-
-  // Calculate growth index from trends
-  const calculateGrowthIndex = () => {
-    if (!trendsData?.data || trendsData.data.length < 2) return [];
-    
-    const data = trendsData.data;
-    return data.slice(-12).map((item, idx) => {
-      const prevValue = idx > 0 ? data[data.length - 12 + idx - 1].total_referrals : item.total_referrals;
-      const growthRate = prevValue > 0 ? item.total_referrals / prevValue : 1;
-      
-      return {
-        month: item.period.substring(0, 3).toUpperCase(),
-        index: growthRate,
-      };
-    });
-  };
-
-  const growthIndexData = calculateGrowthIndex();
-  const avgGrowthIndex = growthIndexData.length > 0 
-    ? growthIndexData.reduce((sum, d) => sum + d.index, 0) / growthIndexData.length 
-    : 1;
-
-  // Calculate predictive forecast based on trend
-  const calculateForecast = () => {
-    if (!trendsData?.data || trendsData.data.length < 3) {
+  const calculateProjection = () => {
+    const data = trendsData?.data ?? [];
+    if (data.length < 3) {
       return { projected: totalReferrals, growthRate: 0, confidence: 0 };
     }
-    
-    const recentData = trendsData.data.slice(-3);
-    const avgRecent = recentData.reduce((sum, d) => sum + d.total_referrals, 0) / recentData.length;
+
+    const recentData = data.slice(-3);
+    const avgRecent =
+      recentData.reduce((sum, d) => sum + d.total_referrals, 0) / recentData.length;
     const trend = recentData[2].total_referrals - recentData[0].total_referrals;
-    const growthRate = recentData[0].total_referrals > 0 
-      ? ((recentData[2].total_referrals - recentData[0].total_referrals) / recentData[0].total_referrals) * 100 
-      : 0;
-    
-    const projected = Math.round(avgRecent + (trend / 2));
-    const confidence = Math.min(95, 70 + (recentData.length * 5));
-    
-    return { projected, growthRate: growthRate / 2, confidence };
+    const growthRate = safePercent(
+      recentData[2].total_referrals - recentData[0].total_referrals,
+      recentData[0].total_referrals,
+    );
+
+    return {
+      projected: Math.round(avgRecent + trend / 2),
+      growthRate: growthRate / 2,
+      confidence: Math.min(95, 70 + recentData.length * 5),
+    };
   };
 
-  const forecast = calculateForecast();
+  const projection = calculateProjection();
 
   return (
-    <div className="min-h-screen bg-slate-50/30 p-8 space-y-8 select-none">
-      
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div className={mohPageShell}>
+      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 lg:gap-6">
         <div>
           <div className="flex items-center gap-2 text-[10px] font-bold tracking-widest text-muted-foreground/60 uppercase mb-1">
             <span>Analytics</span>
             <ChevronRight className="h-3 w-3" />
             <span className="text-primary/80">Trends Analysis</span>
           </div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 uppercase">Health Indicator Longitudinal Study</h1>
-          <p className="text-sm text-slate-500 max-w-2xl mt-1">
-            Aggregate historical data across all national health nodes. Analyzing seasonality patterns, predictive referral volumes, and regional growth indices.
+          <h1 className={cn(mohHeading, "font-black uppercase")}>
+            Health Indicator Longitudinal Study
+          </h1>
+          <p className={cn(mohSubheading, "max-w-2xl mt-1")}>
+            National referral trends from aggregated API data (last 12 months).
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-3 px-4 py-2 bg-white rounded-xl border border-slate-200 shadow-sm">
-            <Calendar className="h-4 w-4 text-slate-400" />
-            <span className="text-xs font-black text-slate-700">Last 12 Months</span>
+        <div className="flex flex-col items-stretch sm:items-end gap-3 w-full lg:w-auto">
+          <div className="flex items-center gap-3 px-4 py-2 bg-card rounded-xl border border-border shadow-sm">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs font-black text-foreground">Last 12 Months</span>
           </div>
-          <Select value={granularity} onValueChange={(val) => setGranularity(val as any)}>
-            <SelectTrigger className="w-[120px] bg-white border-slate-200 rounded-xl h-10 text-xs font-bold">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="day">Daily</SelectItem>
-              <SelectItem value="week">Weekly</SelectItem>
-              <SelectItem value="month">Monthly</SelectItem>
-            </SelectContent>
-          </Select>
+          <MohAnalyticsFilters
+            regionOptions={regionOptions}
+            values={{
+              timeframe: "year",
+              region,
+              tierLevel: "all",
+              hospitalId: "all",
+              granularity,
+            }}
+            onTimeframeChange={() => {}}
+            onRegionChange={setRegion}
+            showTimeframe={false}
+            showGranularity
+            onGranularityChange={setGranularity}
+          />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Longitudinal Chart (8/12) */}
-        <div className="lg:col-span-8 flex flex-col gap-6">
-          <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm flex flex-col">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-6">
+        <div className="xl:col-span-8 flex flex-col gap-4 lg:gap-6 min-w-0">
+          <div className={cn(mohCard, mohCardPad, "flex flex-col min-w-0")}>
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h2 className="text-lg font-black text-slate-900">Total Referrals Longitudinal</h2>
-                <p className="text-xs text-slate-400">Aggregated nationwide patient transfer volume</p>
-              </div>
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <div className="h-2.5 w-2.5 rounded-full bg-blue-500" />
-                  <span className="text-[10px] font-black text-slate-600 uppercase">Actual</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-2.5 w-2.5 rounded-full bg-slate-200" />
-                  <span className="text-[10px] font-black text-slate-500 uppercase">Baseline</span>
-                </div>
+                <h2 className="text-lg font-black text-foreground">
+                  Total Referrals Longitudinal
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Nationwide volume with accepted, rejected, and emergency breakdown
+                </p>
               </div>
             </div>
 
-            {trendsLoading ? (
-              <div className="h-[320px] bg-slate-100 rounded-xl animate-pulse"></div>
-            ) : (
-              <div className="h-[320px] w-full relative mb-8 rounded-xl overflow-hidden group">
-               {/* Background Grid Pattern Overlay for that "Premium" 3D-ish feel */}
-              <div className="absolute inset-0 bg-slate-900/5 backdrop-blur-[1px] opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none" />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-100/50 to-transparent pointer-events-none" />
-              
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={longitudinalData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4}/>
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis hide />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 10, fill: "#94a3b8", fontWeight: 700 }} 
-                  />
-                  <Tooltip 
-                    content={({ active, payload }) => {
-                      if (active && payload?.length) {
-                        return (
-                          <div className="bg-slate-900 text-white p-3 rounded-lg shadow-xl text-xs">
-                            <p className="font-black mb-1 opacity-60">{payload[0].payload.name}</p>
-                            <p className="font-black text-blue-400">ACTUAL: {payload[0].value?.toLocaleString()}</p>
-                            <p className="font-black text-slate-400">BASELINE: {payload[1].value?.toLocaleString()}</p>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="actual" 
-                    stroke="#3b82f6" 
-                    strokeWidth={4} 
-                    fillOpacity={1} 
-                    fill="url(#colorActual)" 
-                    animationDuration={2000}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="baseline" 
-                    stroke="#e2e8f0" 
-                    strokeDasharray="5 5"
-                    strokeWidth={2} 
-                    fill="transparent" 
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-              
-              {/* Optional: Add a subtle overlay to match the 3D-effect in image */}
-              <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
-                <div className="h-64 w-[90%] border-2 border-slate-900 rotate-x-12 rounded-xl transform-gpu" />
+            <MohQueryState
+              isLoading={trendsLoading}
+              isError={trendsError}
+              isEmpty={!trendsLoading && !trendsError && longitudinalData.length === 0}
+              onRetry={() => refetchTrends()}
+              loadingClassName="h-[320px]"
+              className="h-[320px] mb-8"
+            >
+              <div className="h-[320px] w-full mb-8">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={longitudinalData}
+                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={mohChartGridStroke} />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fontSize: 9, fill: mohChartTickFill, fontWeight: 700 }}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fill: mohChartTickFill, fontWeight: 700 }}
+                    />
+                    <Tooltip />
+                    <Legend wrapperStyle={{ fontSize: 10 }} />
+                    <Area
+                      type="monotone"
+                      dataKey="total"
+                      name="Total"
+                      stroke="#3b82f6"
+                      strokeWidth={3}
+                      fill="url(#colorTotal)"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="accepted"
+                      name="Accepted"
+                      stroke="#22c55e"
+                      strokeWidth={2}
+                      fill="transparent"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="rejected"
+                      name="Rejected"
+                      stroke="#ef4444"
+                      strokeWidth={2}
+                      fill="transparent"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="emergency"
+                      name="Emergency"
+                      stroke="#f97316"
+                      strokeWidth={2}
+                      fill="transparent"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
-              </div>
-            )}
+            </MohQueryState>
 
-            {/* Metrics Row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <MetricCard 
-                label="Total Referrals" 
-                value={totalReferrals.toLocaleString()} 
+              <MetricCard
+                label="Total Referrals"
+                value={totalReferrals.toLocaleString()}
                 isLoading={summaryLoading}
               />
-              <MetricCard 
-                label="Peak Volume" 
-                value={peakVolume.toLocaleString()} 
+              <MetricCard
+                label="Peak Volume"
+                value={peakVolume.toLocaleString()}
                 isLoading={trendsLoading}
               />
-              <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/50 flex flex-col justify-between overflow-hidden">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Acceptance Rate</p>
+              <div className={cn(mohMetricTile, "overflow-hidden")}>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">
+                  Acceptance Rate
+                </p>
                 <div className="flex items-end justify-between gap-4">
-                    <div>
-                        <p className="text-xl font-black text-slate-900">
-                          {summaryData?.acceptance_rate_percentage?.toFixed(1) || 0}%
-                        </p>
-                    </div>
-                    <div className="flex-1 pb-1">
-                        <Progress value={summaryData?.acceptance_rate_percentage || 0} className="h-1.5 bg-slate-200" />
-                    </div>
+                  <p className="text-xl font-black text-foreground">
+                    {summaryData?.acceptance_rate_percentage?.toFixed(1) || 0}%
+                  </p>
+                  <Progress
+                    value={summaryData?.acceptance_rate_percentage || 0}
+                    className="h-1.5 flex-1"
+                  />
                 </div>
               </div>
-              <MetricCard 
-                label="Mean Wait" 
-                value={`${avgTurnaround.toFixed(1)} hrs`} 
+              <MetricCard
+                label="Mean Wait"
+                value={`${avgTurnaround.toFixed(1)} hrs`}
                 isLoading={summaryLoading}
               />
             </div>
           </div>
 
-          {/* Seasonality Matrix (Full width of left col) */}
-          <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm flex flex-col flex-1">
-            <div className="flex items-start justify-between mb-8">
-                <div>
-                    <h2 className="text-lg font-black text-slate-900">Infection Seasonality Matrix</h2>
-                    <p className="text-xs text-slate-400">Density analysis by disease type and monthly occurrence</p>
-                </div>
-                <Select defaultValue="malaria">
-                    <SelectTrigger className="w-[140px] bg-slate-50 border-slate-200 rounded-lg h-9 text-xs font-bold">
-                        <SelectValue placeholder="Select Disease" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="malaria">Malaria</SelectItem>
-                        <SelectItem value="cholera">Cholera</SelectItem>
-                        <SelectItem value="respiratory">Respiratory</SelectItem>
-                    </SelectContent>
+          <div className={cn(mohCard, mohCardPad, "flex flex-col flex-1 min-w-0")}>
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-4 gap-4">
+              <div>
+                <h2 className="text-lg font-black text-foreground">
+                  Referral Concentration by Department
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  From disease hotspots API (region × department)
+                </p>
+              </div>
+              {departmentOptions.length > 0 && (
+                <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                  <SelectTrigger className="w-full sm:w-[180px] bg-card border-border rounded-lg h-9 text-xs font-bold">
+                    <SelectValue placeholder="Department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All departments</SelectItem>
+                    {departmentOptions.map((dept) => (
+                      <SelectItem key={dept} value={dept}>
+                        {dept}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
+              )}
+            </div>
+            {granularity !== "month" && (
+              <p className="text-[10px] text-amber-800 dark:text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 mb-4">
+                Seasonality heatmap below uses monthly aggregates regardless of chart
+                granularity.
+              </p>
+            )}
+            <div className="mb-6 max-h-40 overflow-y-auto space-y-2">
+              {filteredHotspots.slice(0, 8).map((row, idx) => (
+                <div
+                  key={`${row.region}-${row.department_name}-${idx}`}
+                  className="flex justify-between text-xs border-b border-border pb-1 gap-2"
+                >
+                  <span className="font-medium text-foreground truncate">
+                    {row.region} · {row.department_name}
+                  </span>
+                  <span className="font-bold">{row.referral_count} referrals</span>
+                </div>
+              ))}
+              {filteredHotspots.length === 0 && (
+                <p className="text-xs text-muted-foreground">No hotspot rows for current filters.</p>
+              )}
             </div>
             <HeatmapGrid seasonalityMatrix={seasonalityMatrix} />
           </div>
         </div>
 
-        {/* Right Column (4/12) */}
-        <div className="lg:col-span-4 flex flex-col gap-6">
-          
-          {/* Predictive Forecast (Dark) */}
-          <div className="bg-slate-900 rounded-2xl p-8 text-white flex flex-col shadow-2xl shadow-slate-900/20 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-transform">
-                <BrainCircuit className="h-32 w-32" />
+        <div className="xl:col-span-4 flex flex-col gap-4 lg:gap-6 min-w-0">
+          <div className="bg-muted rounded-2xl p-6 sm:p-8 text-foreground flex flex-col shadow-lg relative overflow-hidden border border-border">
+            <div className="flex items-center justify-between mb-6 relative z-10">
+              <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                Period projection (estimated)
+              </h2>
+              <TrendingUp className="h-5 w-5 text-muted-foreground" />
             </div>
-            <div className="flex items-center justify-between mb-8 relative z-10">
-              <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400">Predictive Forecast</h2>
-              <div className="bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
-                <p className="text-[8px] font-black text-slate-500 uppercase tracking-tighter">AI Engine</p>
-                <p className="text-[10px] font-black tracking-tight">V4.2</p>
-              </div>
-            </div>
-
+            <p className="text-[10px] text-muted-foreground mb-4 relative z-10">
+              Simple estimate from the last three periods in referral-trends data—not a
+              separate ML service.
+            </p>
             <div className="space-y-6 relative z-10">
               <div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Projected Next Period</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">
+                  Projected next period
+                </p>
                 <div className="flex items-end gap-3">
-                    <span className="text-4xl font-black tracking-tighter">
-                      {forecast.projected.toLocaleString()}
-                    </span>
-                    <span className={cn(
+                  <span className="text-4xl font-black tracking-tighter">
+                    {projection.projected.toLocaleString()}
+                  </span>
+                  <span
+                    className={cn(
                       "text-sm font-bold pb-1.5",
-                      forecast.growthRate > 0 ? "text-blue-400" : "text-red-400"
-                    )}>
-                      {forecast.growthRate > 0 ? '+' : ''}{forecast.growthRate.toFixed(1)}%
-                    </span>
+                      projection.growthRate > 0 ? "text-blue-400" : "text-red-400",
+                    )}
+                  >
+                    {projection.growthRate > 0 ? "+" : ""}
+                    {projection.growthRate.toFixed(1)}%
+                  </span>
                 </div>
               </div>
-              
-              <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                {forecast.growthRate > 5 
-                  ? "Model suggests a significant increase based on recent trends." 
-                  : forecast.growthRate < -5 
-                  ? "Model indicates a declining trend in referral volume."
-                  : "Model suggests stable referral volume based on historical patterns."}
-              </p>
-
-              <div className="space-y-4 pt-4 border-t border-slate-800">
+              <div className="space-y-4 pt-4 border-t border-border">
                 <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">Confidence Interval</span>
-                    <span className="text-[10px] font-black">{forecast.confidence.toFixed(1)}%</span>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                    Estimate confidence
+                  </span>
+                  <span className="text-[10px] font-black">
+                    {projection.confidence.toFixed(1)}%
+                  </span>
                 </div>
-                <Progress value={forecast.confidence} className="h-1.5 bg-slate-800" />
-                <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">Anomaly Detection</span>
-                    <span className={cn(
-                      "text-[10px] font-black uppercase",
-                      Math.abs(forecast.growthRate) > 20 ? "text-red-400" : "text-green-400"
-                    )}>
-                      {Math.abs(forecast.growthRate) > 20 ? "Alert" : "Nominal"}
-                    </span>
-                </div>
+                <Progress value={projection.confidence} className="h-1.5" />
               </div>
             </div>
           </div>
 
-          {/* Strategic Alerts */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col">
+          <div className={cn(mohCard, "p-4 sm:p-6 flex flex-col")}>
             <div className="flex items-center gap-2 mb-6">
               <AlertTriangle className="h-4 w-4 text-blue-500" />
-              <h2 className="text-sm font-black text-slate-900 uppercase">Strategic Insights</h2>
+              <h2 className="text-sm font-black text-foreground uppercase">
+                Strategic Insights
+              </h2>
             </div>
-            <AlertsList summaryData={summaryData} />
-          </div>
-
-          {/* Regional Growth (Full width of right col) */}
-          <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm flex flex-col flex-1">
-            <div className="flex items-start justify-between mb-8">
-              <div>
-                <h2 className="text-sm font-black text-slate-900 uppercase">Regional Growth Index</h2>
-                <p className="text-[10px] text-slate-400 font-medium">Relative development vs national baseline (1.0)</p>
-              </div>
-              <div className="flex items-center bg-slate-50 p-1 rounded-lg border border-slate-100">
-                <button className="px-3 py-1 text-[9px] font-black bg-white rounded shadow-sm text-primary uppercase">North</button>
-                <button className="px-3 py-1 text-[9px] font-black text-slate-400 uppercase">Central</button>
-                <button className="px-3 py-1 text-[9px] font-black text-slate-400 uppercase">South</button>
-              </div>
-            </div>
-
-            <div className="h-[140px] w-full bg-slate-50 rounded-xl overflow-hidden mb-6 relative group">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent z-10" />
-                {growthIndexData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={growthIndexData}>
-                          <Area type="monotone" dataKey="index" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.1} />
-                      </AreaChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex items-center justify-center h-full text-xs text-slate-400">
-                    Insufficient data
-                  </div>
-                )}
-                <div className="absolute bottom-4 left-6 z-20">
-                    <p className="text-2xl font-black text-slate-900 tracking-tighter">
-                      {avgGrowthIndex.toFixed(2)}x{' '}
-                      <span className={cn(
-                        "text-[10px] font-black",
-                        avgGrowthIndex > 1 ? "text-green-500" : "text-red-500"
-                      )}>
-                        {avgGrowthIndex > 1 ? '+' : ''}{((avgGrowthIndex - 1) * 100).toFixed(0)}% Avg
-                      </span>
-                    </p>
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Growth Index</p>
-                </div>
-            </div>
-
-            <div className="space-y-6">
-                <div className="space-y-2">
-                    <div className="flex items-center justify-between group cursor-help">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight group-hover:text-primary transition-colors">Acceptance Rate</span>
-                        <span className="text-[10px] font-black">{((summaryData?.acceptance_rate_percentage || 0) / 100).toFixed(2)}</span>
-                    </div>
-                    <Progress value={summaryData?.acceptance_rate_percentage || 0} className="h-1.5 bg-slate-100" />
-                </div>
-                <div className="space-y-2">
-                    <div className="flex items-center justify-between group cursor-help">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight group-hover:text-primary transition-colors">Growth Momentum</span>
-                        <span className={cn(
-                          "text-[10px] font-black",
-                          avgGrowthIndex > 1 ? "text-blue-500" : "text-orange-500"
-                        )}>
-                          {avgGrowthIndex.toFixed(2)}
-                        </span>
-                    </div>
-                    <Progress value={Math.min(100, avgGrowthIndex * 100)} className="h-1.5 bg-blue-100" />
-                </div>
-            </div>
+            {summaryError ? (
+              <MohQueryState
+                isLoading={false}
+                isError
+                onRetry={() => refetchSummary()}
+              />
+            ) : (
+              <AlertsList summaryData={summaryData} />
+            )}
           </div>
 
         </div>
       </div>
 
-      {/* Bottom KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-6 group hover:translate-y-[-2px] transition-transform">
-           <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0 group-hover:bg-blue-500 group-hover:text-white transition-colors">
-             <Activity className="h-6 w-6 text-blue-500 group-hover:text-white" />
-           </div>
-           <div>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">ID: TREND-01</p>
-              <h3 className="text-xs font-black text-slate-900 uppercase mb-1">Total Accepted</h3>
-              <p className="text-2xl font-black text-slate-900">{summaryData?.total_accepted?.toLocaleString() || 0}</p>
-              <p className="text-[10px] text-slate-400 font-medium">Approved referrals in period</p>
-           </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+        <div className={cn(mohCard, "p-4 sm:p-6 flex items-center gap-4 sm:gap-6")}>
+          <div className="h-12 w-12 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
+            <Activity className="h-6 w-6 text-blue-500" />
+          </div>
+          <div>
+            <h3 className="text-xs font-black text-foreground uppercase mb-1">
+              Total Accepted
+            </h3>
+            <p className="text-2xl font-black text-foreground">
+              {summaryData?.total_accepted?.toLocaleString() || 0}
+            </p>
+          </div>
         </div>
-
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-6 group hover:translate-y-[-2px] transition-transform">
-           <div className="h-12 w-12 rounded-xl bg-green-50 flex items-center justify-center shrink-0 group-hover:bg-green-500 group-hover:text-white transition-colors">
-             <Zap className="h-6 w-6 text-green-500 group-hover:text-white" />
-           </div>
-           <div>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">ID: TREND-02</p>
-              <h3 className="text-xs font-black text-slate-900 uppercase mb-1">Admitted Patients</h3>
-              <p className="text-2xl font-black text-slate-900">{summaryData?.total_admitted?.toLocaleString() || 0}</p>
-              <p className="text-[10px] text-slate-400 font-medium">Successfully admitted cases</p>
-           </div>
+        <div className={cn(mohCard, "p-4 sm:p-6 flex items-center gap-4 sm:gap-6")}>
+          <div className="h-12 w-12 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0">
+            <Zap className="h-6 w-6 text-green-500" />
+          </div>
+          <div>
+            <h3 className="text-xs font-black text-foreground uppercase mb-1">
+              Admitted Patients
+            </h3>
+            <p className="text-2xl font-black text-foreground">
+              {summaryData?.total_admitted?.toLocaleString() || 0}
+            </p>
+          </div>
         </div>
-
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-6 group hover:translate-y-[-2px] transition-transform">
-           <div className="h-12 w-12 rounded-xl bg-orange-50 flex items-center justify-center shrink-0 group-hover:bg-orange-500 group-hover:text-white transition-colors">
-             <FlaskConical className="h-6 w-6 text-orange-500 group-hover:text-white" />
-           </div>
-           <div>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">ID: TREND-03</p>
-              <h3 className="text-xs font-black text-slate-900 uppercase mb-1">Avg Severity</h3>
-              <p className="text-2xl font-black text-slate-900">{summaryData?.average_ml_severity_score?.toFixed(1) || 0}</p>
-              <p className="text-[10px] text-slate-400 font-medium">ML-based severity score</p>
-           </div>
+        <div className={cn(mohCard, "p-4 sm:p-6 flex items-center gap-4 sm:gap-6")}>
+          <div className="h-12 w-12 rounded-xl bg-orange-500/10 flex items-center justify-center shrink-0">
+            <FlaskConical className="h-6 w-6 text-orange-500" />
+          </div>
+          <div>
+            <h3 className="text-xs font-black text-foreground uppercase mb-1">
+              Avg Severity
+            </h3>
+            <p className="text-2xl font-black text-foreground">
+              {summaryData?.average_ml_severity_score?.toFixed(1) || 0}
+            </p>
+          </div>
         </div>
       </div>
-
     </div>
   );
 }

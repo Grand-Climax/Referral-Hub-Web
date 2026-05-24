@@ -1,7 +1,11 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
 import { baseQueryWithReauth } from '@/lib/baseQuery';
 import { USER_ROUTES } from '@/config/api';
-import type { UserProfile } from '@/types/user';
+import type {
+  UserProfile,
+  UpdateMePayload,
+  UpdatePasswordPayload,
+} from '@/types/user';
 
 function unwrapUserProfile(raw: unknown): UserProfile {
   if (raw && typeof raw === 'object' && 'data' in raw && (raw as { data: unknown }).data) {
@@ -72,6 +76,22 @@ export const usersApi = createApi({
       }),
       invalidatesTags: [{ type: 'CurrentUser', id: 'ME' }],
     }),
+    updateMe: builder.mutation<UserProfile, UpdateMePayload>({
+      query: (body) => ({
+        url: USER_ROUTES.UPDATE_ME,
+        method: 'PUT',
+        body,
+      }),
+      transformResponse: (raw: unknown) => unwrapUserProfile(raw),
+      invalidatesTags: [{ type: 'CurrentUser', id: 'ME' }],
+    }),
+    updatePassword: builder.mutation<{ message?: string }, UpdatePasswordPayload>({
+      query: (body) => ({
+        url: USER_ROUTES.UPDATE_PASSWORD,
+        method: 'PUT',
+        body,
+      }),
+    }),
   }),
 });
 
@@ -81,4 +101,6 @@ export const {
   useGetUserByIdQuery,
   useUpdateProfileImageMutation,
   useDeleteProfileImageMutation,
+  useUpdateMeMutation,
+  useUpdatePasswordMutation,
 } = usersApi;

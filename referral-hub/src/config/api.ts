@@ -6,12 +6,17 @@ export const AUTH_ROUTES = {
   LOGOUT: "/api/v1/auth/logout",
   REFRESH: "/api/v1/auth/refresh",
   ME: "/api/v1/users/me",
+  FORGOT_PASSWORD: "/api/v1/auth/forgot-password",
+  FORGOT_PASSWORD_VERIFY: "/api/v1/auth/forgot-password/verify",
+  RESET_PASSWORD: "/api/v1/auth/reset-password",
 } as const;
 
 /** Hospital-scoped user directory & profile (Bearer). */
 export const USER_ROUTES = {
   LIST: "/api/v1/users",
   ME: "/api/v1/users/me",
+  UPDATE_ME: "/api/v1/users/me",
+  UPDATE_PASSWORD: "/api/v1/users/me/password",
   BY_ID: (id: string) => `/api/v1/users/${id}`,
   PROFILE_IMAGE: "/api/v1/users/profile/image",
 } as const;

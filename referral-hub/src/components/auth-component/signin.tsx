@@ -16,6 +16,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Eye, EyeOff, Lock, Mail, Activity, Loader2 } from "lucide-react";
+import Link from "next/link";
 import { useLoginMutation } from "@/features/auth/authApi";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/apiError";
@@ -201,6 +202,15 @@ const Login = () => {
                     "Sign in"
                   )}
                 </Button>
+
+                <p className="text-center text-xs text-muted-foreground">
+                  <Link
+                    href="/forgot-password"
+                    className="font-semibold text-primary hover:underline"
+                  >
+                    Forgot your password?
+                  </Link>
+                </p>
               </form>
             </Form>
 

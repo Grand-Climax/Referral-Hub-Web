@@ -144,6 +144,40 @@ export const authApi = createApi({
                 method: 'GET',
             }),
         }),
+        forgotPassword: builder.mutation<{ message?: string }, { email: string }>({
+            query: (body) => ({
+                url: AUTH_ROUTES.FORGOT_PASSWORD,
+                method: 'POST',
+                body,
+            }),
+        }),
+        verifyForgotPassword: builder.mutation<
+            { message?: string; reset_token?: string },
+            { email: string; code: string }
+        >({
+            query: (body) => ({
+                url: AUTH_ROUTES.FORGOT_PASSWORD_VERIFY,
+                method: 'POST',
+                body,
+            }),
+            transformResponse: (raw: unknown) => {
+                if (raw && typeof raw === 'object' && 'data' in raw) {
+                    const data = (raw as { data?: { message?: string; reset_token?: string } }).data
+                    if (data) return data
+                }
+                return raw as { message?: string; reset_token?: string }
+            },
+        }),
+        resetPassword: builder.mutation<
+            { message?: string },
+            { email: string; code?: string; reset_token?: string; new_password: string }
+        >({
+            query: (body) => ({
+                url: AUTH_ROUTES.RESET_PASSWORD,
+                method: 'POST',
+                body,
+            }),
+        }),
     }),
 })
 
@@ -153,4 +187,7 @@ export const {
     useRefreshTokenMutation,
     useGetCurrentUserQuery,
     useGetUserByIdQuery,
+    useForgotPasswordMutation,
+    useVerifyForgotPasswordMutation,
+    useResetPasswordMutation,
 } = authApi

@@ -18,6 +18,8 @@ import type {
   StaffSummary,
   ScheduledPatient,
   ActivityEntry,
+  DailyCapacityBaseline,
+  UpdateDailyCapacityBaselineRequest,
 } from "@/types/department-head";
 
 function unwrapArray<T>(response: unknown): T[] {
@@ -46,6 +48,7 @@ export const departmentHeadApi = createApi({
     "TriageQueue",
     "Staff",
     "Activity",
+    "DailyCapacityBaseline",
   ],
   endpoints: (builder) => ({
     // ─── Dashboard ────────────────────────────────────────────────────────────
@@ -241,6 +244,51 @@ export const departmentHeadApi = createApi({
       invalidatesTags: ["Staff", "DashboardStats"],
     }),
 
+    // ─── Daily Capacity Baseline ──────────────────────────────────────────────
+
+    getDailyCapacity: builder.query<DailyCapacityBaseline, void>({
+      query: () => DEPARTMENT_HEAD_ROUTES.DAILY_CAPACITY,
+      transformResponse: (raw: unknown) =>
+        unwrapData<DailyCapacityBaseline>(raw, {} as DailyCapacityBaseline),
+      providesTags: [{ type: "DailyCapacityBaseline", id: "BASELINE" }],
+    }),
+
+    updateDailyCapacity: builder.mutation<
+      DailyCapacityBaseline,
+      UpdateDailyCapacityBaselineRequest
+    >({
+      query: (body) => ({
+        url: DEPARTMENT_HEAD_ROUTES.DAILY_CAPACITY,
+        method: "PUT",
+        body,
+      }),
+      transformResponse: (raw: unknown) =>
+        unwrapData<DailyCapacityBaseline>(raw, {} as DailyCapacityBaseline),
+      // Optimistic update for instant feedback; rolls back on error.
+      async onQueryStarted(body, { dispatch, queryFulfilled }) {
+        const patch = dispatch(
+          departmentHeadApi.util.updateQueryData(
+            "getDailyCapacity",
+            undefined,
+            (draft) => {
+              draft.standard_daily_limit = body.standard_daily_limit;
+              draft.overbook_limit = body.overbook_limit;
+            },
+          ),
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patch.undo();
+        }
+      },
+      invalidatesTags: [
+        { type: "DailyCapacityBaseline", id: "BASELINE" },
+        "Schedule",
+        "DashboardStats",
+      ],
+    }),
+
     // ─── Activity ─────────────────────────────────────────────────────────────
 
     getActivity: builder.query<
@@ -282,4 +330,6 @@ export const {
   useGetStaffSummaryQuery,
   useUpdateStaffCapacityMutation,
   useGetActivityQuery,
+  useGetDailyCapacityQuery,
+  useUpdateDailyCapacityMutation,
 } = departmentHeadApi;

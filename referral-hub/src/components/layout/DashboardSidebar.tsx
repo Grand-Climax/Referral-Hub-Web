@@ -38,6 +38,8 @@ import {
   IdCard,
   ChevronRight,
   Activity,
+  Sliders,
+  UserCog,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
@@ -172,19 +174,39 @@ const NAV_BY_ROLE = {
   dept_head: [
     { title: "Dashboard", url: "/department-head", icon: LayoutDashboard },
     {
-      title: "Triage Queue",
-      url: "/department-head/triage-queue",
-      icon: Users,
+      title: "Activity",
+      url: "/department-head/activity",
+      icon: History,
     },
     {
-      title: "Capacity Calendar",
-      url: "/department-head/capacity",
+      title: "Triage Queue",
+      url: "/department-head/triage-queue",
+      icon: ClipboardList,
+    },
+    {
+      title: "Schedule",
+      url: "/department-head/schedule",
       icon: CalendarCheck,
+      items: [
+        { title: "Daily Schedule", url: "/department-head/schedule" },
+        { title: "Run Batch Schedule", url: "/department-head/schedule/batch" },
+        { title: "Patients of the Day", url: "/department-head/schedule/patients" },
+      ],
+    },
+    {
+      title: "Capacity",
+      url: "/department-head/capacity",
+      icon: Sliders,
+      items: [
+        { title: "Calendar", url: "/department-head/capacity" },
+        { title: "Overrides", url: "/department-head/capacity/overrides" },
+        { title: "Settings", url: "/department-head/capacity/settings" },
+      ],
     },
     {
       title: "Staff Management",
       url: "/department-head/staff",
-      icon: Users,
+      icon: UserCog,
     },
     {
       title: "Notifications",
@@ -367,32 +389,45 @@ export function DashboardSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
-              {menuItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = item.items
-                  ? item.items.some((subItem) => pathname === subItem.url)
-                  : pathname === item.url;
-                const isMainRouteActive = pathname === item.url;
-                const isSubRouteActive = Boolean(
-                  item.items?.some((subItem) => pathname === subItem.url),
-                );
+              {(() => {
+                // Pre-compute longest matching URL across all (sub-)items so
+                // only the most specific route lights up. Parents stay open
+                // when any of their children match.
+                const allUrls: string[] = [];
+                for (const item of menuItems) {
+                  allUrls.push(item.url);
+                  if (item.items) for (const s of item.items) allUrls.push(s.url);
+                }
+                const bestMatch = allUrls
+                  .filter((u) => pathname === u || pathname.startsWith(u + "/"))
+                  .sort((a, b) => b.length - a.length)[0];
+
+                return menuItems.map((item) => {
+                  const Icon = item.icon;
+                  const isItselfBest = item.url === bestMatch;
+                  const hasChildMatch = Boolean(
+                    item.items?.some(
+                      (s) => pathname === s.url || pathname.startsWith(s.url + "/"),
+                    ),
+                  );
+                  const isExpanded = isItselfBest || hasChildMatch;
 
                 if (item.items && item.items.length > 0) {
                   return (
                     <Collapsible
                       key={item.title}
                       asChild
-                      defaultOpen={isActive}
+                      defaultOpen={isExpanded}
                       className="group/collapsible"
                     >
                       <SidebarMenuItem>
                         <CollapsibleTrigger asChild>
                           <SidebarMenuButton
                             tooltip={item.title}
-                            isActive={isMainRouteActive}
+                            isActive={isItselfBest}
                             onClick={() => router.push(item.url)}
                             className={`group-data-[collapsible=icon]:justify-center ${
-                              isMainRouteActive
+                              isItselfBest || hasChildMatch
                                 ? "bg-primary/10 text-primary font-semibold border-l-primary border-l-[3px] rounded-l-md"
                                 : "text-sidebar-foreground"
                             }`}
@@ -407,7 +442,7 @@ export function DashboardSidebar() {
                         <CollapsibleContent>
                           <SidebarMenuSub>
                             {item.items.map((subItem) => {
-                              const isSubItemActive = pathname === subItem.url;
+                              const isSubItemActive = subItem.url === bestMatch;
 
                               return (
                                 <SidebarMenuSubItem key={subItem.title}>
@@ -441,10 +476,10 @@ export function DashboardSidebar() {
                     <SidebarMenuButton
                       asChild
                       tooltip={item.title}
-                      isActive={isActive}
+                      isActive={isItselfBest}
                       className={`group-data-[collapsible=icon]:justify-center
                         ${
-                          isActive
+                          isItselfBest
                             ? "bg-primary/10 text-primary font-semibold border-l-primary border-l-[3px] rounded-l-md"
                             : "text-sidebar-foreground"
                         }
@@ -459,7 +494,8 @@ export function DashboardSidebar() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
-              })}
+                });
+              })()}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

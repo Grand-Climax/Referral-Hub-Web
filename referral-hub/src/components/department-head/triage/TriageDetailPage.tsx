@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 import {
   ArrowLeft,
   Calendar,
@@ -19,6 +19,22 @@ import type { TriagePatient } from '@/types/department-head';
 
 interface Props {
   referralId: string;
+}
+
+/**
+ * Safely format an ISO-ish date string. Returns `fallback` when the input is
+ * missing, empty, or unparseable so that the page doesn't crash on bad data
+ * coming back from the API.
+ */
+function safeFormat(
+  value: string | number | Date | null | undefined,
+  pattern: string,
+  fallback: string | undefined = undefined,
+): string | undefined {
+  if (value === null || value === undefined || value === '') return fallback;
+  const date =
+    typeof value === 'string' ? parseISO(value) : new Date(value);
+  return isValid(date) ? format(date, pattern) : fallback;
 }
 
 const URGENCY_COLORS: Record<string, string> = {
@@ -197,18 +213,17 @@ export default function TriageDetailPage({ referralId }: Props) {
                   />
                   <InfoRow
                     label="Appointment Date"
-                    value={
-                      patient.appointment_date
-                        ? format(
-                            new Date(patient.appointment_date),
-                            'EEEE, MMMM d, yyyy'
-                          )
-                        : undefined
-                    }
+                    value={safeFormat(
+                      patient.appointment_date,
+                      'EEEE, MMMM d, yyyy',
+                    )}
                   />
                   <InfoRow
                     label="Referral Created"
-                    value={format(new Date(patient.created_at), 'MMM d, yyyy HH:mm')}
+                    value={safeFormat(
+                      patient.created_at,
+                      'MMM d, yyyy HH:mm',
+                    )}
                   />
                 </div>
                 <div>
@@ -218,11 +233,10 @@ export default function TriageDetailPage({ referralId }: Props) {
                   />
                   <InfoRow
                     label="Estimated Arrival"
-                    value={
-                      patient.estimated_arrival
-                        ? format(new Date(patient.estimated_arrival), 'MMM d, HH:mm')
-                        : undefined
-                    }
+                    value={safeFormat(
+                      patient.estimated_arrival,
+                      'MMM d, HH:mm',
+                    )}
                   />
                 </div>
               </div>

@@ -21,6 +21,8 @@ import { adminConfigApi } from "@/features/adminConfig/adminConfigApi";
 import { notificationsApi } from "@/features/notifications/notificationsApi";
 import { chatApi } from "@/features/chat/chatApi";
 import { mohAnalyticsApi } from "@/features/analytics/mohAnalyticsApi";
+import { clinicalApi } from "@/features/clinical/clinicalApi";
+import { doctorReferralApi } from "@/features/doctor/doctorReferralApi";
 
 const apiSlices = [
   authApi,
@@ -44,6 +46,8 @@ const apiSlices = [
   notificationsApi,
   chatApi,
   mohAnalyticsApi,
+  clinicalApi,
+  doctorReferralApi,
 ] as const;
 
 /** Clears data API caches but keeps authApi state (safe during login). */

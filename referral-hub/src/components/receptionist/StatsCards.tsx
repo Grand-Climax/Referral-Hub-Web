@@ -3,7 +3,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { useGetScheduleQuery } from "@/features/receptionist/receptionistApi";
-
 export function StatsCards() {
   const { data: schedule = [], isLoading } = useGetScheduleQuery();
 
@@ -22,7 +21,10 @@ export function StatsCards() {
   }
 
   const expectedToday = schedule.length;
-  const admitted = schedule.filter((item) => item.arrival_status === "ARRIVED").length;
+  const checkedIn = schedule.filter(
+    (item) =>
+      item.arrival_status === "ARRIVED" || item.arrival_status === "ADMITTED",
+  ).length;
   const missed = schedule.filter((item) => item.arrival_status === "MISSED").length;
   
   return (
@@ -58,7 +60,7 @@ export function StatsCards() {
                 Admitted
               </p>
               <div className="flex items-baseline gap-2">
-                <h2 className="text-3xl sm:text-4xl font-bold text-green-600">{admitted.toString().padStart(2, '0')}</h2>
+                <h2 className="text-3xl sm:text-4xl font-bold text-green-600">{checkedIn.toString().padStart(2, '0')}</h2>
                 <span className="text-sm font-medium text-slate-500">Checked In</span>
               </div>
             </div>

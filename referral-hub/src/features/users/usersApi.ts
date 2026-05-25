@@ -32,8 +32,14 @@ export const usersApi = createApi({
   baseQuery: baseQueryWithReauth,
   tagTypes: ['User', 'UserList', 'CurrentUser'],
   endpoints: (builder) => ({
-    getUsers: builder.query<UserProfile[], void>({
-      query: () => USER_ROUTES.LIST,
+    getUsers: builder.query<UserProfile[], { role?: string; hospital_id?: string } | void>({
+      query: (params) => {
+        const sp = new URLSearchParams();
+        if (params?.role) sp.set('role', params.role);
+        if (params?.hospital_id) sp.set('hospital_id', params.hospital_id);
+        const qs = sp.toString();
+        return `${USER_ROUTES.LIST}${qs ? `?${qs}` : ''}`;
+      },
       transformResponse: (raw: unknown) => unwrapUsersList(raw),
       providesTags: (result) =>
         result

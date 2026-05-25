@@ -15,6 +15,12 @@ export interface ReceptionistDoctorInfo {
   id: string;
   first_name: string;
   last_name: string;
+  department_id?: string;
+}
+
+export interface ReceptionistDoctorsQueryParams {
+  /** Target department for the referral — limits assignable treating doctors. */
+  department_id?: string;
 }
 
 export interface ReceptionistReferral {
@@ -35,6 +41,7 @@ export interface ReceptionistReferral {
   arrival_time?: string;
   source_facility?: string;
   referring_hospital_name?: string;
+  department_id?: string;
   department_name?: string;
   assigned_doctor_id?: string;
   assigned_doctor_name?: string;
@@ -65,12 +72,14 @@ export interface ReceptionistReferralDetail extends ReceptionistReferral {
 export interface ReceptionistScheduleItem {
   id: string;
   referral_id: string;
+  status?: string;
   patient_first_name: string;
   patient_last_name: string;
   patient_middle_name?: string;
   scheduled_date?: string;
   scheduled_time?: string;
   appointment_date?: string;
+  department_id?: string;
   department_name?: string;
   urgency: string;
   arrival_status: ReceptionistArrivalStatus;
@@ -106,12 +115,22 @@ export interface ReceptionistPaginatedResponse<T> {
   success?: boolean;
 }
 
+/** Maps UI arrival filter values to backend query tokens. */
+export function receptionistArrivalFilterForApi(
+  status: ReceptionistArrivalStatus,
+): string {
+  if (status === 'PENDING') return 'EXPECTED';
+  return status;
+}
+
 export interface ReceptionistQueryParams {
   page?: number;
   limit?: number;
   page_size?: number;
   status?: string;
+  referral_status?: string;
   arrival_status?: ReceptionistArrivalStatus;
+  has_doctor_assigned?: boolean;
   urgency?: string;
   department_id?: string;
   region?: string;

@@ -17,9 +17,11 @@ export default function DashboardLayout({
     <>
       <SidebarProvider>
         <DashboardSidebar />
-        <SidebarInset className="w-[calc(100%-var(--sidebar-width))]">
+        <SidebarInset className="flex min-h-svh min-w-0 flex-1 flex-col">
           <Header />
-          <div className="p-6">{children}</div>
+          <div className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-6">
+            {children}
+          </div>
         </SidebarInset>
       </SidebarProvider>
     </>

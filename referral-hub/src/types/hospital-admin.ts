@@ -277,7 +277,13 @@ export interface DepartmentCatalogEntry {
   success?: boolean;
 }
 
-/** Hospital-scoped department link (GET /hospital-admin/departments). */
+/**
+ * Hospital-scoped department link (GET /hospital-admin/departments).
+ *
+ * The backend returns the assigned head as a nested
+ * `department_head: { id, full_name }` object; the field is omitted
+ * entirely when no head is assigned.
+ */
 export interface HospitalAdminDepartment {
   /** Hospital–department link id (use for activation/head routes). */
   id: string;
@@ -285,15 +291,14 @@ export interface HospitalAdminDepartment {
   /** Global department catalog id. */
   department_id: string;
   department?: DepartmentCatalogEntry;
-  name: string;
-  description?: string;
+  /** Currently-assigned head; omitted entirely when unassigned. */
+  department_head?: {
+    id: string;
+    full_name: string;
+  };
   standard_daily_limit?: number;
   is_active?: boolean;
-  head_user_id?: string | null;
-  head_name?: string | null;
-  head_email?: string | null;
   created_at?: string;
-  updated_at?: string;
 }
 
 export interface HospitalAdminDepartmentsResponse {

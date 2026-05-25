@@ -156,7 +156,7 @@ export interface CreateReferralRequest {
   accompanying_person_name?: string;
   accompanying_person_phone?: string;
   clinical_summary: string;
-  condition_at_referral: "STABLE" | "UNSTABLE" | "CRITICAL" | "IMPROVING";
+  condition_at_referral: "STABLE" | "CRITICAL" | "EMERGENCY";
   diagnoses: Array<{
     diagnosis_certainty: "SUSPECTED" | "CONFIRMED";
     icd_code: string;

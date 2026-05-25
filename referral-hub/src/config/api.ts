@@ -65,6 +65,11 @@ export const REFERENCE_ROUTES = {
     `/api/v1/reference/hospitals/${hospitalId}/departments`,
   LIAISONS: "/api/v1/reference/liaisons",
   ICD10_CODES: "/api/v1/reference/icd-codes",
+  /**
+   * List of ICD-10 chapter / block categories. Used to populate the
+   * filter dropdown next to the ICD search input on the referral form.
+   */
+  ICD10_CATEGORIES: "/api/v1/reference/icd-categories",
   REGIONS: "/api/v1/reference/regions",
 } as const;
 

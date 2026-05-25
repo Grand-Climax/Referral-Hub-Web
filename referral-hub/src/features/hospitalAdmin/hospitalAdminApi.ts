@@ -141,51 +141,35 @@ function unwrapDataArray<T>(raw: unknown): T[] {
 type HospitalAdminDepartmentRaw = {
   id: string;
   hospital_id?: string;
-  department_id?: string;
+  department_id: string;
   department?: {
-    id?: string;
-    name?: string;
+    id: string;
+    name: string;
     description?: string;
     created_at?: string;
     updated_at?: string;
+    success?: boolean;
   };
-  name?: string;
-  description?: string;
+  department_head?: {
+    id: string;
+    full_name: string;
+  };
   standard_daily_limit?: number;
-  daily_limit?: number;
   is_active?: boolean;
-  head_user_id?: string | null;
-  head_name?: string | null;
-  head_email?: string | null;
   created_at?: string;
-  updated_at?: string;
+  success?: boolean;
 };
 
 function normalizeHospitalDepartment(raw: HospitalAdminDepartmentRaw): HospitalAdminDepartment {
-  const nested = raw.department;
-  const departmentId = raw.department_id ?? nested?.id ?? '';
   return {
     id: raw.id,
     hospital_id: raw.hospital_id,
-    department_id: departmentId,
-    department: nested
-      ? {
-          id: nested.id ?? departmentId,
-          name: nested.name ?? '',
-          description: nested.description,
-          created_at: nested.created_at,
-          updated_at: nested.updated_at,
-        }
-      : undefined,
-    name: nested?.name ?? raw.name ?? 'Unknown department',
-    description: nested?.description ?? raw.description,
-    standard_daily_limit: raw.standard_daily_limit ?? raw.daily_limit,
+    department_id: raw.department_id,
+    department: raw.department,
+    department_head: raw.department_head,
+    standard_daily_limit: raw.standard_daily_limit,
     is_active: raw.is_active,
-    head_user_id: raw.head_user_id,
-    head_name: raw.head_name,
-    head_email: raw.head_email,
-    created_at: raw.created_at ?? nested?.created_at,
-    updated_at: raw.updated_at ?? nested?.updated_at,
+    created_at: raw.created_at,
   };
 }
 

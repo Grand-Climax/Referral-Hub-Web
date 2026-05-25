@@ -17,7 +17,6 @@ import {
   useMarkMissedMutation,
   useRevokeDoctorMutation,
   useReturnToTriageMutation,
-  useReturnToTriageMutation,
 } from "@/features/receptionist/receptionistApi";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -26,8 +25,12 @@ import { filterOperationalReferrals } from "@/lib/receptionistOperational";
 import { AssignDoctorModal } from "./AssignDoctorModal";
 import { ReferralDetailsModal } from "./ReferralDetailsModal";
 import { MarkMissedDialog } from "./MarkMissedDialog";
-import { MarkMissedDialog } from "./MarkMissedDialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { ReceptionistMissReason } from "@/types/receptionist";
 
 export function AppointmentTable() {
@@ -38,21 +41,11 @@ export function AppointmentTable() {
   const [missTarget, setMissTarget] = useState<{ id: string; name: string } | null>(
     null,
   );
-  const [missDialogOpen, setMissDialogOpen] = useState(false);
-  const [missTarget, setMissTarget] = useState<{ id: string; name: string } | null>(
-    null,
-  );
 
-  const { departmentId: myDepartmentId } = useReceptionistDepartmentScope();
   const { data: schedule, isLoading, error } = useGetScheduleQuery();
   const [markArrival, { isLoading: isMarking }] = useMarkPatientArrivalMutation();
   const [markMissed, { isLoading: isMarkingMissed }] = useMarkMissedMutation();
-  const [markMissed, { isLoading: isMarkingMissed }] = useMarkMissedMutation();
   const [revokeDoctor, { isLoading: isRevokingDoctor }] = useRevokeDoctorMutation();
-  const [returnToTriage, { isLoading: isReturning }] = useReturnToTriageMutation();
-
-  const referralIdFor = (appt: { id: string; referral_id?: string }) =>
-    appt.referral_id || appt.id;
   const [returnToTriage, { isLoading: isReturning }] = useReturnToTriageMutation();
 
   const referralIdFor = (appt: { id: string; referral_id?: string }) =>
@@ -72,43 +65,14 @@ export function AppointmentTable() {
         return;
       }
       toast.error(message);
-    } catch (err: unknown) {
-      const message = getReceptionistErrorMessage(
-        err,
-        "Failed to mark patient arrival",
-      );
-      if (/already arrived/i.test(message)) {
-        toast.info(message);
-        return;
-      }
-      toast.error(message);
     }
   };
 
   const handleMarkMissed = async (reason: ReceptionistMissReason) => {
     if (!missTarget) return;
-  const handleMarkMissed = async (reason: ReceptionistMissReason) => {
-    if (!missTarget) return;
     try {
-      await markMissed({ id: missTarget.id, miss_reason: reason }).unwrap();
       await markMissed({ id: missTarget.id, miss_reason: reason }).unwrap();
       toast.success("Patient marked as missed");
-      setMissTarget(null);
-    } catch (err: unknown) {
-      toast.error(
-        getReceptionistErrorMessage(err, "Failed to mark patient as missed"),
-      );
-    }
-  };
-
-  const handleReturnToTriage = async (id: string) => {
-    try {
-      await returnToTriage(id).unwrap();
-      toast.success("Patient returned to triage queue");
-    } catch (err: unknown) {
-      toast.error(
-        getReceptionistErrorMessage(err, "Failed to return patient to triage"),
-      );
       setMissTarget(null);
     } catch (err: unknown) {
       toast.error(
@@ -139,9 +103,6 @@ export function AppointmentTable() {
       toast.error(
         getReceptionistErrorMessage(err, "Failed to revoke doctor assignment"),
       );
-      toast.error(
-        getReceptionistErrorMessage(err, "Failed to revoke doctor assignment"),
-      );
     }
   };
 
@@ -164,228 +125,252 @@ export function AppointmentTable() {
   const appointments = filterOperationalReferrals(
     Array.isArray(schedule) ? schedule : [],
   );
-  const appointments = filterOperationalReferrals(
-    Array.isArray(schedule) ? schedule : [],
-  );
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
       <div className="p-4 sm:p-8 border-b border-slate-50">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight mb-1">Scheduled Patients</h2>
-          <p className="text-sm text-slate-500 font-medium font-inter">Operational schedule for the next 48 hours</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight mb-1">
+            Scheduled Patients
+          </h2>
+          <p className="text-sm text-slate-500 font-medium font-inter">
+            Operational schedule for the next 48 hours
+          </p>
         </div>
       </div>
 
       <div className="overflow-x-auto">
-      <Table className="min-w-[820px]">
-        <TableHeader className="bg-slate-50/50">
-          <TableRow className="border-none">
-            <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6 px-4 sm:px-8">Patient Details</TableHead>
-            <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6">Appointment</TableHead>
-            <TableHead className="hidden md:table-cell text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6">Department</TableHead>
-            <TableHead className="hidden sm:table-cell text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6 text-center">Urgency</TableHead>
-            <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6">Status</TableHead>
-            <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6 text-right px-4 sm:px-8">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {isLoading ? (
-            <TableRow>
-              <TableCell colSpan={6} className="py-12 text-center">
-                <div className="flex flex-col items-center justify-center text-slate-400">
-                  <Loader2 className="h-6 w-6 animate-spin mb-2" />
-                  <p className="text-sm">Loading schedule...</p>
-                </div>
-              </TableCell>
+        <Table className="min-w-[820px]">
+          <TableHeader className="bg-slate-50/50">
+            <TableRow className="border-none">
+              <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6 px-4 sm:px-8">
+                Patient Details
+              </TableHead>
+              <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6">
+                Appointment
+              </TableHead>
+              <TableHead className="hidden md:table-cell text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6">
+                Department
+              </TableHead>
+              <TableHead className="hidden sm:table-cell text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6 text-center">
+                Urgency
+              </TableHead>
+              <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6">
+                Status
+              </TableHead>
+              <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-6 text-right px-4 sm:px-8">
+                Actions
+              </TableHead>
             </TableRow>
-          ) : error ? (
-            <TableRow>
-              <TableCell colSpan={6} className="py-12 text-center text-red-500">
-                Failed to load scheduled patients.
-              </TableCell>
-            </TableRow>
-          ) : appointments.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={6} className="py-12 text-center text-slate-400">
-                No scheduled patients found for the next 48 hours.
-              </TableCell>
-            </TableRow>
-          ) : (
-            appointments.map((appt) => {
-              const inScope = canReceptionistActOnReferral(
-                myDepartmentId,
-                appt.department_id,
-              );
-              const initials = `${appt.patient_first_name?.[0] || ""}${appt.patient_last_name?.[0] || ""}`;
-              const fullName = `${appt.patient_last_name || ""}, ${appt.patient_first_name || ""}`.toUpperCase();
-              
-              let urgencyColor = "bg-blue-50 text-blue-500";
-              if (appt.urgency === "HIGH" || appt.urgency === "EMERGENCY") urgencyColor = "bg-red-50 text-red-500";
-              if (appt.urgency === "URGENT") urgencyColor = "bg-orange-50 text-orange-500";
-              
-              let statusColor = "bg-blue-500";
-              let statusText = "Pending";
-              if (appt.arrival_status === "ARRIVED") {
-                statusColor = "bg-green-500";
-                statusText = "Arrived";
-              } else if (appt.arrival_status === "ADMITTED") {
-                statusColor = "bg-emerald-600";
-                statusText = "Admitted";
-              } else if (appt.arrival_status === "MISSED") {
-                statusColor = "bg-red-500";
-                statusText = "Missed";
-              }
-              
-              return (
-                <TableRow key={appt.id} className="border-slate-50 hover:bg-slate-50/50 transition-colors group">
-                  <TableCell className="py-4 sm:py-6 px-4 sm:px-8">
-                    <div className="flex items-center gap-4">
-                      <Avatar className="h-10 w-10 rounded-lg bg-slate-100">
-                        <AvatarFallback className="text-[10px] font-bold text-slate-500 bg-slate-100 rounded-lg">{initials}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-bold text-slate-900 text-sm">{fullName}</p>
-                        <p className="text-[10px] font-medium text-slate-400">{appt.referral_id}</p>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-12 text-center">
+                  <div className="flex flex-col items-center justify-center text-slate-400">
+                    <Loader2 className="h-6 w-6 animate-spin mb-2" />
+                    <p className="text-sm">Loading schedule...</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : error ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-12 text-center text-red-500">
+                  Failed to load scheduled patients.
+                </TableCell>
+              </TableRow>
+            ) : appointments.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-12 text-center text-slate-400">
+                  No scheduled patients found for the next 48 hours.
+                </TableCell>
+              </TableRow>
+            ) : (
+              appointments.map((appt) => {
+                const initials = `${appt.patient_first_name?.[0] || ""}${appt.patient_last_name?.[0] || ""}`;
+                const fullName =
+                  `${appt.patient_last_name || ""}, ${appt.patient_first_name || ""}`.toUpperCase();
+
+                let urgencyColor = "bg-blue-50 text-blue-500";
+                if (appt.urgency === "HIGH" || appt.urgency === "EMERGENCY")
+                  urgencyColor = "bg-red-50 text-red-500";
+                if (appt.urgency === "URGENT")
+                  urgencyColor = "bg-orange-50 text-orange-500";
+
+                let statusColor = "bg-blue-500";
+                let statusText = "Pending";
+                if (appt.arrival_status === "ARRIVED") {
+                  statusColor = "bg-green-500";
+                  statusText = "Arrived";
+                } else if (appt.arrival_status === "ADMITTED") {
+                  statusColor = "bg-emerald-600";
+                  statusText = "Admitted";
+                } else if (appt.arrival_status === "MISSED") {
+                  statusColor = "bg-red-500";
+                  statusText = "Missed";
+                }
+
+                return (
+                  <TableRow
+                    key={appt.id}
+                    className="border-slate-50 hover:bg-slate-50/50 transition-colors group"
+                  >
+                    <TableCell className="py-4 sm:py-6 px-4 sm:px-8">
+                      <div className="flex items-center gap-4">
+                        <Avatar className="h-10 w-10 rounded-lg bg-slate-100">
+                          <AvatarFallback className="text-[10px] font-bold text-slate-500 bg-slate-100 rounded-lg">
+                            {initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-bold text-slate-900 text-sm">{fullName}</p>
+                          <p className="text-[10px] font-medium text-slate-400">
+                            {appt.referral_id}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-bold text-slate-700">{appt.scheduled_time || "N/A"}</p>
-                      <p className="text-[10px] font-medium text-slate-400">{formatDate(appt.scheduled_date)}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <p className="text-sm font-medium text-slate-600">{appt.department_name || "N/A"}</p>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell text-center">
-                    <span className={`px-2 py-1 rounded text-[10px] font-bold tracking-tight ${urgencyColor}`}>
-                      {appt.urgency || "ROUTINE"}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className={`h-2 w-2 rounded-full ${statusColor}`} />
-                      <p className="text-sm font-medium text-slate-600">{statusText}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right px-4 sm:px-8">
-                    <div className="flex justify-end items-center gap-2">
-                      {appt.arrival_status === "ARRIVED" ||
-                      appt.arrival_status === "ADMITTED" ? (
-                        <Button
-                          size="sm"
-                          className="h-8 text-xs"
-                          onClick={() => {
-                            setSelectedPatientId(referralIdFor(appt));
-                            setIsAssignModalOpen(true);
-                          }}
-                          disabled={isMarking || isRevokingDoctor || isReturning}
-                        >
-                          {appt.assigned_doctor_id
-                            ? "Reassign Doctor"
-                            : "Assign Doctor"}
-                        </Button>
-                      ) : appt.arrival_status === "MISSED" ? (
-                        <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">
-                          MISSED
-                        </span>
-                      ) : (
-                        <Button
-                          size="sm"
-                          className="h-8 text-xs"
-                          onClick={() => handleCheckIn(referralIdFor(appt))}
-                          disabled={isMarking || isRevokingDoctor || isReturning}
-                        >
-                          Check In
-                        </Button>
-                      )}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-bold text-slate-700">
+                          {appt.scheduled_time || "N/A"}
+                        </p>
+                        <p className="text-[10px] font-medium text-slate-400">
+                          {formatDate(appt.scheduled_date)}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      <p className="text-sm font-medium text-slate-600">
+                        {appt.department_name || "N/A"}
+                      </p>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell text-center">
+                      <span
+                        className={`px-2 py-1 rounded text-[10px] font-bold tracking-tight ${urgencyColor}`}
+                      >
+                        {appt.urgency || "ROUTINE"}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2 w-2 rounded-full ${statusColor}`} />
+                        <p className="text-sm font-medium text-slate-600">
+                          {statusText}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right px-4 sm:px-8">
+                      <div className="flex justify-end items-center gap-2">
+                        {appt.arrival_status === "ARRIVED" ||
+                        appt.arrival_status === "ADMITTED" ? (
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-slate-900"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
+                            size="sm"
+                            className="h-8 text-xs"
                             onClick={() => {
                               setSelectedPatientId(referralIdFor(appt));
-                              setIsDetailsModalOpen(true);
+                              setIsAssignModalOpen(true);
                             }}
+                            disabled={isMarking || isRevokingDoctor || isReturning}
                           >
-                            View Details
-                          </DropdownMenuItem>
-                          {appt.arrival_status === "ARRIVED" &&
-                            appt.assigned_doctor_id && (
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  handleRevokeDoctor(referralIdFor(appt))
-                                }
-                                className="text-amber-600"
-                              >
-                                Revoke Doctor
-                              </DropdownMenuItem>
-                            )}
-                          {appt.arrival_status === "PENDING" && (
+                            {appt.assigned_doctor_id
+                              ? "Reassign Doctor"
+                              : "Assign Doctor"}
+                          </Button>
+                        ) : appt.arrival_status === "MISSED" ? (
+                          <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">
+                            MISSED
+                          </span>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => handleCheckIn(referralIdFor(appt))}
+                            disabled={isMarking || isRevokingDoctor || isReturning}
+                          >
+                            Check In
+                          </Button>
+                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-slate-400 hover:text-slate-900"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
                             <DropdownMenuItem
                               onClick={() => {
-                                setMissTarget({
-                                  id: referralIdFor(appt),
-                                  name: fullName,
-                                });
-                                setMissDialogOpen(true);
+                                setSelectedPatientId(referralIdFor(appt));
+                                setIsDetailsModalOpen(true);
                               }}
-                              className="text-red-600"
                             >
-                              Mark as Missed
+                              View Details
                             </DropdownMenuItem>
-                          )}
-                          {appt.arrival_status === "MISSED" && (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                handleReturnToTriage(referralIdFor(appt))
-                              }
-                            >
-                              Return to triage
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })
-          )}
-        </TableBody>
-      </Table>
+                            {appt.arrival_status === "ARRIVED" &&
+                              appt.assigned_doctor_id && (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    handleRevokeDoctor(referralIdFor(appt))
+                                  }
+                                  className="text-amber-600"
+                                >
+                                  Revoke Doctor
+                                </DropdownMenuItem>
+                              )}
+                            {appt.arrival_status === "PENDING" && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setMissTarget({
+                                    id: referralIdFor(appt),
+                                    name: fullName,
+                                  });
+                                  setMissDialogOpen(true);
+                                }}
+                                className="text-red-600"
+                              >
+                                Mark as Missed
+                              </DropdownMenuItem>
+                            )}
+                            {appt.arrival_status === "MISSED" && (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleReturnToTriage(referralIdFor(appt))
+                                }
+                              >
+                                Return to triage
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
       </div>
 
       <div className="p-4 border-t border-slate-50 flex items-center justify-center sm:justify-between bg-white px-4 sm:px-8 text-slate-400">
-        <p className="text-[10px] font-medium text-center sm:text-left">Showing {appointments.length} scheduled patients • Next 48 hours</p>
+        <p className="text-[10px] font-medium text-center sm:text-left">
+          Showing {appointments.length} scheduled patients • Next 48 hours
+        </p>
       </div>
 
-      <AssignDoctorModal 
-        open={isAssignModalOpen} 
-        onOpenChange={setIsAssignModalOpen} 
-        referralId={selectedPatientId} 
+      <AssignDoctorModal
+        open={isAssignModalOpen}
+        onOpenChange={setIsAssignModalOpen}
+        referralId={selectedPatientId}
       />
-      <ReferralDetailsModal 
-        open={isDetailsModalOpen} 
-        onOpenChange={setIsDetailsModalOpen} 
-        referralId={selectedPatientId} 
-      />
-      <MarkMissedDialog
-        open={missDialogOpen}
-        onOpenChange={setMissDialogOpen}
-        patientName={missTarget?.name}
-        onConfirm={handleMarkMissed}
-        isLoading={isMarkingMissed}
+      <ReferralDetailsModal
+        open={isDetailsModalOpen}
+        onOpenChange={setIsDetailsModalOpen}
+        referralId={selectedPatientId}
       />
       <MarkMissedDialog
         open={missDialogOpen}

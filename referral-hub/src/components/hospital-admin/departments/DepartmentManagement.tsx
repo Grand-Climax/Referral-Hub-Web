@@ -23,7 +23,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -49,10 +48,6 @@ import {
 import { useGetDepartmentsQuery } from "@/features/department/department";
 import type { HospitalAdminDepartment } from "@/types/hospital-admin";
 
-function deptKey(dept: HospitalAdminDepartment) {
-  return dept.id;
-}
-
 function deptLinkId(dept: HospitalAdminDepartment) {
   return dept.id;
 }
@@ -60,10 +55,7 @@ function deptLinkId(dept: HospitalAdminDepartment) {
 export function DepartmentManagement() {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
-  const [addMode, setAddMode] = useState<"link" | "create">("link");
   const [selectedGlobalDeptId, setSelectedGlobalDeptId] = useState("");
-  const [newName, setNewName] = useState("");
-  const [newDescription, setNewDescription] = useState("");
   const [headDialogDept, setHeadDialogDept] =
     useState<HospitalAdminDepartment | null>(null);
   const [selectedHeadId, setSelectedHeadId] = useState("");
@@ -106,41 +98,33 @@ export function DepartmentManagement() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return departments;
-    return departments.filter((d) =>
-      `${d.name} ${d.description ?? ""} ${d.head_name ?? ""} ${d.head_email ?? ""}`
+    return departments.filter((d) => {
+      const name = d.department?.name ?? "";
+      const description = d.department?.description ?? "";
+      const headName = d.department_head?.full_name ?? "";
+      return `${name} ${description} ${headName}`
         .toLowerCase()
-        .includes(q),
-    );
+        .includes(q);
+    });
   }, [departments, search]);
 
   const activeCount = departments.filter((d) => d.is_active !== false).length;
+  const withHeadCount = departments.filter(
+    (d) => d.department_head?.id != null,
+  ).length;
 
   const resetAddForm = () => {
-    setAddMode("link");
     setSelectedGlobalDeptId("");
-    setNewName("");
-    setNewDescription("");
   };
 
   const handleAdd = async (event: FormEvent) => {
     event.preventDefault();
+    if (!selectedGlobalDeptId) {
+      toast.error("Select a department to link.");
+      return;
+    }
     try {
-      if (addMode === "link") {
-        if (!selectedGlobalDeptId) {
-          toast.error("Select a department to link.");
-          return;
-        }
-        await addDepartment({ department_id: selectedGlobalDeptId }).unwrap();
-      } else {
-        if (!newName.trim()) {
-          toast.error("Department name is required.");
-          return;
-        }
-        await addDepartment({
-          name: newName.trim(),
-          description: newDescription.trim() || undefined,
-        }).unwrap();
-      }
+      await addDepartment({ department_id: selectedGlobalDeptId }).unwrap();
       toast.success("Department added to your hospital.");
       setAddOpen(false);
       resetAddForm();
@@ -154,11 +138,13 @@ export function DepartmentManagement() {
     dept: HospitalAdminDepartment,
     checked: boolean,
   ) => {
-    const linkId = deptLinkId(dept);
-    if (!linkId) return;
-    setTogglingId(linkId);
+    // Activation endpoint is keyed by the global department (catalog) id,
+    // not the hospital-department link id.
+    const deptId = dept.department_id;
+    if (!deptId) return;
+    setTogglingId(deptId);
     try {
-      await updateActivation({ deptId: linkId, is_active: checked }).unwrap();
+      await updateActivation({ deptId, is_active: checked }).unwrap();
       toast.success(checked ? "Department activated" : "Department deactivated");
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Could not update department status."));
@@ -196,7 +182,7 @@ export function DepartmentManagement() {
         </div>
         <Button className="gap-2" onClick={() => setAddOpen(true)}>
           <Plus className="h-4 w-4" />
-          Add department
+          Link department
         </Button>
       </div>
 
@@ -228,9 +214,7 @@ export function DepartmentManagement() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-semibold">
-              {departments.filter((d) => d.head_user_id).length}
-            </p>
+            <p className="text-2xl font-semibold">{withHeadCount}</p>
           </CardContent>
         </Card>
       </div>
@@ -274,12 +258,21 @@ export function DepartmentManagement() {
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((dept) => {
-                const key = deptKey(dept);
+              filtered.map((dept, idx) => {
                 const linkId = deptLinkId(dept);
-                const displayName = dept.department?.name ?? dept.name;
-                const displayDescription =
-                  dept.department?.description ?? dept.description;
+                // Guarantee a unique, stable React key even if the API
+                // ever omits or duplicates `id` — otherwise React reuses
+                // DOM nodes/state across rows and clicks/toggles end up
+                // routed to the wrong row.
+                const key = linkId || dept.department_id || `dept-${idx}`;
+                const displayName =
+                  dept.department?.name ?? "Unknown department";
+                const displayDescription = dept.department?.description;
+                const headId = dept.department_head?.id ?? null;
+                const headName = dept.department_head?.full_name ?? null;
+                const hasHead = headId != null;
+                const isActive = dept.is_active !== false;
+
                 return (
                   <TableRow key={key}>
                     <TableCell>
@@ -299,41 +292,46 @@ export function DepartmentManagement() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      {dept.head_name || dept.head_email ? (
+                      {hasHead ? (
                         <div>
-                          <p className="text-sm font-medium">{dept.head_name ?? "—"}</p>
-                          <p className="text-xs text-muted-foreground">{dept.head_email}</p>
+                          <p className="text-sm font-medium">
+                            {headName ?? "—"}
+                          </p>
                         </div>
                       ) : (
-                        <span className="text-sm text-muted-foreground">Unassigned</span>
+                        <span className="text-sm text-muted-foreground">
+                          Unassigned
+                        </span>
                       )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Switch
-                          checked={dept.is_active !== false}
-                          disabled={togglingId === linkId}
+                          checked={isActive}
+                          disabled={togglingId === dept.department_id}
                           onCheckedChange={(checked) =>
                             void handleToggleActive(dept, checked)
                           }
                         />
                         <span className="text-xs text-muted-foreground">
-                          {dept.is_active !== false ? "Active" : "Inactive"}
+                          {isActive ? "Active" : "Inactive"}
                         </span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
+                        type="button"
                         variant="outline"
                         size="sm"
                         className="gap-1"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setHeadDialogDept(dept);
-                          setSelectedHeadId(dept.head_user_id ?? "");
+                          setSelectedHeadId(headId ?? "");
                         }}
                       >
                         <UserCircle2 className="h-4 w-4" />
-                        Assign head
+                        {hasHead ? "Change head" : "Assign head"}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -353,79 +351,53 @@ export function DepartmentManagement() {
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add department</DialogTitle>
+            <DialogTitle>Link department</DialogTitle>
             <DialogDescription>
-              Link an existing network department or create a new one for your hospital.
+              Link an existing network department to your hospital.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAdd} className="space-y-4">
             <div className="space-y-2">
-              <Label>Method</Label>
+              <Label>Department</Label>
               <Select
-                value={addMode}
-                onValueChange={(v) => setAddMode(v as "link" | "create")}
+                value={selectedGlobalDeptId}
+                onValueChange={setSelectedGlobalDeptId}
+                disabled={isLoadingGlobalDepartments}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue
+                    placeholder={
+                      isLoadingGlobalDepartments
+                        ? "Loading departments..."
+                        : "Select department"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="link">Link existing department</SelectItem>
-                  <SelectItem value="create">Create new department</SelectItem>
+                  {availableGlobalDepartments.length === 0 ? (
+                    <SelectItem value="__none" disabled>
+                      No available departments
+                    </SelectItem>
+                  ) : (
+                    availableGlobalDepartments.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
-            {addMode === "link" ? (
-              <div className="space-y-2">
-                <Label>Department</Label>
-                <Select value={selectedGlobalDeptId} onValueChange={setSelectedGlobalDeptId} disabled={isLoadingGlobalDepartments}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={isLoadingGlobalDepartments ? "Loading departments..." : "Select department"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableGlobalDepartments.length === 0 ? (
-                      <SelectItem value="__none" disabled>
-                        No available departments
-                      </SelectItem>
-                    ) : (
-                      availableGlobalDepartments.map((d) => (
-                        <SelectItem key={d.id} value={d.id}>
-                          {d.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="dept_name">Name</Label>
-                  <Input
-                    id="dept_name"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    placeholder="Cardiology"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="dept_desc">Description</Label>
-                  <Textarea
-                    id="dept_desc"
-                    value={newDescription}
-                    onChange={(e) => setNewDescription(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-              </>
-            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isAdding}>
+              <Button
+                type="submit"
+                disabled={isAdding || !selectedGlobalDeptId}
+              >
                 {isAdding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Add department
+                Link department
               </Button>
             </DialogFooter>
           </form>
@@ -446,7 +418,7 @@ export function DepartmentManagement() {
             <DialogTitle>Assign department head</DialogTitle>
             <DialogDescription>
               Choose a staff member to lead{" "}
-              <span className="font-medium">{headDialogDept?.department?.name ?? headDialogDept?.name}</span>.
+              <span className="font-medium">{headDialogDept?.department?.name}</span>.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAssignHead} className="space-y-4">

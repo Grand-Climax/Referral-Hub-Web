@@ -41,8 +41,29 @@ export const HOSPITAL_ROUTES = {
 export const REFERRAL_ROUTES = {
   CREATE: "/api/v1/doctor/referrals",
   LIST: "/api/v1/doctor/referrals",
+  ASSIGNED: "/api/v1/doctor/referrals/assigned",
   GET_BY_ID: (id: string) => `/api/v1/doctor/referrals/${id}`,
+  UPDATE: (id: string) => `/api/v1/doctor/referrals/${id}`,
   RESUBMIT: (id: string) => `/api/v1/doctor/referrals/${id}/submit`,
+  CANCEL: (id: string) => `/api/v1/doctor/referrals/${id}/cancel`,
+  REJECT_AFTER_SEND: (id: string) =>
+    `/api/v1/doctor/referrals/${id}/reject-after-send`,
+  CONSULT: (id: string) => `/api/v1/doctor/referrals/${id}/consult`,
+  CONSULT_REVOKE: (id: string) => `/api/v1/doctor/referrals/${id}/consult/revoke`,
+} as const;
+
+/** Shared referral lifecycle endpoints (not under /doctor/). */
+export const SHARED_REFERRAL_ROUTES = {
+  DECEASED: (id: string) => `/api/v1/referrals/${id}/deceased`,
+} as const;
+
+export const CLINICAL_ROUTES = {
+  UPDATES: (referralId: string) =>
+    `/api/v1/referrals/${referralId}/clinical/updates`,
+  HISTORY: (referralId: string) =>
+    `/api/v1/referrals/${referralId}/clinical/history`,
+  OUTCOME: (referralId: string) =>
+    `/api/v1/referrals/${referralId}/clinical/outcome`,
 } as const;
 
 export const PATIENT_ROUTES = {
@@ -134,13 +155,18 @@ export const RECEPTIONIST_ROUTES = {
   DOCTORS: "/api/v1/receptionist/doctors",
   LIST: "/api/v1/receptionist/referrals",
   MISSED: "/api/v1/receptionist/referrals/missed",
+  TRIAGE_QUEUE: "/api/v1/receptionist/referrals/triage-queue",
   OFFLINE_DATA: "/api/v1/receptionist/referrals/offline-data",
   UPCOMING: "/api/v1/receptionist/referrals/upcoming",
   GET_BY_ID: (id: string) => `/api/v1/receptionist/referrals/${id}`,
+  TRIAGE_DETAIL: (id: string) =>
+    `/api/v1/receptionist/referrals/${id}/triage-detail`,
   ARRIVE: (id: string) => `/api/v1/receptionist/referrals/${id}/arrive`,
   ASSIGN_DOCTOR: (id: string) => `/api/v1/receptionist/referrals/${id}/assign-doctor`,
   MISS: (id: string) => `/api/v1/receptionist/referrals/${id}/miss`,
   REVOKE_DOCTOR: (id: string) => `/api/v1/receptionist/referrals/${id}/revoke-doctor`,
+  RETURN_TO_TRIAGE: (id: string) =>
+    `/api/v1/receptionist/referrals/${id}/return-to-triage`,
 } as const;
 
 export const HOSPITAL_ADMIN_ROUTES = {

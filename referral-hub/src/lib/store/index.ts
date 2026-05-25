@@ -21,6 +21,8 @@ import { adminConfigApi } from "@/features/adminConfig/adminConfigApi";
 import { notificationsApi } from "@/features/notifications/notificationsApi";
 import { chatApi } from "@/features/chat/chatApi";
 import { mohAnalyticsApi } from "@/features/analytics/mohAnalyticsApi";
+import { clinicalApi } from "@/features/clinical/clinicalApi";
+import { doctorReferralApi } from "@/features/doctor/doctorReferralApi";
 
 
 export const makeStore = () => {
@@ -48,6 +50,8 @@ export const makeStore = () => {
       [notificationsApi.reducerPath]: notificationsApi.reducer,
       [chatApi.reducerPath]: chatApi.reducer,
       [regionsApi.reducerPath]: regionsApi.reducer,
+      [clinicalApi.reducerPath]: clinicalApi.reducer,
+      [doctorReferralApi.reducerPath]: doctorReferralApi.reducer,
     },
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware().concat(
@@ -72,6 +76,8 @@ export const makeStore = () => {
         notificationsApi.middleware,
         chatApi.middleware,
         regionsApi.middleware,
+        clinicalApi.middleware,
+        doctorReferralApi.middleware,
       ),
   });
 };

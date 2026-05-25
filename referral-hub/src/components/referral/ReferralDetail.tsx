@@ -31,6 +31,8 @@ import {
 } from "@/features/hospitals/hospitalsApi";
 import { useGetUserByIdQuery } from "@/features/users/usersApi";
 import ReferralPdfExportButton from "./ReferralPdfExportButton";
+import { SenderReferralActions } from "./SenderReferralActions";
+import { useGetMeQuery } from "@/features/users/usersApi";
 
 function formatName(parts: Array<string | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -71,7 +73,13 @@ function getAttachmentIcon(attachment: ReferralAttachment) {
   return attachment.file_type?.startsWith("image/") ? ImageIcon : FileText;
 }
 
-const ReferralDetail = ({id}: {id: string}) => {
+const ReferralDetail = ({
+  id,
+  embedded = false,
+}: {
+  id: string;
+  embedded?: boolean;
+}) => {
   const router = useRouter();
   const { data: referral, isLoading, error } = useGetReferralByIdQuery(id);
   const senderHospitalId = referral?.sender_hospital_id ?? "";
@@ -89,8 +97,9 @@ const ReferralDetail = ({id}: {id: string}) => {
   const { data: referringDoctor } = useGetUserByIdQuery(referringDoctorId, {
     skip: !referringDoctorId,
   });
+  const { data: me } = useGetMeQuery(undefined, { skip: embedded });
 
-  if (isLoading) {
+  if (isLoading && !embedded) {
     return (
       <div className="text-center py-12">
         <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
@@ -100,7 +109,7 @@ const ReferralDetail = ({id}: {id: string}) => {
     );
   }
 
-  if (!referral || error) {
+  if ((!referral || error) && !embedded) {
     return (
       <div>
         <div className="text-center py-12">
@@ -109,6 +118,10 @@ const ReferralDetail = ({id}: {id: string}) => {
         </div>
       </div>
     );
+  }
+
+  if (!referral) {
+    return null;
   }
 
   // Safe extract helpers
@@ -176,10 +189,12 @@ const ReferralDetail = ({id}: {id: string}) => {
   };
 
   return (
-    <div className="mx-auto space-y-6 py-4 lg:py-6">
+    <div className={`mx-auto space-y-6 ${embedded ? "" : "py-4 lg:py-6"}`}>
+      {!embedded && (
+      <>
       {/* Top bar */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-1 flex-col gap-3">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Button
               variant="ghost"
@@ -197,7 +212,7 @@ const ReferralDetail = ({id}: {id: string}) => {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-2xl font-semibold tracking-tight">
+                <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
                   Referral Form Details
                 </h1>
                 <StatusBadge status={referral.status} />
@@ -258,8 +273,10 @@ const ReferralDetail = ({id}: {id: string}) => {
           </div>
         </CardContent>
       </Card>
+      </>
+      )}
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Card className="border-0 shadow-sm ring-1 ring-border/60">
           <CardContent className="flex items-center gap-3 p-4">
             <Activity className="h-5 w-5 text-primary" />
@@ -298,7 +315,7 @@ const ReferralDetail = ({id}: {id: string}) => {
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+      <div className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]">
         {/* Left column */}
         <div className="space-y-6">
           {/* Clinical Overview */}
@@ -733,6 +750,14 @@ const ReferralDetail = ({id}: {id: string}) => {
           </Card>
         </div>
       </div>
+
+      {!embedded && me && (
+        <SenderReferralActions
+          referral={referral}
+          patientName={patientName}
+          isSender={referral.referring_doctor_id === me.id}
+        />
+      )}
     </div>
   );
 };

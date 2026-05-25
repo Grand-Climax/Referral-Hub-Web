@@ -69,7 +69,11 @@ export function ReferralDashboardTable({
   const colSpan = 5;
 
   return (
-    <div className="flex h-[450px] min-h-0 flex-col">
+    // Fill the parent Card vertically (which is itself `flex-1` inside the
+    // dashboard grid) so the pagination row anchors to the true bottom
+    // edge — not 450px down with empty space below it. `min-h-[420px]`
+    // keeps the table usable when the parent collapses on small screens.
+    <div className="flex h-full min-h-[420px] flex-col">
       <div className="min-h-0 flex-1 overflow-auto">
         <Table>
           <TableHeader className="sticky top-0 z-10 border-b border-border/40 bg-muted/40 backdrop-blur-sm">

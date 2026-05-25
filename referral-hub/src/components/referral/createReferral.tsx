@@ -37,7 +37,7 @@ import { useCreateReferralMutation } from "@/features/referral/referralApi";
 import { useGetDepartmentsQuery } from "@/features/hospitals/hospitalsApi";
 import { CreateReferralRequest } from "@/types/referral";
 import { useGetCurrentUserQuery } from "@/features/auth/authApi";
-import { useGetIcdCodesQuery } from "@/features/reference/icdApi";
+import { IcdCodePicker } from "./IcdCodePicker";
 import { useGetLiaisonsQuery } from "@/features/reference/liaisonsApi";
 import { useGetNetworkedHospitalsQuery } from "@/features/reference/networkedHospitalsApi";
 import { Form } from "@/components/ui/form";
@@ -65,7 +65,10 @@ const REFERRAL_CATEGORIES = [
   "Routine - Consultation",
 ];
 
-const CONDITION_OPTIONS = ["Stable", "Unstable", "Critical", "Improving"];
+// Backend-accepted values for `condition_at_referral`. Keep this list as
+// the single source of truth — the form dropdown below pulls from it so
+// adding / removing a clinical condition is a one-line change.
+const CONDITION_OPTIONS = ["STABLE", "CRITICAL", "EMERGENCY"] as const;
 
 const TRANSPORT_MODES = ["Private Vehicle", "Ambulance", "Hospital Transfer", "Other"];
 
@@ -131,7 +134,6 @@ const CreateReferral = () => {
   const { data: user, isLoading: isUserLoading } = useGetCurrentUserQuery();
   const [createReferral, { isLoading: isSubmitting }] = useCreateReferralMutation();
   const { data: networkedHospitals = [], isLoading: isLoadingHospitals } = useGetNetworkedHospitalsQuery();
-  const { data: icdCodes = [] } = useGetIcdCodesQuery();
   const { data: liaisons = [], isLoading: isLoadingLiaisons } = useGetLiaisonsQuery();
 
   type ReferralFormValues = Partial<CreateReferralRequest>;
@@ -631,21 +633,17 @@ const CreateReferral = () => {
                       <div key={idx} className="flex flex-wrap items-end gap-3 p-3 rounded-xl border bg-muted/20">
                         <div className="flex-1 min-w-[200px] space-y-2">
                           <Label className="text-xs">ICD-10 Code</Label>
-                          <Select
-                            value={diag.icd_code}
-                            onValueChange={(v) => handleDiagnosisChange(idx, "icd_code", v)}
-                          >
-                            <SelectTrigger className="h-9 text-sm rounded-lg">
-                              <SelectValue placeholder={idx === 0 ? "Select primary ICD-10 code" : "Select ICD-10 code"} />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-64">
-                              {icdCodes.map((code, codeIdx) => (
-                                  <SelectItem key={`${code.code}-${codeIdx}`} value={code.code}>
-                                    {code.code} — {code.description}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
+                          <IcdCodePicker
+                            value={diag.icd_code ?? ""}
+                            onChange={(v) =>
+                              handleDiagnosisChange(idx, "icd_code", v)
+                            }
+                            placeholder={
+                              idx === 0
+                                ? "Search & select primary ICD-10 code"
+                                : "Search & select ICD-10 code"
+                            }
+                          />
                         </div>
                         <div className="w-[140px] space-y-2">
                           <Label className="text-xs">Certainty</Label>
@@ -742,7 +740,7 @@ const CreateReferral = () => {
                           <SelectValue placeholder="Condition" />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl">
-                          {["STABLE", "UNSTABLE", "CRITICAL", "IMPROVING"].map(c => (
+                          {CONDITION_OPTIONS.map((c) => (
                             <SelectItem key={c} value={c}>{c}</SelectItem>
                           ))}
                         </SelectContent>

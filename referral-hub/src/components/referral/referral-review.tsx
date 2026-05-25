@@ -42,7 +42,7 @@ import {
   useGetReferralByIdQuery,
   useResubmitReferralMutation,
 } from "@/features/referral/referralApi";
-import { useGetIcdCodesQuery } from "@/features/reference/icdApi";
+import { IcdCodePicker } from "./IcdCodePicker";
 import { useGetNetworkedHospitalsQuery } from "@/features/reference/networkedHospitalsApi";
 import { useGetDepartmentsQuery } from "@/features/hospitals/hospitalsApi";
 import { useGetLiaisonsQuery } from "@/features/reference/liaisonsApi";
@@ -69,7 +69,6 @@ const ReferralReview = () => {
     skip: !selectedId,
   });
   const [resubmitReferral, { isLoading: isResubmitting }] = useResubmitReferralMutation();
-  const { data: icdCodes = [] } = useGetIcdCodesQuery();
   const { data: networkedHospitals = [], isLoading: isLoadingHospitals } = useGetNetworkedHospitalsQuery();
   const { data: liaisons = [], isLoading: isLoadingLiaisons } = useGetLiaisonsQuery();
 
@@ -702,20 +701,15 @@ const ReferralReview = () => {
                     <div key={idx} className="flex flex-wrap items-end gap-3 p-3 rounded-xl border bg-muted/20">
                       <div className="flex-1 min-w-[200px] space-y-2">
                         <Label className="text-xs">ICD-10 Code</Label>
-                        <Select value={diag.icd_code} onValueChange={(v) => handleDiagnosisChange(idx, "icd_code", v)}>
-                          <SelectTrigger className="h-9 text-sm rounded-lg">
-                            <SelectValue
-                              placeholder={idx === 0 ? "Select primary ICD-10 code" : "Select ICD-10 code"}
-                            />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-64">
-                            {icdCodes.map((code, codeIdx) => (
-                              <SelectItem key={`${code.code}-${codeIdx}`} value={code.code}>
-                                {code.code} — {code.description}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <IcdCodePicker
+                          value={diag.icd_code ?? ""}
+                          onChange={(v) => handleDiagnosisChange(idx, "icd_code", v)}
+                          placeholder={
+                            idx === 0
+                              ? "Search & select primary ICD-10 code"
+                              : "Search & select ICD-10 code"
+                          }
+                        />
                       </div>
                       <div className="w-[140px] space-y-2">
                         <Label className="text-xs">Certainty</Label>
@@ -829,11 +823,13 @@ const ReferralReview = () => {
                         <SelectValue placeholder="Condition" />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl">
-                        {["STABLE", "UNSTABLE", "CRITICAL", "IMPROVING"].map((c) => (
-                          <SelectItem key={c} value={c}>
-                            {c}
-                          </SelectItem>
-                        ))}
+                        {(["STABLE", "CRITICAL", "EMERGENCY"] as const).map(
+                          (c) => (
+                            <SelectItem key={c} value={c}>
+                              {c}
+                            </SelectItem>
+                          ),
+                        )}
                       </SelectContent>
                     </Select>
                   </div>

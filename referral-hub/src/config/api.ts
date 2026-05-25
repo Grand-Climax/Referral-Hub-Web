@@ -121,6 +121,7 @@ export const SPECIALIST_ROUTES = {
   RELEASE: (id: string) => `/api/v1/specialist/referrals/${id}/release`,
   REDIRECT: (id: string) => `/api/v1/specialist/referrals/${id}/redirect`,
   REDIRECT_OPTIONS: (id: string) => `/api/v1/specialist/referrals/${id}/redirect-options`,
+  CHANGE_DEPARTMENT: (id: string) => `/api/v1/specialist/referrals/${id}/department`,
   ML_PREDICTION: (id: string) =>
     `/api/v1/specialist/referrals/${id}/ml-prediction`,
   RERUN_ML: (id: string) => `/api/v1/specialist/referrals/${id}/rerun-ml`,

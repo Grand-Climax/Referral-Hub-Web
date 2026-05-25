@@ -20,12 +20,14 @@ import {
   ChevronLeft,
   Stethoscope,
   ClipboardList,
+  Building2,
 } from "lucide-react";
 import Link from "next/link";
 import { AcceptReferralDialog } from "./accept-referral-dialog";
 import { RejectReferralDialog } from "./reject-referral-dialog";
 import { RedirectReferralDialog } from "./redirect-referral-dialog";
 import { ReleaseReferralDialog } from "./release-referral-dialog";
+import { ChangeDepartmentDialog } from "./change-department-dialog";
 import { MlInsightsCard } from "./MlInsightsCard";
 import {
   useGetReferralByIdQuery,
@@ -35,7 +37,9 @@ import {
   useReleaseReferralMutation,
   useGetRedirectOptionsQuery,
   useRedirectReferralMutation,
+  useChangeReferralDepartmentMutation,
 } from "@/features/specialist/specialistApi";
+import { useGetDepartmentsQuery } from "@/features/hospitals/hospitalsApi";
 import { useGetCurrentUserQuery, useGetUserByIdQuery } from "@/features/auth/authApi";
 import { ReferralDetailSkeleton } from "@/components/skeletons/ReferralDetailSkeleton";
 import { useState, useEffect, useRef } from "react";
@@ -98,6 +102,7 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [isRedirectDialogOpen, setIsRedirectDialogOpen] = useState(false);
   const [isReleaseDialogOpen, setIsReleaseDialogOpen] = useState(false);
+  const [isChangeDeptDialogOpen, setIsChangeDeptDialogOpen] = useState(false);
   const [referralPollMs, setReferralPollMs] = useState(0);
   const {
     data: referral,
@@ -125,6 +130,8 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
     useReleaseReferralMutation();
   const [redirectReferral, { isLoading: isRedirecting }] =
     useRedirectReferralMutation();
+  const [changeDepartment, { isLoading: isChangingDepartment }] =
+    useChangeReferralDepartmentMutation();
   const {
     data: redirectOptions = [],
     isFetching: isFetchingRedirectOptions,
@@ -142,6 +149,15 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
       skip: !referral?.specialist_id,
     });
   const { data: currentUser } = useGetCurrentUserQuery();
+  // Hospital this specialist belongs to — drives the available
+  // departments for the change-department dialog.
+  const specialistHospitalId = currentUser?.hospital_id ?? "";
+  const {
+    data: hospitalDepartments = [],
+    isFetching: isFetchingHospitalDepartments,
+  } = useGetDepartmentsQuery(specialistHospitalId, {
+    skip: !specialistHospitalId,
+  });
 
   const doctorName = doctor
     ? [doctor.first_name, doctor.middle_name, doctor.last_name]
@@ -241,6 +257,29 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
       router.push("/receiving-specialist/referrals");
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to redirect referral."));
+    }
+  };
+
+  const handleChangeDepartment = async ({
+    departmentId,
+  }: {
+    departmentId: string;
+  }) => {
+    if (!departmentId) {
+      toast.error("Please select a department.");
+      return;
+    }
+    try {
+      await changeDepartment({
+        referralId,
+        departmentId,
+      }).unwrap();
+      toast.success("Target department updated.");
+      setIsChangeDeptDialogOpen(false);
+    } catch (error) {
+      toast.error(
+        getApiErrorMessage(error, "Failed to change target department."),
+      );
     }
   };
 
@@ -875,6 +914,22 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
                   </p>
                 </div>
               )}
+
+              {/* Change-department is independent of accept/reject/redirect:
+                  the target department can be reassigned at any point in the
+                  referral's lifecycle. */}
+              {!isPendingSpecialistRead && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() => setIsChangeDeptDialogOpen(true)}
+                  disabled={isChangingDepartment}
+                >
+                  <Building2 className="h-4 w-4" />
+                  Change Department
+                </Button>
+              )}
             </CardContent>
           </Card>
 
@@ -971,6 +1026,19 @@ const ReferralDetail = ({ referralId }: { referralId: string }) => {
         onOpenChange={setIsReleaseDialogOpen}
         onConfirm={handleRelease}
         isSubmitting={isReleasing}
+      />
+
+      <ChangeDepartmentDialog
+        open={isChangeDeptDialogOpen}
+        onOpenChange={setIsChangeDeptDialogOpen}
+        departments={hospitalDepartments.map((d) => ({
+          id: d.id,
+          name: d.name,
+        }))}
+        isLoadingDepartments={isFetchingHospitalDepartments}
+        currentDepartmentId={referral.target_dept_id ?? null}
+        onConfirm={handleChangeDepartment}
+        isSubmitting={isChangingDepartment}
       />
     </div>
   );

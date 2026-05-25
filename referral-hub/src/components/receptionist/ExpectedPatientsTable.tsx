@@ -15,17 +15,25 @@ import { Filter, ChevronLeft, ChevronRight, Loader2, MoreVertical } from "lucide
 import {
   useGetMissedReferralsQuery,
   useGetReferralsQuery,
+  useGetTriageQueueQuery,
   useMarkPatientArrivalMutation,
   useMarkMissedMutation,
   useRevokeDoctorMutation,
+  useReturnToTriageMutation,
 } from "@/features/receptionist/receptionistApi";
 import { useState } from "react";
 import { toast } from "sonner";
-import { getApiErrorMessage } from "@/lib/apiError";
+import { getReceptionistErrorMessage } from "@/lib/receptionistScopeError";
+import { filterOperationalReferrals } from "@/lib/receptionistOperational";
 import { AssignDoctorModal } from "./AssignDoctorModal";
 import { ReferralDetailsModal } from "./ReferralDetailsModal";
+import { MarkMissedDialog } from "./MarkMissedDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import type { ReceptionistMissReason } from "@/types/receptionist";
+import type { ReceptionistMissReason, ReceptionistReferral } from "@/types/receptionist";
+import { useReceptionistDepartmentScope } from "@/lib/useReceptionistDepartmentScope";
+import {
+  canReceptionistActOnReferral,
+} from "@/lib/receptionistDepartmentScope";
 
 export function ExpectedPatientsTable() {
   const [page, setPage] = useState(1);
@@ -34,15 +42,37 @@ export function ExpectedPatientsTable() {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [missDialogOpen, setMissDialogOpen] = useState(false);
+  const [missTarget, setMissTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  const { departmentId: myDepartmentId, departmentName: myDepartmentName } =
+    useReceptionistDepartmentScope();
 
   const shouldUseMissedEndpoint = arrivalFilter === "MISSED";
-  const regularReferrals = useGetReferralsQuery(
+  const triageQueue = useGetTriageQueueQuery(
+    {
+      page,
+      limit: 10,
+      ...(arrivalFilter !== "ALL"
+        ? { arrival_status: [arrivalFilter] }
+        : {}),
+    },
+    { skip: shouldUseMissedEndpoint },
+  );
+  const triageEmpty =
+    !triageQueue.isLoading &&
+    !triageQueue.isFetching &&
+    (triageQueue.data?.data?.length ?? 0) === 0;
+  const referralsList = useGetReferralsQuery(
     {
       page,
       limit: 10,
       ...(arrivalFilter !== "ALL" ? { arrival_status: arrivalFilter } : {}),
     },
-    { skip: shouldUseMissedEndpoint },
+    { skip: shouldUseMissedEndpoint || !triageEmpty },
   );
   const missedReferrals = useGetMissedReferralsQuery(
     {
@@ -52,32 +82,54 @@ export function ExpectedPatientsTable() {
     { skip: !shouldUseMissedEndpoint },
   );
 
-  const data = shouldUseMissedEndpoint ? missedReferrals.data : regularReferrals.data;
-  const isLoading = shouldUseMissedEndpoint ? missedReferrals.isLoading : regularReferrals.isLoading;
-  const error = shouldUseMissedEndpoint ? missedReferrals.error : regularReferrals.error;
+  const data = shouldUseMissedEndpoint
+    ? missedReferrals.data
+    : triageEmpty
+      ? referralsList.data
+      : triageQueue.data;
+  const isLoading = shouldUseMissedEndpoint
+    ? missedReferrals.isLoading
+    : triageQueue.isLoading ||
+      (triageEmpty && referralsList.isLoading);
+  const error = shouldUseMissedEndpoint
+    ? missedReferrals.error
+    : triageQueue.error ?? referralsList.error;
 
   const [markArrival, { isLoading: isMarking }] = useMarkPatientArrivalMutation();
-  const [markMissed] = useMarkMissedMutation();
+  const [markMissed, { isLoading: isMarkingMissed }] = useMarkMissedMutation();
   const [revokeDoctor, { isLoading: isRevokingDoctor }] = useRevokeDoctorMutation();
+  const [returnToTriage, { isLoading: isReturning }] = useReturnToTriageMutation();
+
+  const referralIdFor = (patient: { id: string; referral_id?: string }) =>
+    patient.referral_id || patient.id;
 
   const handleCheckIn = async (id: string) => {
     try {
       await markArrival(id).unwrap();
       toast.success("Patient arrival marked successfully");
-    } catch (err: any) {
-      toast.error(getApiErrorMessage(err, "Failed to mark patient arrival"));
+    } catch (err: unknown) {
+      const message = getReceptionistErrorMessage(
+        err,
+        "Failed to mark patient arrival",
+      );
+      if (/already arrived/i.test(message)) {
+        toast.info(message);
+        return;
+      }
+      toast.error(message);
     }
   };
 
-  const handleMarkMissed = async (
-    id: string,
-    reason: ReceptionistMissReason = "PATIENT_NO_SHOW",
-  ) => {
+  const handleMarkMissed = async (reason: ReceptionistMissReason) => {
+    if (!missTarget) return;
     try {
-      await markMissed({ id, miss_reason: reason }).unwrap();
+      await markMissed({ id: missTarget.id, miss_reason: reason }).unwrap();
       toast.success("Patient marked as missed");
-    } catch (err: any) {
-      toast.error(getApiErrorMessage(err, "Failed to mark patient as missed"));
+      setMissTarget(null);
+    } catch (err: unknown) {
+      toast.error(
+        getReceptionistErrorMessage(err, "Failed to mark patient as missed"),
+      );
     }
   };
 
@@ -89,11 +141,27 @@ export function ExpectedPatientsTable() {
       }).unwrap();
       toast.success("Doctor assignment revoked");
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, "Failed to revoke doctor assignment"));
+      toast.error(
+        getReceptionistErrorMessage(err, "Failed to revoke doctor assignment"),
+      );
     }
   };
 
-  const patients = data?.data || [];
+  const handleReturnToTriage = async (id: string) => {
+    try {
+      await returnToTriage(id).unwrap();
+      toast.success("Patient returned to triage queue");
+    } catch (err: unknown) {
+      toast.error(
+        getReceptionistErrorMessage(err, "Failed to return patient to triage"),
+      );
+    }
+  };
+
+  const patients = filterOperationalReferrals(data?.data || []);
+
+  const canActOn = (patient: ReceptionistReferral) =>
+    canReceptionistActOnReferral(myDepartmentId, patient.department_id);
   const totalPages = data?.total ? Math.ceil(data.total / (data.limit || 10)) : 1;
 
   const filterLabel =
@@ -104,7 +172,12 @@ export function ExpectedPatientsTable() {
       <div className="px-4 py-4 sm:px-6 border-b border-slate-200 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-slate-50">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Expected Patients</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Scheduled arrivals for the next 48 hours</p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Scheduled arrivals for the next 48 hours
+            {myDepartmentName
+              ? ` · actions limited to ${myDepartmentName}`
+              : ""}
+          </p>
         </div>
         
         <DropdownMenu>
@@ -189,6 +262,7 @@ export function ExpectedPatientsTable() {
             patients.map((patient) => {
               const initials = `${patient.patient_first_name?.[0] || ""}${patient.patient_last_name?.[0] || ""}`;
               const fullName = `${patient.patient_first_name || ""} ${patient.patient_last_name || ""}`;
+              const inScope = canActOn(patient);
               
               let urgencyColor = "bg-blue-50 text-blue-600 border-blue-200";
               if (patient.urgency === "HIGH" || patient.urgency === "EMERGENCY") urgencyColor = "bg-red-50 text-red-600 border-red-200";
@@ -211,9 +285,39 @@ export function ExpectedPatientsTable() {
                     <p className="text-sm text-slate-700">{patient.department_name || "N/A"}</p>
                   </TableCell>
                   <TableCell>
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">{patient.scheduled_time || patient.eta || "Pending"}</p>
-                      <p className="text-xs text-slate-500">{patient.scheduled_date || "Not scheduled"}</p>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-slate-900">
+                        {patient.scheduled_time ||
+                          (patient.appointment_date
+                            ? new Date(patient.appointment_date).toLocaleTimeString(
+                                "en-US",
+                                { hour: "2-digit", minute: "2-digit" },
+                              )
+                            : "—")}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {patient.scheduled_date ||
+                          (patient.appointment_date
+                            ? patient.appointment_date.slice(0, 10)
+                            : "Not scheduled")}
+                      </p>
+                      {patient.arrival_status === "ARRIVED" ||
+                      patient.arrival_status === "ADMITTED" ? (
+                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-[10px]">
+                          Checked in
+                        </Badge>
+                      ) : patient.arrival_status === "MISSED" ? (
+                        <Badge className="bg-red-100 text-red-700 hover:bg-red-100 text-[10px]">
+                          Missed
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] text-slate-600"
+                        >
+                          Awaiting arrival
+                        </Badge>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">
@@ -234,15 +338,19 @@ export function ExpectedPatientsTable() {
                         <Badge className="bg-red-100 text-red-700 hover:bg-red-100 text-xs">
                           Missed
                         </Badge>
-                      ) : (
+                      ) : inScope ? (
                         <Button 
-                          onClick={() => handleCheckIn(patient.id)}
-                          disabled={isMarking || isRevokingDoctor}
+                          onClick={() => handleCheckIn(referralIdFor(patient))}
+                          disabled={isMarking || isRevokingDoctor || isReturning}
                           size="sm"
                           className="h-8 text-xs"
                         >
                           Check In
                         </Button>
+                      ) : (
+                        <span className="text-[10px] text-amber-700 font-medium">
+                          Other dept
+                        </span>
                       )}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -253,7 +361,7 @@ export function ExpectedPatientsTable() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem 
                             onClick={() => {
-                              setSelectedPatientId(patient.id);
+                              setSelectedPatientId(referralIdFor(patient));
                               setIsDetailsModalOpen(true);
                             }}
                           >
@@ -262,7 +370,7 @@ export function ExpectedPatientsTable() {
                           {patient.arrival_status === "ARRIVED" && (
                             <DropdownMenuItem 
                               onClick={() => {
-                                setSelectedPatientId(patient.id);
+                                setSelectedPatientId(referralIdFor(patient));
                                 setIsAssignModalOpen(true);
                               }}
                             >
@@ -271,18 +379,33 @@ export function ExpectedPatientsTable() {
                           )}
                           {patient.arrival_status === "ARRIVED" && patient.assigned_doctor_id && (
                             <DropdownMenuItem
-                              onClick={() => handleRevokeDoctor(patient.id)}
+                              onClick={() => handleRevokeDoctor(referralIdFor(patient))}
                               className="text-amber-600"
                             >
                               Revoke Doctor
                             </DropdownMenuItem>
                           )}
-                          {patient.arrival_status === "PENDING" && (
+                          {patient.arrival_status === "PENDING" && inScope && (
                             <DropdownMenuItem 
-                              onClick={() => handleMarkMissed(patient.id, "PATIENT_NO_SHOW")}
+                              onClick={() => {
+                                setMissTarget({
+                                  id: referralIdFor(patient),
+                                  name: fullName,
+                                });
+                                setMissDialogOpen(true);
+                              }}
                               className="text-red-600"
                             >
                               Mark as Missed
+                            </DropdownMenuItem>
+                          )}
+                          {patient.arrival_status === "MISSED" && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleReturnToTriage(referralIdFor(patient))
+                              }
+                            >
+                              Return to triage
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
@@ -335,6 +458,13 @@ export function ExpectedPatientsTable() {
         open={isDetailsModalOpen} 
         onOpenChange={setIsDetailsModalOpen} 
         referralId={selectedPatientId} 
+      />
+      <MarkMissedDialog
+        open={missDialogOpen}
+        onOpenChange={setMissDialogOpen}
+        patientName={missTarget?.name}
+        onConfirm={handleMarkMissed}
+        isLoading={isMarkingMissed}
       />
     </div>
   );

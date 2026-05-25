@@ -6,7 +6,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useGetScheduleQuery, useMarkPatientArrivalMutation } from "@/features/receptionist/receptionistApi";
 import { Loader2, Clock, MapPin } from "lucide-react";
 import { toast } from "sonner";
-import { getApiErrorMessage } from "@/lib/apiError";
+import { getReceptionistErrorMessage } from "@/lib/receptionistScopeError";
+import { filterOperationalReferrals } from "@/lib/receptionistOperational";
 import { useState } from "react";
 
 export function NextArrival() {
@@ -20,7 +21,7 @@ export function NextArrival() {
       setCheckedInId(id);
       toast.success("Patient checked in successfully");
     } catch (err: any) {
-      toast.error(getApiErrorMessage(err, "Failed to check in patient"));
+      toast.error(getReceptionistErrorMessage(err, "Failed to check in patient"));
     }
   };
 
@@ -38,9 +39,15 @@ export function NextArrival() {
   }
 
   // Safely handle schedule data - ensure it's always an array
-  const scheduleArray = Array.isArray(schedule) ? schedule : [];
-  const nextArrival = scheduleArray.length > 0 ? scheduleArray[0] : null;
-  const isCheckedIn = nextArrival && checkedInId === nextArrival.id;
+  const scheduleArray = filterOperationalReferrals(
+    Array.isArray(schedule) ? schedule : [],
+  );
+  const pending = scheduleArray.filter((a) => a.arrival_status === "PENDING");
+  const nextArrival = pending.length > 0 ? pending[0] : null;
+  const nextId = nextArrival
+    ? nextArrival.referral_id || nextArrival.id
+    : null;
+  const isCheckedIn = nextId != null && checkedInId === nextId;
   
   return (
     <Card className="border-none shadow-md overflow-hidden bg-white">
@@ -93,7 +100,7 @@ export function NextArrival() {
               </div>
             ) : (
               <Button 
-                onClick={() => handleCheckIn(nextArrival.id)}
+                onClick={() => nextId && handleCheckIn(nextId)}
                 disabled={isMarking}
                 className="w-full bg-primary hover:bg-primary/90 text-white font-bold text-[10px] tracking-widest py-5 h-auto rounded-lg shadow-sm disabled:opacity-50"
               >

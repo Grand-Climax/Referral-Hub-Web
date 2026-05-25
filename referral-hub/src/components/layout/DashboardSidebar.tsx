@@ -66,6 +66,11 @@ const NAV_BY_ROLE = {
       icon: FileText,
     },
     {
+      title: "Assigned (Treating)",
+      url: "/referring-doctor/assigned",
+      icon: ListChecks,
+    },
+    {
       title: "New Referral",
       url: "/referring-doctor/newReferral",
       icon: FilePlus,

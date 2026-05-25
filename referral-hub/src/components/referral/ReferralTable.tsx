@@ -53,31 +53,50 @@ function ConditionChip({ value }: { value: string }) {
   );
 }
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 // ── Department Resolver ────────────────────────────────────────────────────────
-function DepartmentName({ id }: { id?: string | null }) {
+function DepartmentName({
+  id,
+  fallback,
+}: {
+  id?: string | null;
+  fallback?: string | null;
+}) {
   const { data: department, isLoading } = useGetDepartmentByIdQuery(id ?? "", {
     skip: !id,
   });
 
-  if (!id) return <span>—</span>;
-  if (isLoading) return <span className="animate-pulse opacity-50">Loading…</span>;
+  if (!id) {
+    return <span className="truncate">{fallback?.trim() || "—"}</span>;
+  }
+  if (isLoading) {
+    return (
+      <span className="truncate animate-pulse opacity-50">
+        {fallback?.trim() || "Loading…"}
+      </span>
+    );
+  }
 
   return (
-    <span className="truncate">{department?.name || id.slice(0, 8) + "…"}</span>
+    <span className="truncate">
+      {department?.name?.trim() ||
+        fallback?.trim() ||
+        id.slice(0, 8) + "…"}
+    </span>
   );
 }
 
 function ListDepartmentLabel({ referral }: { referral: ReferralListItem }) {
-  const departmentValue = referral.department?.trim();
-  if (departmentValue && !UUID_RE.test(departmentValue)) {
-    return <span className="truncate">{departmentValue}</span>;
-  }
-
-  const departmentId = referral.department_id ?? departmentValue ?? "";
-  return <DepartmentName id={departmentId} />;
+  // Always resolve via department_id so the table reflects the latest
+  // department record (post-rename, post-reassignment, etc.). The
+  // response's inline `department` string is only used as a placeholder
+  // while the lookup is in flight, or as a fallback when the row has
+  // no id at all.
+  return (
+    <DepartmentName
+      id={referral.department_id}
+      fallback={referral.department}
+    />
+  );
 }
 
 // ── Row skeleton ──────────────────────────────────────────────────────────────

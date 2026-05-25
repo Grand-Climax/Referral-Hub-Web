@@ -16,12 +16,17 @@ import {
   useMarkPatientArrivalMutation,
   useMarkMissedMutation,
   useRevokeDoctorMutation,
+  useReturnToTriageMutation,
 } from "@/features/receptionist/receptionistApi";
 import { useState } from "react";
 import { toast } from "sonner";
-import { getApiErrorMessage } from "@/lib/apiError";
+import { getReceptionistErrorMessage } from "@/lib/receptionistScopeError";
+import { filterOperationalReferrals } from "@/lib/receptionistOperational";
+import { useReceptionistDepartmentScope } from "@/lib/useReceptionistDepartmentScope";
+import { canReceptionistActOnReferral } from "@/lib/receptionistDepartmentScope";
 import { AssignDoctorModal } from "./AssignDoctorModal";
 import { ReferralDetailsModal } from "./ReferralDetailsModal";
+import { MarkMissedDialog } from "./MarkMissedDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { ReceptionistMissReason } from "@/types/receptionist";
 
@@ -29,30 +34,59 @@ export function AppointmentTable() {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [missDialogOpen, setMissDialogOpen] = useState(false);
+  const [missTarget, setMissTarget] = useState<{ id: string; name: string } | null>(
+    null,
+  );
 
+  const { departmentId: myDepartmentId } = useReceptionistDepartmentScope();
   const { data: schedule, isLoading, error } = useGetScheduleQuery();
   const [markArrival, { isLoading: isMarking }] = useMarkPatientArrivalMutation();
-  const [markMissed] = useMarkMissedMutation();
+  const [markMissed, { isLoading: isMarkingMissed }] = useMarkMissedMutation();
   const [revokeDoctor, { isLoading: isRevokingDoctor }] = useRevokeDoctorMutation();
+  const [returnToTriage, { isLoading: isReturning }] = useReturnToTriageMutation();
+
+  const referralIdFor = (appt: { id: string; referral_id?: string }) =>
+    appt.referral_id || appt.id;
 
   const handleCheckIn = async (id: string) => {
     try {
       await markArrival(id).unwrap();
       toast.success("Patient arrival marked successfully");
-    } catch (err: any) {
-      toast.error(getApiErrorMessage(err, "Failed to mark patient arrival"));
+    } catch (err: unknown) {
+      const message = getReceptionistErrorMessage(
+        err,
+        "Failed to mark patient arrival",
+      );
+      if (/already arrived/i.test(message)) {
+        toast.info(message);
+        return;
+      }
+      toast.error(message);
     }
   };
 
-  const handleMarkMissed = async (
-    id: string,
-    reason: ReceptionistMissReason = "PATIENT_NO_SHOW",
-  ) => {
+  const handleMarkMissed = async (reason: ReceptionistMissReason) => {
+    if (!missTarget) return;
     try {
-      await markMissed({ id, miss_reason: reason }).unwrap();
+      await markMissed({ id: missTarget.id, miss_reason: reason }).unwrap();
       toast.success("Patient marked as missed");
-    } catch (err: any) {
-      toast.error(getApiErrorMessage(err, "Failed to mark patient as missed"));
+      setMissTarget(null);
+    } catch (err: unknown) {
+      toast.error(
+        getReceptionistErrorMessage(err, "Failed to mark patient as missed"),
+      );
+    }
+  };
+
+  const handleReturnToTriage = async (id: string) => {
+    try {
+      await returnToTriage(id).unwrap();
+      toast.success("Patient returned to triage queue");
+    } catch (err: unknown) {
+      toast.error(
+        getReceptionistErrorMessage(err, "Failed to return patient to triage"),
+      );
     }
   };
 
@@ -64,7 +98,9 @@ export function AppointmentTable() {
       }).unwrap();
       toast.success("Doctor assignment revoked");
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, "Failed to revoke doctor assignment"));
+      toast.error(
+        getReceptionistErrorMessage(err, "Failed to revoke doctor assignment"),
+      );
     }
   };
 
@@ -84,7 +120,9 @@ export function AppointmentTable() {
   };
 
   // Safely handle schedule data - ensure it's always an array
-  const appointments = Array.isArray(schedule) ? schedule : [];
+  const appointments = filterOperationalReferrals(
+    Array.isArray(schedule) ? schedule : [],
+  );
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
@@ -131,6 +169,10 @@ export function AppointmentTable() {
             </TableRow>
           ) : (
             appointments.map((appt) => {
+              const inScope = canReceptionistActOnReferral(
+                myDepartmentId,
+                appt.department_id,
+              );
               const initials = `${appt.patient_first_name?.[0] || ""}${appt.patient_last_name?.[0] || ""}`;
               const fullName = `${appt.patient_last_name || ""}, ${appt.patient_first_name || ""}`.toUpperCase();
               
@@ -194,14 +236,18 @@ export function AppointmentTable() {
                       <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">
                         MISSED
                       </span>
-                    ) : (
+                    ) : inScope ? (
                       <button 
-                        onClick={() => handleCheckIn(appt.id)}
-                        disabled={isMarking || isRevokingDoctor}
+                        onClick={() => handleCheckIn(referralIdFor(appt))}
+                        disabled={isMarking || isRevokingDoctor || isReturning}
                         className="text-[10px] font-bold text-primary hover:text-primary/80 uppercase tracking-widest transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         CHECK-IN
                       </button>
+                    ) : (
+                      <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">
+                        OTHER DEPT
+                      </span>
                     )}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -212,36 +258,49 @@ export function AppointmentTable() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem 
                           onClick={() => {
-                            setSelectedPatientId(appt.id);
+                            setSelectedPatientId(referralIdFor(appt));
                             setIsDetailsModalOpen(true);
                           }}
                         >
                           View Details
                         </DropdownMenuItem>
-                        {appt.arrival_status === "ARRIVED" && (
+                        {appt.arrival_status === "ARRIVED" && inScope && (
                           <DropdownMenuItem 
                             onClick={() => {
-                              setSelectedPatientId(appt.id);
+                              setSelectedPatientId(referralIdFor(appt));
                               setIsAssignModalOpen(true);
                             }}
                           >
                             Assign Doctor
                           </DropdownMenuItem>
                         )}
-                        {appt.arrival_status === "ARRIVED" && appt.assigned_doctor_id && (
+                        {appt.arrival_status === "ARRIVED" && inScope && appt.assigned_doctor_id && (
                           <DropdownMenuItem
-                            onClick={() => handleRevokeDoctor(appt.id)}
+                            onClick={() => handleRevokeDoctor(referralIdFor(appt))}
                             className="text-amber-600"
                           >
                             Revoke Doctor
                           </DropdownMenuItem>
                         )}
-                        {appt.arrival_status === "PENDING" && (
+                        {appt.arrival_status === "PENDING" && inScope && (
                           <DropdownMenuItem 
-                            onClick={() => handleMarkMissed(appt.id, "PATIENT_NO_SHOW")}
+                            onClick={() => {
+                              setMissTarget({
+                                id: referralIdFor(appt),
+                                name: fullName,
+                              });
+                              setMissDialogOpen(true);
+                            }}
                             className="text-red-600"
                           >
                             Mark as Missed
+                          </DropdownMenuItem>
+                        )}
+                        {appt.arrival_status === "MISSED" && (
+                          <DropdownMenuItem
+                            onClick={() => handleReturnToTriage(referralIdFor(appt))}
+                          >
+                            Return to triage
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
@@ -269,6 +328,13 @@ export function AppointmentTable() {
         open={isDetailsModalOpen} 
         onOpenChange={setIsDetailsModalOpen} 
         referralId={selectedPatientId} 
+      />
+      <MarkMissedDialog
+        open={missDialogOpen}
+        onOpenChange={setMissDialogOpen}
+        patientName={missTarget?.name}
+        onConfirm={handleMarkMissed}
+        isLoading={isMarkingMissed}
       />
     </div>
   );

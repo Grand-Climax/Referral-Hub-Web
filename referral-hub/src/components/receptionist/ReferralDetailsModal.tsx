@@ -167,27 +167,10 @@ export function ReferralDetailsModal({ open, onOpenChange, referralId }: Referra
                 </div>
               </div>
 
-              {/* Clinical Information */}
-              {(data.reason || data.clinical_summary) && (
-                <div className="bg-slate-50 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-3">
-                    <AlertCircle className="h-4 w-4 text-slate-500" />
-                    <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Clinical Information</h3>
-                  </div>
-                  {data.reason && (
-                    <div className="mb-3">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Reason for Referral</p>
-                      <p className="text-sm text-slate-700">{data.reason}</p>
-                    </div>
-                  )}
-                  {data.clinical_summary && (
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Clinical Summary</p>
-                      <p className="text-sm text-slate-700">{data.clinical_summary}</p>
-                    </div>
-                  )}
-                </div>
-              )}
+              <p className="text-xs text-slate-500 italic">
+                Clinical details are not shown on the receptionist view — use
+                operational fields only.
+              </p>
             </div>
           ) : null}
         </div>

@@ -17,7 +17,17 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   moh_analyst: "MoH Analyst",
 };
 
-export type ReferralStatus = "DRAFT" | "SUBMITTED" | "PENDING" | "ACCEPTED" | "REJECTED" | "COMPLETED";
+export type ReferralStatus =
+  | "DRAFT"
+  | "SUBMITTED"
+  | "PENDING"
+  | "ACCEPTED"
+  | "SCHEDULED"
+  | "REJECTED"
+  | "COMPLETED"
+  | "DECEASED"
+  | "CANCELLED"
+  | string;
 export type ReferralMlStatus = "PENDING" | "PROCESSING" | "SUCCESS" | "FAILED";
 
 export type SeverityLevel = "critical" | "high" | "medium" | "low";
@@ -130,6 +140,35 @@ export interface Referral {
   emergency_detail?: EmergencyDetail;
   attachments?: ReferralAttachment[];
   comments?: ReferralComment[];
+  /** Present when caller has receiver-side access (treating / consulting). */
+  triage_queue?: {
+    assigned_doctor_id?: string | null;
+    arrival_status?: string;
+  };
+  treating_doctor?: {
+    user_id?: string;
+    full_name?: string;
+    granted_at?: string;
+  };
+  consulting_doctors?: Array<{
+    user_id?: string;
+    full_name?: string;
+    granted_at?: string;
+    granted_by?: string;
+    granted_by_name?: string;
+    revoked_at?: string | null;
+  }>;
+  referral_access_list?: Array<{
+    user_id?: string;
+    full_name?: string;
+    access_type?: string;
+    granted_at?: string;
+    granted_by?: string;
+    granted_by_name?: string;
+    revoked_at?: string | null;
+  }>;
+  /** Active grant type for the current viewer, when applicable. */
+  my_access_type?: 'TREATING_DOCTOR' | 'CONSULTED_DOCTOR' | string;
 
   [key: string]: unknown;
   severity?: SeverityLevel;

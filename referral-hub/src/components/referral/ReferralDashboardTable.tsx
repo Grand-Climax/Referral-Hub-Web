@@ -73,9 +73,9 @@ export function ReferralDashboardTable({
     // dashboard grid) so the pagination row anchors to the true bottom
     // edge — not 450px down with empty space below it. `min-h-[420px]`
     // keeps the table usable when the parent collapses on small screens.
-    <div className="flex h-full min-h-[420px] flex-col">
-      <div className="min-h-0 flex-1 overflow-auto">
-        <Table>
+    <div className="flex h-full min-h-[320px] sm:min-h-[420px] flex-col">
+      <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto">
+        <Table className="min-w-[520px]">
           <TableHeader className="sticky top-0 z-10 border-b border-border/40 bg-muted/40 backdrop-blur-sm">
             <TableRow className="border-b-0 hover:bg-transparent">
               <TableHead className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -213,8 +213,8 @@ export function ReferralDashboardTable({
         </Table>
       </div>
 
-      <div className="flex shrink-0 items-center justify-between border-t border-border/50 bg-muted/10 px-4 py-2">
-        <span className="text-[10px] tabular-nums text-muted-foreground">
+      <div className="flex shrink-0 flex-col gap-2 border-t border-border/50 bg-muted/10 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <span className="text-[10px] tabular-nums text-muted-foreground text-center sm:text-left">
           {total} referral{total === 1 ? "" : "s"} · Page {page + 1} of{" "}
           {totalPages}
         </span>

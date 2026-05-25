@@ -29,11 +29,8 @@ import { AssignDoctorModal } from "./AssignDoctorModal";
 import { ReferralDetailsModal } from "./ReferralDetailsModal";
 import { MarkMissedDialog } from "./MarkMissedDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import type { ReceptionistMissReason, ReceptionistReferral } from "@/types/receptionist";
+import type { ReceptionistMissReason } from "@/types/receptionist";
 import { useReceptionistDepartmentScope } from "@/lib/useReceptionistDepartmentScope";
-import {
-  canReceptionistActOnReferral,
-} from "@/lib/receptionistDepartmentScope";
 
 export function ExpectedPatientsTable() {
   const [page, setPage] = useState(1);
@@ -48,8 +45,7 @@ export function ExpectedPatientsTable() {
     name: string;
   } | null>(null);
 
-  const { departmentId: myDepartmentId, departmentName: myDepartmentName } =
-    useReceptionistDepartmentScope();
+  const { departmentName: myDepartmentName } = useReceptionistDepartmentScope();
 
   const shouldUseMissedEndpoint = arrivalFilter === "MISSED";
   const triageQueue = useGetTriageQueueQuery(
@@ -160,8 +156,6 @@ export function ExpectedPatientsTable() {
 
   const patients = filterOperationalReferrals(data?.data || []);
 
-  const canActOn = (patient: ReceptionistReferral) =>
-    canReceptionistActOnReferral(myDepartmentId, patient.department_id);
   const totalPages = data?.total ? Math.ceil(data.total / (data.limit || 10)) : 1;
 
   const filterLabel =
@@ -262,7 +256,6 @@ export function ExpectedPatientsTable() {
             patients.map((patient) => {
               const initials = `${patient.patient_first_name?.[0] || ""}${patient.patient_last_name?.[0] || ""}`;
               const fullName = `${patient.patient_first_name || ""} ${patient.patient_last_name || ""}`;
-              const inScope = canActOn(patient);
               
               let urgencyColor = "bg-blue-50 text-blue-600 border-blue-200";
               if (patient.urgency === "HIGH" || patient.urgency === "EMERGENCY") urgencyColor = "bg-red-50 text-red-600 border-red-200";
@@ -330,16 +323,27 @@ export function ExpectedPatientsTable() {
                   </TableCell>
                   <TableCell className="text-right px-4 sm:px-6">
                     <div className="flex justify-end items-center gap-2">
-                      {patient.arrival_status === "ARRIVED" || patient.arrival_status === "ADMITTED" ? (
-                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-xs">
-                          {patient.arrival_status === "ADMITTED" ? "Admitted" : "Arrived"}
-                        </Badge>
+                      {patient.arrival_status === "ARRIVED" ||
+                      patient.arrival_status === "ADMITTED" ? (
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => {
+                            setSelectedPatientId(referralIdFor(patient));
+                            setIsAssignModalOpen(true);
+                          }}
+                          disabled={isMarking || isRevokingDoctor || isReturning}
+                        >
+                          {patient.assigned_doctor_id
+                            ? "Reassign Doctor"
+                            : "Assign Doctor"}
+                        </Button>
                       ) : patient.arrival_status === "MISSED" ? (
                         <Badge className="bg-red-100 text-red-700 hover:bg-red-100 text-xs">
                           Missed
                         </Badge>
-                      ) : inScope ? (
-                        <Button 
+                      ) : (
+                        <Button
                           onClick={() => handleCheckIn(referralIdFor(patient))}
                           disabled={isMarking || isRevokingDoctor || isReturning}
                           size="sm"
@@ -347,10 +351,6 @@ export function ExpectedPatientsTable() {
                         >
                           Check In
                         </Button>
-                      ) : (
-                        <span className="text-[10px] text-amber-700 font-medium">
-                          Other dept
-                        </span>
                       )}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -367,16 +367,6 @@ export function ExpectedPatientsTable() {
                           >
                             View Details
                           </DropdownMenuItem>
-                          {patient.arrival_status === "ARRIVED" && (
-                            <DropdownMenuItem 
-                              onClick={() => {
-                                setSelectedPatientId(referralIdFor(patient));
-                                setIsAssignModalOpen(true);
-                              }}
-                            >
-                              Assign Doctor
-                            </DropdownMenuItem>
-                          )}
                           {patient.arrival_status === "ARRIVED" && patient.assigned_doctor_id && (
                             <DropdownMenuItem
                               onClick={() => handleRevokeDoctor(referralIdFor(patient))}
@@ -385,7 +375,7 @@ export function ExpectedPatientsTable() {
                               Revoke Doctor
                             </DropdownMenuItem>
                           )}
-                          {patient.arrival_status === "PENDING" && inScope && (
+                          {patient.arrival_status === "PENDING" && (
                             <DropdownMenuItem 
                               onClick={() => {
                                 setMissTarget({

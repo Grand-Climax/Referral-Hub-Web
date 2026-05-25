@@ -22,8 +22,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { getReceptionistErrorMessage } from "@/lib/receptionistScopeError";
 import { filterOperationalReferrals } from "@/lib/receptionistOperational";
-import { useReceptionistDepartmentScope } from "@/lib/useReceptionistDepartmentScope";
-import { canReceptionistActOnReferral } from "@/lib/receptionistDepartmentScope";
 import { AssignDoctorModal } from "./AssignDoctorModal";
 import { ReferralDetailsModal } from "./ReferralDetailsModal";
 import { MarkMissedDialog } from "./MarkMissedDialog";
@@ -39,7 +37,6 @@ export function AppointmentTable() {
     null,
   );
 
-  const { departmentId: myDepartmentId } = useReceptionistDepartmentScope();
   const { data: schedule, isLoading, error } = useGetScheduleQuery();
   const [markArrival, { isLoading: isMarking }] = useMarkPatientArrivalMutation();
   const [markMissed, { isLoading: isMarkingMissed }] = useMarkMissedMutation();
@@ -169,10 +166,6 @@ export function AppointmentTable() {
             </TableRow>
           ) : (
             appointments.map((appt) => {
-              const inScope = canReceptionistActOnReferral(
-                myDepartmentId,
-                appt.department_id,
-              );
               const initials = `${appt.patient_first_name?.[0] || ""}${appt.patient_last_name?.[0] || ""}`;
               const fullName = `${appt.patient_last_name || ""}, ${appt.patient_first_name || ""}`.toUpperCase();
               
@@ -228,83 +221,90 @@ export function AppointmentTable() {
                   </TableCell>
                   <TableCell className="text-right px-4 sm:px-8">
                     <div className="flex justify-end items-center gap-2">
-                    {appt.arrival_status === "ARRIVED" || appt.arrival_status === "ADMITTED" ? (
-                      <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest">
-                        {appt.arrival_status === "ADMITTED" ? "ADMITTED" : "ARRIVED"}
-                      </span>
-                    ) : appt.arrival_status === "MISSED" ? (
-                      <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">
-                        MISSED
-                      </span>
-                    ) : inScope ? (
-                      <button 
-                        onClick={() => handleCheckIn(referralIdFor(appt))}
-                        disabled={isMarking || isRevokingDoctor || isReturning}
-                        className="text-[10px] font-bold text-primary hover:text-primary/80 uppercase tracking-widest transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        CHECK-IN
-                      </button>
-                    ) : (
-                      <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">
-                        OTHER DEPT
-                      </span>
-                    )}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-900">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem 
+                      {appt.arrival_status === "ARRIVED" ||
+                      appt.arrival_status === "ADMITTED" ? (
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs"
                           onClick={() => {
                             setSelectedPatientId(referralIdFor(appt));
-                            setIsDetailsModalOpen(true);
+                            setIsAssignModalOpen(true);
                           }}
+                          disabled={isMarking || isRevokingDoctor || isReturning}
                         >
-                          View Details
-                        </DropdownMenuItem>
-                        {appt.arrival_status === "ARRIVED" && inScope && (
-                          <DropdownMenuItem 
+                          {appt.assigned_doctor_id
+                            ? "Reassign Doctor"
+                            : "Assign Doctor"}
+                        </Button>
+                      ) : appt.arrival_status === "MISSED" ? (
+                        <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">
+                          MISSED
+                        </span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => handleCheckIn(referralIdFor(appt))}
+                          disabled={isMarking || isRevokingDoctor || isReturning}
+                        >
+                          Check In
+                        </Button>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:text-slate-900"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
                             onClick={() => {
                               setSelectedPatientId(referralIdFor(appt));
-                              setIsAssignModalOpen(true);
+                              setIsDetailsModalOpen(true);
                             }}
                           >
-                            Assign Doctor
+                            View Details
                           </DropdownMenuItem>
-                        )}
-                        {appt.arrival_status === "ARRIVED" && inScope && appt.assigned_doctor_id && (
-                          <DropdownMenuItem
-                            onClick={() => handleRevokeDoctor(referralIdFor(appt))}
-                            className="text-amber-600"
-                          >
-                            Revoke Doctor
-                          </DropdownMenuItem>
-                        )}
-                        {appt.arrival_status === "PENDING" && inScope && (
-                          <DropdownMenuItem 
-                            onClick={() => {
-                              setMissTarget({
-                                id: referralIdFor(appt),
-                                name: fullName,
-                              });
-                              setMissDialogOpen(true);
-                            }}
-                            className="text-red-600"
-                          >
-                            Mark as Missed
-                          </DropdownMenuItem>
-                        )}
-                        {appt.arrival_status === "MISSED" && (
-                          <DropdownMenuItem
-                            onClick={() => handleReturnToTriage(referralIdFor(appt))}
-                          >
-                            Return to triage
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          {appt.arrival_status === "ARRIVED" &&
+                            appt.assigned_doctor_id && (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleRevokeDoctor(referralIdFor(appt))
+                                }
+                                className="text-amber-600"
+                              >
+                                Revoke Doctor
+                              </DropdownMenuItem>
+                            )}
+                          {appt.arrival_status === "PENDING" && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setMissTarget({
+                                  id: referralIdFor(appt),
+                                  name: fullName,
+                                });
+                                setMissDialogOpen(true);
+                              }}
+                              className="text-red-600"
+                            >
+                              Mark as Missed
+                            </DropdownMenuItem>
+                          )}
+                          {appt.arrival_status === "MISSED" && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleReturnToTriage(referralIdFor(appt))
+                              }
+                            >
+                              Return to triage
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </TableCell>
                 </TableRow>

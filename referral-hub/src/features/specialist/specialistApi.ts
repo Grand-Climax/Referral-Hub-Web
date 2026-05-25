@@ -285,6 +285,26 @@ export const specialistApi = createApi({
       }),
       invalidatesTags: (result, error, { id }) => [{ type: 'SpecialistReferral', id }, 'SpecialistReferral'],
     }),
+    /**
+     * PUT /api/v1/specialist/referrals/{id}/department
+     *
+     * Path param `id` is the referral id; body is
+     * `{ "department_id": "<new department id>" }`.
+     */
+    changeReferralDepartment: builder.mutation<
+      void,
+      { referralId: string; departmentId: string }
+    >({
+      query: ({ referralId, departmentId }) => ({
+        url: SPECIALIST_ROUTES.CHANGE_DEPARTMENT(referralId),
+        method: 'PUT',
+        body: { department_id: departmentId },
+      }),
+      invalidatesTags: (_result, _error, { referralId }) => [
+        { type: 'SpecialistReferral', id: referralId },
+        'SpecialistReferral',
+      ],
+    }),
 
     // ─── Specialist Triage Queue (post-acceptance scheduling workspace) ─────────
 
@@ -468,6 +488,7 @@ export const {
   useReleaseReferralMutation,
   useGetRedirectOptionsQuery,
   useRedirectReferralMutation,
+  useChangeReferralDepartmentMutation,
   useGetMlPredictionQuery,
   useRerunMlPredictionMutation,
   useOverrideMlSeverityMutation,

@@ -2,7 +2,7 @@ import ReferralList from "@/components/referral/referralList";
 
 const Page = () => {
   return (
-    <div>
+    <div className="mx-auto min-w-0 max-w-[1600px]">
       <ReferralList />
     </div>
   );

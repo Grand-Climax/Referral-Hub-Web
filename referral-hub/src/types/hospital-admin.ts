@@ -27,14 +27,14 @@ export const HOSPITAL_STAFF_ROLE_OPTIONS: HospitalStaffRole[] = [
 
 /**
  * Roles that are *not* tied to a specific department.
- * Hospital-wide roles (admins, liaison, receptionist) and floating clinical
- * roles (receiving specialist) don't require a department assignment.
+ * Hospital-wide roles (admins, liaison) and floating clinical roles
+ * (receiving specialist) don't require a department assignment.
+ * Receptionists DO require a department (front-desk per department).
  */
 export const HOSPITAL_STAFF_ROLES_WITHOUT_DEPARTMENT: ReadonlySet<string> =
   new Set([
     'HOSPITAL_ADMIN',
     'LIAISON_OFFICER',
-    'RECEPTIONIST',
     'RECEIVING_SPECIALIST',
   ]);
 

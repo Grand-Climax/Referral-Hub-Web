@@ -378,7 +378,13 @@ export default function BatchSchedulePage() {
           size="lg"
           className="w-full max-w-sm gap-3 font-bold text-base h-14"
           onClick={handleRun}
-          disabled={isRunning || waitingCount === 0}
+          // Only gate on the in-flight state. We used to also disable
+          // when `waitingCount === 0`, but that gave the user no recourse
+          // when the dashboard stats endpoint hadn't loaded yet or
+          // disagreed with the actual queue. The backend is idempotent —
+          // if there's nothing waiting it returns a "queue already clear"
+          // response which BatchResultView already handles gracefully.
+          disabled={isRunning}
         >
           {isRunning ? (
             <>
@@ -393,8 +399,9 @@ export default function BatchSchedulePage() {
           )}
         </Button>
         {waitingCount === 0 && (
-          <p className="text-xs text-muted-foreground">
-            Nothing to schedule — the queue is already clear.
+          <p className="text-xs text-muted-foreground text-center max-w-sm">
+            The latest stats show no waiting patients — running the batch
+            now will simply confirm the queue is clear.
           </p>
         )}
       </div>

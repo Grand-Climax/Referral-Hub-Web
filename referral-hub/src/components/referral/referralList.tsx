@@ -28,7 +28,7 @@ const ReferralList = () => {
   const showActions = "referring_doctor";
 
   return (
-    <div>
+    <div className="min-w-0">
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
@@ -51,7 +51,7 @@ const ReferralList = () => {
           </div>
         </div>
 
-        <div className="bg-card rounded-lg border overflow-hidden">
+        <div className="bg-card rounded-lg border overflow-hidden min-w-0">
           <ReferralTable
             data={referrals}
             total={total}

@@ -187,15 +187,15 @@ const ReferralDashboard = () => {
   );
 
   return (
-    <div className="flex h-full flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+        <h1 className="text-xl font-bold text-foreground sm:text-2xl">Dashboard</h1>
         <p className="text-sm text-muted-foreground">
           Overview of your submitted referrals.
         </p>
       </div>
 
-      <div className="grid shrink-0 grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid shrink-0 grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
         <StatCard
           title="Total Referrals"
           value={totalItems}
@@ -226,8 +226,8 @@ const ReferralDashboard = () => {
         />
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 sm:gap-6 lg:flex-row">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col order-2 lg:order-1">
           <div className="mb-3 flex shrink-0 items-center gap-2">
             <FileText className="h-4 w-4 text-blue-500" />
             <h2 className="text-base font-semibold text-foreground">
@@ -248,7 +248,7 @@ const ReferralDashboard = () => {
           </Card>
         </div>
 
-        <aside className="flex w-full shrink-0 flex-col lg:w-[320px]">
+        <aside className="flex w-full shrink-0 flex-col order-1 lg:order-2 lg:w-[min(100%,320px)]">
           {/* Header — count badge sits next to the title so the user sees
               at a glance how many items are queued without scrolling. */}
           <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
@@ -275,7 +275,7 @@ const ReferralDashboard = () => {
             calc(), and at 640px otherwise. Mobile gets a shorter cap so
             the table above remains the primary focus.
           */}
-          <Card className="overflow-hidden border-0 shadow-sm ring-1 ring-border/60 h-[420px] lg:h-[min(640px,calc(100vh-260px))]">
+          <Card className="overflow-hidden border-0 shadow-sm ring-1 ring-border/60 h-[min(280px,40vh)] sm:h-[360px] lg:h-[min(640px,calc(100vh-260px))]">
             <CardContent className="h-full overflow-y-auto p-0">
               {isStatsLoading ? (
                 <div className="flex flex-col gap-2 p-4">

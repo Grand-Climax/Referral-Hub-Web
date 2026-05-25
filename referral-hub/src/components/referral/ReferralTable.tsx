@@ -133,8 +133,8 @@ export function ReferralTable({
   return (
     <div className="flex flex-col h-full">
       {/* ── Scrollable table area ─────────────────────────────────────── */}
-      <div className="flex-1 overflow-auto min-h-0">
-        <Table>
+      <div className="flex-1 overflow-x-auto overflow-y-auto min-h-0 min-w-0">
+        <Table className="min-w-[720px]">
           <TableHeader className="sticky top-0 z-10 bg-muted/60 backdrop-blur-sm">
             <TableRow className="hover:bg-transparent border-b border-border/60">
               <TableHead className="w-[90px] px-4 py-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -254,16 +254,14 @@ export function ReferralTable({
       </div>
 
       {/* ── Pagination footer ─────────────────────────────────────────── */}
-      <div className="shrink-0 flex items-center justify-between border-t border-border/50 px-4 py-2.5 bg-background/80 backdrop-blur-sm">
-        {/* Left: record count */}
-        <span className="text-xs text-muted-foreground tabular-nums">
+      <div className="shrink-0 flex flex-col gap-2 border-t border-border/50 px-3 py-2.5 bg-background/80 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <span className="text-xs text-muted-foreground tabular-nums text-center sm:text-left order-2 sm:order-1">
           {total === 0
             ? "No records"
             : `${page * pageSize + 1}–${Math.min((page + 1) * pageSize, total)} of ${total}`}
         </span>
 
-        {/* Centre: ← page numbers → */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center justify-center gap-1 order-1 sm:order-2 overflow-x-auto max-w-full pb-0.5 sm:pb-0">
           {/* Prev */}
           <Button
             variant="ghost"
@@ -321,10 +319,6 @@ export function ReferralTable({
           </Button>
         </div>
 
-        {/* Right: spacer to keep centre truly centred */}
-        <span className="text-xs text-transparent tabular-nums select-none" aria-hidden>
-          {total === 0 ? "No records" : `${page * pageSize + 1}–${Math.min((page + 1) * pageSize, total)} of ${total}`}
-        </span>
       </div>
     </div>
   );

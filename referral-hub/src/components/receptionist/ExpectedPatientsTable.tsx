@@ -16,17 +16,22 @@ import {
   useGetMissedReferralsQuery,
   useGetReferralsQuery,
   useGetTriageQueueQuery,
+  useGetTriageQueueQuery,
   useMarkPatientArrivalMutation,
   useMarkMissedMutation,
   useRevokeDoctorMutation,
+  useReturnToTriageMutation,
   useReturnToTriageMutation,
 } from "@/features/receptionist/receptionistApi";
 import { useState } from "react";
 import { toast } from "sonner";
 import { getReceptionistErrorMessage } from "@/lib/receptionistScopeError";
 import { filterOperationalReferrals } from "@/lib/receptionistOperational";
+import { getReceptionistErrorMessage } from "@/lib/receptionistScopeError";
+import { filterOperationalReferrals } from "@/lib/receptionistOperational";
 import { AssignDoctorModal } from "./AssignDoctorModal";
 import { ReferralDetailsModal } from "./ReferralDetailsModal";
+import { MarkMissedDialog } from "./MarkMissedDialog";
 import { MarkMissedDialog } from "./MarkMissedDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { ReceptionistMissReason } from "@/types/receptionist";
@@ -63,11 +68,27 @@ export function ExpectedPatientsTable() {
     !triageQueue.isFetching &&
     (triageQueue.data?.data?.length ?? 0) === 0;
   const referralsList = useGetReferralsQuery(
+  const triageQueue = useGetTriageQueueQuery(
+    {
+      page,
+      limit: 10,
+      ...(arrivalFilter !== "ALL"
+        ? { arrival_status: [arrivalFilter] }
+        : {}),
+    },
+    { skip: shouldUseMissedEndpoint },
+  );
+  const triageEmpty =
+    !triageQueue.isLoading &&
+    !triageQueue.isFetching &&
+    (triageQueue.data?.data?.length ?? 0) === 0;
+  const referralsList = useGetReferralsQuery(
     {
       page,
       limit: 10,
       ...(arrivalFilter !== "ALL" ? { arrival_status: arrivalFilter } : {}),
     },
+    { skip: shouldUseMissedEndpoint || !triageEmpty },
     { skip: shouldUseMissedEndpoint || !triageEmpty },
   );
   const missedReferrals = useGetMissedReferralsQuery(
@@ -90,10 +111,27 @@ export function ExpectedPatientsTable() {
   const error = shouldUseMissedEndpoint
     ? missedReferrals.error
     : triageQueue.error ?? referralsList.error;
+  const data = shouldUseMissedEndpoint
+    ? missedReferrals.data
+    : triageEmpty
+      ? referralsList.data
+      : triageQueue.data;
+  const isLoading = shouldUseMissedEndpoint
+    ? missedReferrals.isLoading
+    : triageQueue.isLoading ||
+      (triageEmpty && referralsList.isLoading);
+  const error = shouldUseMissedEndpoint
+    ? missedReferrals.error
+    : triageQueue.error ?? referralsList.error;
 
   const [markArrival, { isLoading: isMarking }] = useMarkPatientArrivalMutation();
   const [markMissed, { isLoading: isMarkingMissed }] = useMarkMissedMutation();
+  const [markMissed, { isLoading: isMarkingMissed }] = useMarkMissedMutation();
   const [revokeDoctor, { isLoading: isRevokingDoctor }] = useRevokeDoctorMutation();
+  const [returnToTriage, { isLoading: isReturning }] = useReturnToTriageMutation();
+
+  const referralIdFor = (patient: { id: string; referral_id?: string }) =>
+    patient.referral_id || patient.id;
   const [returnToTriage, { isLoading: isReturning }] = useReturnToTriageMutation();
 
   const referralIdFor = (patient: { id: string; referral_id?: string }) =>
@@ -113,14 +151,32 @@ export function ExpectedPatientsTable() {
         return;
       }
       toast.error(message);
+    } catch (err: unknown) {
+      const message = getReceptionistErrorMessage(
+        err,
+        "Failed to mark patient arrival",
+      );
+      if (/already arrived/i.test(message)) {
+        toast.info(message);
+        return;
+      }
+      toast.error(message);
     }
   };
 
   const handleMarkMissed = async (reason: ReceptionistMissReason) => {
     if (!missTarget) return;
+  const handleMarkMissed = async (reason: ReceptionistMissReason) => {
+    if (!missTarget) return;
     try {
       await markMissed({ id: missTarget.id, miss_reason: reason }).unwrap();
+      await markMissed({ id: missTarget.id, miss_reason: reason }).unwrap();
       toast.success("Patient marked as missed");
+      setMissTarget(null);
+    } catch (err: unknown) {
+      toast.error(
+        getReceptionistErrorMessage(err, "Failed to mark patient as missed"),
+      );
       setMissTarget(null);
     } catch (err: unknown) {
       toast.error(
@@ -137,6 +193,9 @@ export function ExpectedPatientsTable() {
       }).unwrap();
       toast.success("Doctor assignment revoked");
     } catch (err: unknown) {
+      toast.error(
+        getReceptionistErrorMessage(err, "Failed to revoke doctor assignment"),
+      );
       toast.error(
         getReceptionistErrorMessage(err, "Failed to revoke doctor assignment"),
       );
@@ -166,6 +225,12 @@ export function ExpectedPatientsTable() {
       <div className="px-4 py-4 sm:px-6 border-b border-slate-200 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-slate-50">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Expected Patients</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Scheduled arrivals for the next 48 hours
+            {myDepartmentName
+              ? ` · actions limited to ${myDepartmentName}`
+              : ""}
+          </p>
           <p className="text-xs text-slate-500 mt-0.5">
             Scheduled arrivals for the next 48 hours
             {myDepartmentName
@@ -256,6 +321,7 @@ export function ExpectedPatientsTable() {
             patients.map((patient) => {
               const initials = `${patient.patient_first_name?.[0] || ""}${patient.patient_last_name?.[0] || ""}`;
               const fullName = `${patient.patient_first_name || ""} ${patient.patient_last_name || ""}`;
+              const inScope = canActOn(patient);
               
               let urgencyColor = "bg-blue-50 text-blue-600 border-blue-200";
               if (patient.urgency === "HIGH" || patient.urgency === "EMERGENCY") urgencyColor = "bg-red-50 text-red-600 border-red-200";
@@ -278,6 +344,39 @@ export function ExpectedPatientsTable() {
                     <p className="text-sm text-slate-700">{patient.department_name || "N/A"}</p>
                   </TableCell>
                   <TableCell>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-slate-900">
+                        {patient.scheduled_time ||
+                          (patient.appointment_date
+                            ? new Date(patient.appointment_date).toLocaleTimeString(
+                                "en-US",
+                                { hour: "2-digit", minute: "2-digit" },
+                              )
+                            : "—")}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {patient.scheduled_date ||
+                          (patient.appointment_date
+                            ? patient.appointment_date.slice(0, 10)
+                            : "Not scheduled")}
+                      </p>
+                      {patient.arrival_status === "ARRIVED" ||
+                      patient.arrival_status === "ADMITTED" ? (
+                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-[10px]">
+                          Checked in
+                        </Badge>
+                      ) : patient.arrival_status === "MISSED" ? (
+                        <Badge className="bg-red-100 text-red-700 hover:bg-red-100 text-[10px]">
+                          Missed
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] text-slate-600"
+                        >
+                          Awaiting arrival
+                        </Badge>
+                      )}
                     <div className="space-y-1">
                       <p className="text-sm font-medium text-slate-900">
                         {patient.scheduled_time ||
@@ -351,6 +450,10 @@ export function ExpectedPatientsTable() {
                         >
                           Check In
                         </Button>
+                      ) : (
+                        <span className="text-[10px] text-amber-700 font-medium">
+                          Other dept
+                        </span>
                       )}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -362,6 +465,7 @@ export function ExpectedPatientsTable() {
                           <DropdownMenuItem 
                             onClick={() => {
                               setSelectedPatientId(referralIdFor(patient));
+                              setSelectedPatientId(referralIdFor(patient));
                               setIsDetailsModalOpen(true);
                             }}
                           >
@@ -370,13 +474,21 @@ export function ExpectedPatientsTable() {
                           {patient.arrival_status === "ARRIVED" && patient.assigned_doctor_id && (
                             <DropdownMenuItem
                               onClick={() => handleRevokeDoctor(referralIdFor(patient))}
+                              onClick={() => handleRevokeDoctor(referralIdFor(patient))}
                               className="text-amber-600"
                             >
                               Revoke Doctor
                             </DropdownMenuItem>
                           )}
-                          {patient.arrival_status === "PENDING" && (
+                          {patient.arrival_status === "PENDING" && inScope && (
                             <DropdownMenuItem 
+                              onClick={() => {
+                                setMissTarget({
+                                  id: referralIdFor(patient),
+                                  name: fullName,
+                                });
+                                setMissDialogOpen(true);
+                              }}
                               onClick={() => {
                                 setMissTarget({
                                   id: referralIdFor(patient),
@@ -387,6 +499,15 @@ export function ExpectedPatientsTable() {
                               className="text-red-600"
                             >
                               Mark as Missed
+                            </DropdownMenuItem>
+                          )}
+                          {patient.arrival_status === "MISSED" && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleReturnToTriage(referralIdFor(patient))
+                              }
+                            >
+                              Return to triage
                             </DropdownMenuItem>
                           )}
                           {patient.arrival_status === "MISSED" && (
@@ -448,6 +569,13 @@ export function ExpectedPatientsTable() {
         open={isDetailsModalOpen} 
         onOpenChange={setIsDetailsModalOpen} 
         referralId={selectedPatientId} 
+      />
+      <MarkMissedDialog
+        open={missDialogOpen}
+        onOpenChange={setMissDialogOpen}
+        patientName={missTarget?.name}
+        onConfirm={handleMarkMissed}
+        isLoading={isMarkingMissed}
       />
       <MarkMissedDialog
         open={missDialogOpen}

@@ -17,6 +17,7 @@ import {
   useMarkMissedMutation,
   useRevokeDoctorMutation,
   useReturnToTriageMutation,
+  useReturnToTriageMutation,
 } from "@/features/receptionist/receptionistApi";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -24,6 +25,7 @@ import { getReceptionistErrorMessage } from "@/lib/receptionistScopeError";
 import { filterOperationalReferrals } from "@/lib/receptionistOperational";
 import { AssignDoctorModal } from "./AssignDoctorModal";
 import { ReferralDetailsModal } from "./ReferralDetailsModal";
+import { MarkMissedDialog } from "./MarkMissedDialog";
 import { MarkMissedDialog } from "./MarkMissedDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { ReceptionistMissReason } from "@/types/receptionist";
@@ -36,11 +38,21 @@ export function AppointmentTable() {
   const [missTarget, setMissTarget] = useState<{ id: string; name: string } | null>(
     null,
   );
+  const [missDialogOpen, setMissDialogOpen] = useState(false);
+  const [missTarget, setMissTarget] = useState<{ id: string; name: string } | null>(
+    null,
+  );
 
+  const { departmentId: myDepartmentId } = useReceptionistDepartmentScope();
   const { data: schedule, isLoading, error } = useGetScheduleQuery();
   const [markArrival, { isLoading: isMarking }] = useMarkPatientArrivalMutation();
   const [markMissed, { isLoading: isMarkingMissed }] = useMarkMissedMutation();
+  const [markMissed, { isLoading: isMarkingMissed }] = useMarkMissedMutation();
   const [revokeDoctor, { isLoading: isRevokingDoctor }] = useRevokeDoctorMutation();
+  const [returnToTriage, { isLoading: isReturning }] = useReturnToTriageMutation();
+
+  const referralIdFor = (appt: { id: string; referral_id?: string }) =>
+    appt.referral_id || appt.id;
   const [returnToTriage, { isLoading: isReturning }] = useReturnToTriageMutation();
 
   const referralIdFor = (appt: { id: string; referral_id?: string }) =>
@@ -60,14 +72,43 @@ export function AppointmentTable() {
         return;
       }
       toast.error(message);
+    } catch (err: unknown) {
+      const message = getReceptionistErrorMessage(
+        err,
+        "Failed to mark patient arrival",
+      );
+      if (/already arrived/i.test(message)) {
+        toast.info(message);
+        return;
+      }
+      toast.error(message);
     }
   };
 
   const handleMarkMissed = async (reason: ReceptionistMissReason) => {
     if (!missTarget) return;
+  const handleMarkMissed = async (reason: ReceptionistMissReason) => {
+    if (!missTarget) return;
     try {
       await markMissed({ id: missTarget.id, miss_reason: reason }).unwrap();
+      await markMissed({ id: missTarget.id, miss_reason: reason }).unwrap();
       toast.success("Patient marked as missed");
+      setMissTarget(null);
+    } catch (err: unknown) {
+      toast.error(
+        getReceptionistErrorMessage(err, "Failed to mark patient as missed"),
+      );
+    }
+  };
+
+  const handleReturnToTriage = async (id: string) => {
+    try {
+      await returnToTriage(id).unwrap();
+      toast.success("Patient returned to triage queue");
+    } catch (err: unknown) {
+      toast.error(
+        getReceptionistErrorMessage(err, "Failed to return patient to triage"),
+      );
       setMissTarget(null);
     } catch (err: unknown) {
       toast.error(
@@ -98,6 +139,9 @@ export function AppointmentTable() {
       toast.error(
         getReceptionistErrorMessage(err, "Failed to revoke doctor assignment"),
       );
+      toast.error(
+        getReceptionistErrorMessage(err, "Failed to revoke doctor assignment"),
+      );
     }
   };
 
@@ -117,6 +161,9 @@ export function AppointmentTable() {
   };
 
   // Safely handle schedule data - ensure it's always an array
+  const appointments = filterOperationalReferrals(
+    Array.isArray(schedule) ? schedule : [],
+  );
   const appointments = filterOperationalReferrals(
     Array.isArray(schedule) ? schedule : [],
   );
@@ -166,6 +213,10 @@ export function AppointmentTable() {
             </TableRow>
           ) : (
             appointments.map((appt) => {
+              const inScope = canReceptionistActOnReferral(
+                myDepartmentId,
+                appt.department_id,
+              );
               const initials = `${appt.patient_first_name?.[0] || ""}${appt.patient_last_name?.[0] || ""}`;
               const fullName = `${appt.patient_last_name || ""}, ${appt.patient_first_name || ""}`.toUpperCase();
               
@@ -328,6 +379,13 @@ export function AppointmentTable() {
         open={isDetailsModalOpen} 
         onOpenChange={setIsDetailsModalOpen} 
         referralId={selectedPatientId} 
+      />
+      <MarkMissedDialog
+        open={missDialogOpen}
+        onOpenChange={setMissDialogOpen}
+        patientName={missTarget?.name}
+        onConfirm={handleMarkMissed}
+        isLoading={isMarkingMissed}
       />
       <MarkMissedDialog
         open={missDialogOpen}

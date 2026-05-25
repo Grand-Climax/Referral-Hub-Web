@@ -9,6 +9,12 @@ export const AUTH_ROUTES = {
   FORGOT_PASSWORD: "/api/v1/auth/forgot-password",
   FORGOT_PASSWORD_VERIFY: "/api/v1/auth/forgot-password/verify",
   RESET_PASSWORD: "/api/v1/auth/reset-password",
+  /**
+   * MFA OTP verification. Called only when the login response returns an
+   * `mfa_token` instead of `access_token`. Must be sent with
+   * `Authorization: Bearer <mfa_token>` — NOT the user's access token.
+   */
+  MFA_VERIFY: "/api/v1/auth/mfa/verify",
 } as const;
 
 /** Hospital-scoped user directory & profile (Bearer). */

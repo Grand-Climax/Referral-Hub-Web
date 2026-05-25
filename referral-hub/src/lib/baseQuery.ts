@@ -18,6 +18,9 @@ const PUBLIC_AUTH_URLS: readonly string[] = [
   AUTH_ROUTES.FORGOT_PASSWORD,
   AUTH_ROUTES.FORGOT_PASSWORD_VERIFY,
   AUTH_ROUTES.RESET_PASSWORD,
+  // MFA verify carries its OWN bearer (the mfa_token) — keep our normal
+  // access-token header injection out of the way so we don't overwrite it.
+  AUTH_ROUTES.MFA_VERIFY,
 ]
 
 function isPublicAuthRequest(args: string | FetchArgs): boolean {

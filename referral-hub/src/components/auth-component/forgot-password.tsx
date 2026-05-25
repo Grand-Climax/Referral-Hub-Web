@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -28,24 +28,47 @@ import {
   useVerifyForgotPasswordMutation,
   useResetPasswordMutation,
 } from "@/features/auth/authApi";
+import { useAppDispatch } from "@/lib/store/hooks";
+import { resetAuthSession } from "@/lib/resetApiCaches";
 import { getApiErrorMessage } from "@/lib/apiError";
 
-type Step = 1 | 2 | 3 | 4;
+// Server-configured cooldown is ~60s; we mirror it client-side so the
+// "Resend code" button shows a countdown without a 429 round-trip.
+const RESEND_COOLDOWN_SECONDS = 60;
+
+// Map JWT `role` claims to landing routes — same table the login page uses.
+// Keep these two in sync; the reset endpoint reuses the same JWT shape.
+const ROLE_TO_PATH: Record<string, string> = {
+  HOSPITAL_ADMIN: "/hospital-admin",
+  REFERRING_DOCTOR: "/referring-doctor",
+  LIAISON_OFFICER: "/liaison-officer",
+  RECEIVING_SPECIALIST: "/receiving-specialist",
+  RECEPTIONIST: "/receptionist",
+  DEPT_HEAD: "/department-head",
+  MOH_ANALYST: "/analytics",
+  SYSTEM_SUPER_ADMIN: "/systemAdmin",
+  DEPARTMENT_HEAD: "/department-head",
+};
+
+type Step = 1 | 2 | 3;
 
 const emailSchema = z.object({
   email: z.string().trim().email("Please enter a valid email address"),
 });
 
+// Backend requires *exactly* 6 numeric digits. Anything else is a 400.
 const codeSchema = z.object({
   code: z
     .string()
     .trim()
-    .min(4, "Verification code is too short")
-    .max(12, "Verification code is too long"),
+    .regex(/^\d{6}$/u, "Enter the 6-digit code from your email"),
 });
 
 const passwordSchema = z
   .object({
+    // Server-side minimum is 8; we also enforce a little extra complexity to
+    // discourage trivially weak passwords. The server is the source of
+    // truth — these are belt-and-suspenders client checks.
     new_password: z
       .string()
       .min(8, "Password must be at least 8 characters")
@@ -63,7 +86,7 @@ type EmailValues = z.infer<typeof emailSchema>;
 type CodeValues = z.infer<typeof codeSchema>;
 type PasswordValues = z.infer<typeof passwordSchema>;
 
-// ─── Step components ────────────────────────────────────────────────────────
+// ─── Step indicator ─────────────────────────────────────────────────────────
 
 function StepIndicator({ step }: { step: Step }) {
   const steps = [
@@ -74,7 +97,7 @@ function StepIndicator({ step }: { step: Step }) {
   return (
     <div className="flex items-center gap-2">
       {steps.map((s, idx) => {
-        const done = step > s.n || step === 4;
+        const done = step > s.n;
         const active = step === s.n;
         return (
           <div key={s.n} className="flex items-center gap-2">
@@ -83,8 +106,8 @@ function StepIndicator({ step }: { step: Step }) {
                 done
                   ? "bg-primary text-primary-foreground"
                   : active
-                  ? "bg-primary/15 text-primary border-2 border-primary"
-                  : "bg-muted text-muted-foreground"
+                    ? "bg-primary/15 text-primary border-2 border-primary"
+                    : "bg-muted text-muted-foreground"
               }`}
             >
               {done ? <CheckCircle2 className="h-4 w-4" /> : s.n}
@@ -105,6 +128,8 @@ function StepIndicator({ step }: { step: Step }) {
     </div>
   );
 }
+
+// ─── Step 1 — Email ─────────────────────────────────────────────────────────
 
 function EmailStep({
   email,
@@ -127,9 +152,13 @@ function EmailStep({
   const onSubmit = async (values: EmailValues) => {
     try {
       await forgotPassword({ email: values.email }).unwrap();
-      toast.success("Verification code sent. Check your email.");
+      // Per the anti-enumeration policy we show the same toast on success
+      // whether the email is registered or not. The server returns 200 in
+      // both cases, so this branch always runs for valid input.
+      toast.success("If that account exists, we just sent a code.");
       onComplete(values.email);
     } catch (err: unknown) {
+      // Real failures (429 cooldown, 5xx) still surface their message.
       toast.error(getApiErrorMessage(err, "Could not send verification code."));
     }
   };
@@ -142,7 +171,7 @@ function EmailStep({
         </h2>
         <p className="text-sm text-muted-foreground">
           Enter the email associated with your account. We&apos;ll send you a
-          verification code to reset your password.
+          6-digit verification code.
         </p>
       </div>
 
@@ -193,22 +222,42 @@ function EmailStep({
   );
 }
 
+// ─── Step 2 — Verify OTP ────────────────────────────────────────────────────
+
 function VerifyStep({
   email,
+  initialResendAt,
   onComplete,
   onBack,
 }: {
   email: string;
-  onComplete: (token?: string, code?: string) => void;
+  /**
+   * Unix-ms timestamp when the resend button becomes available again. The
+   * parent passes it in so the cooldown survives across step transitions
+   * (e.g. user goes back to step 1 and then returns to step 2).
+   */
+  initialResendAt: number;
+  onComplete: (resetToken: string, resendAt: number) => void;
   onBack: () => void;
 }) {
   const [verifyForgotPassword, { isLoading }] =
     useVerifyForgotPasswordMutation();
   const [resend, { isLoading: isResending }] = useForgotPasswordMutation();
 
+  // Resend cooldown — tick once per second so the button label refreshes.
+  const [resendAt, setResendAt] = useState<number>(initialResendAt);
+  const [now, setNow] = useState<number>(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const secondsLeft = Math.max(0, Math.ceil((resendAt - now) / 1000));
+  const canResend = secondsLeft <= 0 && !isResending;
+
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<CodeValues>({
     resolver: zodResolver(codeSchema),
@@ -219,18 +268,42 @@ function VerifyStep({
     try {
       const res = await verifyForgotPassword({
         email,
-        code: values.code.trim(),
+        code: values.code,
       }).unwrap();
-      onComplete(res?.reset_token, values.code.trim());
+      if (!res.reset_token) {
+        // Defensive: the server should always return a token on 200.
+        toast.error("Server didn't return a reset token. Please try again.");
+        return;
+      }
+      onComplete(res.reset_token, resendAt);
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, "Invalid or expired code."));
+      // For expired / exhausted OTPs the server signals that the user must
+      // start over. Surface a clear path back to step 1 rather than a vague
+      // generic toast.
+      const msg = getApiErrorMessage(err, "Invalid or expired code.");
+      const status = (err as { status?: number })?.status;
+      if (
+        status === 401 &&
+        /expired|attempts exceeded|not requested/i.test(msg)
+      ) {
+        toast.error(msg, {
+          description: "Request a fresh code to continue.",
+          action: { label: "New code", onClick: onBack },
+        });
+      } else {
+        toast.error(msg);
+      }
     }
   };
 
   const handleResend = async () => {
+    if (!canResend) return;
     try {
       await resend({ email }).unwrap();
-      toast.success("A new code has been sent.");
+      const next = Date.now() + RESEND_COOLDOWN_SECONDS * 1000;
+      setResendAt(next);
+      setValue("code", "");
+      toast.success("A new code is on its way.");
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, "Could not resend code."));
     }
@@ -243,9 +316,9 @@ function VerifyStep({
           Check your email
         </h2>
         <p className="text-sm text-muted-foreground">
-          We sent a verification code to{" "}
-          <span className="font-semibold text-foreground">{email}</span>. Enter
-          it below to continue.
+          We sent a 6-digit code to{" "}
+          <span className="font-semibold text-foreground">{email}</span>. The
+          code expires in 5 minutes.
         </p>
       </div>
 
@@ -258,7 +331,8 @@ function VerifyStep({
             inputMode="numeric"
             autoComplete="one-time-code"
             placeholder="123456"
-            className="pl-10 h-10 tracking-widest font-mono"
+            maxLength={6}
+            className="pl-10 h-10 tracking-[0.5em] font-mono text-center"
             {...register("code")}
           />
         </div>
@@ -297,28 +371,33 @@ function VerifyStep({
         <button
           type="button"
           onClick={handleResend}
-          disabled={isResending}
-          className="font-semibold text-primary hover:underline disabled:opacity-60"
+          disabled={!canResend}
+          className="font-semibold text-primary hover:underline disabled:opacity-60 disabled:no-underline"
         >
-          {isResending ? "Resending…" : "Resend code"}
+          {isResending
+            ? "Resending…"
+            : secondsLeft > 0
+              ? `Resend in ${secondsLeft}s`
+              : "Resend code"}
         </button>
       </div>
     </form>
   );
 }
 
+// ─── Step 3 — Set new password + auto-login ─────────────────────────────────
+
 function ResetStep({
-  email,
   resetToken,
-  code,
-  onComplete,
+  onTokenExpired,
 }: {
-  email: string;
-  resetToken?: string;
-  code?: string;
-  onComplete: () => void;
+  resetToken: string;
+  /** Called when the reset token comes back 401 — caller resets to step 1. */
+  onTokenExpired: () => void;
 }) {
+  const router = useRouter();
   const [resetPassword, { isLoading }] = useResetPasswordMutation();
+  const dispatch = useAppDispatch();
 
   const {
     register,
@@ -330,16 +409,38 @@ function ResetStep({
   });
 
   const onSubmit = async (values: PasswordValues) => {
+    // Make sure no stale auth from a previous tab/session interferes with
+    // the cookies the mutation is about to write.
+    resetAuthSession(dispatch);
+
     try {
-      await resetPassword({
-        email,
-        ...(resetToken ? { reset_token: resetToken } : {}),
-        ...(code ? { code } : {}),
+      const result = await resetPassword({
+        reset_token: resetToken,
         new_password: values.new_password,
       }).unwrap();
-      onComplete();
+
+      // The mutation's onQueryStarted has already written cookies, primed
+      // authSlice, and reset cached data. All that's left is the redirect.
+      toast.success("Password updated. Signing you in…");
+      const target =
+        (result.user?.role && ROLE_TO_PATH[result.user.role]) || "/";
+      router.replace(target);
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, "Failed to reset password."));
+      const status = (err as { status?: number })?.status;
+      const msg = getApiErrorMessage(err, "Failed to reset password.");
+
+      if (status === 401 || /reset token|confirmation token/i.test(msg)) {
+        toast.error("Your reset session expired. Please start over.");
+        onTokenExpired();
+        return;
+      }
+      if (/different from the current password/i.test(msg)) {
+        // The backend rejects re-using the same password — keep the user on
+        // this step and prompt them to pick a fresh one.
+        toast.error("New password must differ from your current one.");
+        return;
+      }
+      toast.error(msg);
     }
   };
 
@@ -350,7 +451,8 @@ function ResetStep({
           Choose a new password
         </h2>
         <p className="text-sm text-muted-foreground">
-          Make it strong and unique. You&apos;ll use this to sign in next time.
+          You&apos;ll be signed in automatically once it&apos;s set. Make it
+          strong and unique.
         </p>
       </div>
 
@@ -399,7 +501,7 @@ function ResetStep({
         {isLoading ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            Resetting…
+            Resetting & signing in…
           </>
         ) : (
           "Reset password"
@@ -409,40 +511,23 @@ function ResetStep({
   );
 }
 
-function SuccessStep() {
-  const router = useRouter();
-  return (
-    <div className="space-y-5 text-center">
-      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40">
-        <CheckCircle2 className="h-8 w-8" />
-      </div>
-      <div className="space-y-1.5">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-          Password reset
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Your password has been updated. You can now sign in with your new
-          credentials.
-        </p>
-      </div>
-      <Button
-        size="lg"
-        className="w-full"
-        onClick={() => router.push("/login")}
-      >
-        Go to sign in
-      </Button>
-    </div>
-  );
-}
-
-// ─── Main wizard ────────────────────────────────────────────────────────────
+// ─── Wizard ────────────────────────────────────────────────────────────────
 
 export function ForgotPassword() {
   const [step, setStep] = useState<Step>(1);
   const [email, setEmail] = useState("");
-  const [resetToken, setResetToken] = useState<string | undefined>();
-  const [code, setCode] = useState<string | undefined>();
+  // Reset token lives ONLY in component state — never in localStorage,
+  // never in cookies. Cleared automatically when the component unmounts
+  // or the user successfully resets (then real auth tokens take over).
+  const [resetToken, setResetToken] = useState<string>("");
+  const [resendAt, setResendAt] = useState<number>(0);
+
+  const restartFlow = (preservedEmail = email) => {
+    setStep(1);
+    setEmail(preservedEmail);
+    setResetToken("");
+    setResendAt(0);
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -462,8 +547,8 @@ export function ForgotPassword() {
               Account Recovery
             </h1>
             <p className="text-lg text-primary-foreground/70">
-              Reset your password in a few quick steps to regain access to the
-              Hospital Referral Hub.
+              Reset your password in three quick steps and get straight back
+              to coordinating referrals.
             </p>
           </div>
         </div>
@@ -481,13 +566,14 @@ export function ForgotPassword() {
               </h2>
             </div>
 
-            {step !== 4 && <StepIndicator step={step} />}
+            <StepIndicator step={step} />
 
             {step === 1 && (
               <EmailStep
                 email={email}
                 onComplete={(e) => {
                   setEmail(e);
+                  setResendAt(Date.now() + RESEND_COOLDOWN_SECONDS * 1000);
                   setStep(2);
                 }}
               />
@@ -495,23 +581,21 @@ export function ForgotPassword() {
             {step === 2 && (
               <VerifyStep
                 email={email}
-                onBack={() => setStep(1)}
-                onComplete={(token, c) => {
+                initialResendAt={resendAt}
+                onBack={() => restartFlow()}
+                onComplete={(token, nextResendAt) => {
                   setResetToken(token);
-                  setCode(c);
+                  setResendAt(nextResendAt);
                   setStep(3);
                 }}
               />
             )}
             {step === 3 && (
               <ResetStep
-                email={email}
                 resetToken={resetToken}
-                code={code}
-                onComplete={() => setStep(4)}
+                onTokenExpired={() => restartFlow()}
               />
             )}
-            {step === 4 && <SuccessStep />}
           </div>
         </div>
       </div>
